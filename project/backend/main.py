@@ -72,6 +72,58 @@ def get_current_user(request: Request) -> str:
     return getattr(request.state, 'user_email', None)
 
 
+async def validate_selected_tools(selected_tools: List[str], user_email: str) -> List[Dict[str, str]]:
+    """Validate selected tools and return validated server names."""
+    validated_servers = []
+    
+    # Parse tool keys to extract server names
+    server_names = set()
+    for tool_key in selected_tools:
+        parts = tool_key.split('_', 1)
+        if len(parts) == 2:
+            server_name = parts[0]
+            server_names.add(server_name)
+    
+    # Check for exclusive servers
+    exclusive_servers = []
+    regular_servers = []
+    
+    for server_name in server_names:
+        if mcp_manager.is_server_exclusive(server_name):
+            exclusive_servers.append(server_name)
+        else:
+            regular_servers.append(server_name)
+    
+    # If exclusive servers are selected, only use the first exclusive server
+    if exclusive_servers:
+        if len(exclusive_servers) > 1:
+            logger.warning(f"Multiple exclusive servers selected, using only {exclusive_servers[0]}")
+        server_names = {exclusive_servers[0]}  # Only use first exclusive server
+        logger.info(f"Exclusive mode enabled for server: {exclusive_servers[0]}")
+    else:
+        server_names = set(regular_servers)
+    
+    # Validate user permissions for each server
+    for server_name in server_names:
+        required_groups = mcp_manager.get_server_groups(server_name)
+        authorized = False
+        
+        if not required_groups:  # No restrictions
+            authorized = True
+        else:
+            for group in required_groups:
+                if is_user_in_group(user_email, group):
+                    authorized = True
+                    break
+        
+        if authorized:
+            validated_servers.append(server_name)
+        else:
+            logger.warning(f"User {user_email} not authorized for server {server_name}")
+    
+    return validated_servers
+
+
 async def call_llm(model_name: str, messages: List[Dict[str, str]]) -> str:
     """Call OpenAI-compliant LLM API using requests."""
     llm_config = load_llm_config()
@@ -114,6 +166,145 @@ async def call_llm(model_name: str, messages: List[Dict[str, str]]) -> str:
             
     except requests.RequestException as e:
         logger.error(f"Request error calling LLM: {e}")
+        raise Exception(f"Failed to call LLM: {str(e)}")
+    except KeyError as e:
+        logger.error(f"Invalid response format from LLM: {e}")
+        raise Exception("Invalid response format from LLM")
+
+
+async def call_llm_with_tools(model_name: str, messages: List[Dict[str, str]], validated_servers: List[str], user_email: str, websocket: WebSocket) -> str:
+    """Call LLM with tool calling support."""
+    if not validated_servers:
+        # No tools selected, use regular LLM call
+        return await call_llm(model_name, messages)
+    
+    # Get tools schema for selected servers
+    tools_data = mcp_manager.get_tools_for_servers(validated_servers)
+    tools_schema = tools_data['tools']
+    tool_mapping = tools_data['mapping']
+    
+    if not tools_schema:
+        # No tools available, use regular LLM call
+        return await call_llm(model_name, messages)
+    
+    llm_config = load_llm_config()
+    models = llm_config.get("models", {})
+    
+    if model_name not in models:
+        raise ValueError(f"Model {model_name} not found in configuration")
+    
+    model_config = models[model_name]
+    api_url = model_config["model_url"]
+    api_key = os.path.expandvars(model_config["api_key"])
+    model_id = model_config["model_name"]
+    
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    
+    # Check if any server is exclusive (force tool calling)
+    is_exclusive_mode = any(mcp_manager.is_server_exclusive(server) for server in validated_servers)
+    tool_choice = "required" if is_exclusive_mode else "auto"
+    
+    payload = {
+        "model": model_id,
+        "messages": messages,
+        "tools": tools_schema,
+        "tool_choice": tool_choice,
+        "max_tokens": 1000,
+        "temperature": 0.7
+    }
+    
+    try:
+        loop = asyncio.get_event_loop()
+        response = await loop.run_in_executor(
+            None, 
+            lambda: requests.post(api_url, headers=headers, json=payload, timeout=30)
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            choice = result["choices"][0]
+            message = choice["message"]
+            
+            # Check if LLM wants to call tools
+            if message.get("tool_calls"):
+                tool_results = []
+                for tool_call in message["tool_calls"]:
+                    function_name = tool_call["function"]["name"]
+                    function_args = json.loads(tool_call["function"]["arguments"])
+                    
+                    if function_name in tool_mapping:
+                        mapping = tool_mapping[function_name]
+                        server_name = mapping['server']
+                        tool_name = mapping['tool_name']
+                        
+                        try:
+                            # Execute the tool
+                            logger.info(f"Executing tool {tool_name} on server {server_name} for user {user_email}")
+                            tool_result = await mcp_manager.call_tool(server_name, tool_name, function_args)
+                            
+                            # Handle FastMCP CallToolResult object
+                            if hasattr(tool_result, 'content'):
+                                # Extract content from CallToolResult
+                                if hasattr(tool_result.content, '__iter__') and not isinstance(tool_result.content, str):
+                                    # If content is a list of text blocks
+                                    content_text = '\n'.join([block.text if hasattr(block, 'text') else str(block) for block in tool_result.content])
+                                else:
+                                    content_text = str(tool_result.content)
+                            else:
+                                # Fallback: convert entire result to string
+                                content_text = str(tool_result)
+                            
+                            tool_results.append({
+                                "tool_call_id": tool_call["id"],
+                                "role": "tool",
+                                "content": content_text
+                            })
+                            
+                        except Exception as e:
+                            logger.error(f"Error executing tool {tool_name}: {e}")
+                            # print the traceback for debugging
+                            import traceback
+                            logger.error(traceback.format_exc())
+                            tool_results.append({
+                                "tool_call_id": tool_call["id"],
+                                "role": "tool",
+                                "content": json.dumps({"error": f"Tool execution failed: {str(e)}"})
+                            })
+                
+                # Send tool results back to LLM for final response
+                if tool_results:
+                    # Add assistant's tool call message
+                    follow_up_messages = messages + [message] + tool_results
+                    
+                    follow_up_payload = {
+                        "model": model_id,
+                        "messages": follow_up_messages,
+                        "max_tokens": 1000,
+                        "temperature": 0.7
+                    }
+                    
+                    follow_up_response = await loop.run_in_executor(
+                        None,
+                        lambda: requests.post(api_url, headers=headers, json=follow_up_payload, timeout=30)
+                    )
+                    
+                    if follow_up_response.status_code == 200:
+                        follow_up_result = follow_up_response.json()
+                        return follow_up_result["choices"][0]["message"]["content"]
+                    else:
+                        logger.error(f"Follow-up LLM call failed: {follow_up_response.status_code}")
+                        return message.get("content", "Tool execution completed but failed to generate response.")
+            
+            return message.get("content", "")
+        else:
+            logger.error(f"LLM API error {response.status_code}: {response.text}")
+            raise Exception(f"LLM API error: {response.status_code}")
+            
+    except requests.RequestException as e:
+        logger.error(f"Request error calling LLM with tools: {e}")
         raise Exception(f"Failed to call LLM: {str(e)}")
     except KeyError as e:
         logger.error(f"Invalid response format from LLM: {e}")
@@ -239,10 +430,13 @@ async def websocket_endpoint(websocket: WebSocket):
 
 
 async def handle_chat_message(websocket: WebSocket, message: Dict[str, Any], user_email: str):
-    """Handle chat messages with LLM integration."""
+    """Handle chat messages with LLM integration and tool calling."""
     try:
         content = message.get('content', '')
         model_name = message.get('model', '')
+        selected_tools = message.get('selected_tools', [])
+        # print the first few words of the content, the model, names of tools
+        logger.info(f"Received chat message from {user_email}: content='{content[:50]}...', model='{model_name}', tools={selected_tools}")
         
         if not content:
             raise ValueError("Message content is required")
@@ -250,14 +444,17 @@ async def handle_chat_message(websocket: WebSocket, message: Dict[str, Any], use
         if not model_name:
             raise ValueError("Model name is required")
         
+        # Validate selected tools and user permissions
+        validated_tools = await validate_selected_tools(selected_tools, user_email)
+        
         # Prepare messages for OpenAI-compliant API
         messages = [
             {"role": "user", "content": content}
         ]
         
-        # Call the LLM
-        logger.info(f"Calling LLM {model_name} for user {user_email}")
-        llm_response = await call_llm(model_name, messages)
+        # Call the LLM with tools if any are selected
+        logger.info(f"Calling LLM {model_name} for user {user_email} with {len(validated_tools)} tools")
+        llm_response = await call_llm_with_tools(model_name, messages, validated_tools, user_email, websocket)
         
         # Send response back to client
         response = {

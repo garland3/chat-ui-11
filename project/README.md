@@ -253,3 +253,17 @@ All application logs are written to `backend/logs/app.log` with the following fo
 ## License
 
 This project is licensed under the MIT License.
+
+
+# mcp notes
+the mcp.json requires the name of the tool to match the folder right now. TODO to fix. 
+
+for the main socket. 
+I think a user couuld spoof another user's email. 
+-- so we need to setup some jwt to match to their email. check the jwt to get the real user name. 
+-- probably use 'depends' for this 
+
+
+-- some pipeline, where you force the backend to use a tool, ... skip the invocation of the llm tool and just call it. 
+
+-- how do custom promtps?

@@ -58,6 +58,7 @@ class MCPToolManager:
         """Initialize FastMCP clients for all configured servers."""
         for server_name, config in self.servers_config.items():
             try:
+                # TODO: allow different mcp types. 
                 # Create client based on server type
                 server_path = f"mcp/{server_name}/main.py"
                 if os.path.exists(server_path):
@@ -66,12 +67,16 @@ class MCPToolManager:
                     logger.info(f"Created MCP client for {server_name}")
                 else:
                     logger.error(f"MCP server script not found: {server_path}")
+                    # add traceback
+                    import traceback
+                    print(traceback.format_exc())
             except Exception as e:
                 logger.error(f"Error creating client for {server_name}: {e}")
     
     async def discover_tools(self):
         """Discover tools from all MCP servers."""
         self.available_tools = {}
+
         
         for server_name, client in self.clients.items():
             try:
@@ -84,6 +89,9 @@ class MCPToolManager:
                     logger.info(f"Discovered {len(tools)} tools from {server_name}")
             except Exception as e:
                 logger.error(f"Error discovering tools from {server_name}: {e}")
+                # use traceback
+                import traceback
+                print(traceback.format_exc())
                 self.available_tools[server_name] = {
                     'tools': [],
                     'config': self.servers_config[server_name]

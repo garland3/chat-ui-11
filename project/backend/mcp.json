@@ -13,7 +13,14 @@
     "is_exclusive": false,
     "description": "Basic mathematical calculations"
   },
-  "secure_tools": {
+  "rag": {
+    "command": ["python", "mcp/rag/main.py"],
+    "cwd": "backend",
+    "groups": ["users"],
+    "is_exclusive": false,
+    "description": "Data retrieval and processing"
+  },
+  "secure": {
     "command": ["python", "mcp/secure/main.py"],
     "cwd": "backend",
     "groups": ["admin", "mcp_advanced"],

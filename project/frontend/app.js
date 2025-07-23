@@ -11,6 +11,7 @@ class ChatUI {
         this.appName = 'Chat UI';
         this.models = [];
         this.tools = [];
+        this.selectedTools = new Set(); // Track selected tools
         
         this.initializeMarkdown();
         this.initializeElements();
@@ -213,23 +214,98 @@ class ChatUI {
                         <h3>${toolServer.server.charAt(0).toUpperCase() + toolServer.server.slice(1)}</h3>
                         <span class="tool-count">${toolServer.tool_count} tools</span>
                         ${toolServer.is_exclusive ? '<span class="exclusive-badge">Exclusive</span>' : ''}
+                        <button class="select-server-btn" data-server="${toolServer.server}">
+                            Select All
+                        </button>
                     </div>
                     <p class="tool-server-description">${toolServer.description}</p>
                     <div class="tool-list">
-                        ${toolServer.tools.map(tool => `
-                            <span class="tool-tag" data-server="${toolServer.server}" data-tool="${tool}">${tool}</span>
-                        `).join('')}
+                        ${toolServer.tools.map(tool => {
+                            const toolKey = `${toolServer.server}_${tool}`;
+                            const isSelected = this.selectedTools.has(toolKey);
+                            return `
+                                <span class="tool-tag ${isSelected ? 'selected' : ''}" 
+                                      data-server="${toolServer.server}" 
+                                      data-tool="${tool}"
+                                      data-tool-key="${toolKey}">
+                                    ${tool}
+                                </span>
+                            `;
+                        }).join('')}
                     </div>
                 </div>
             `).join('');
         
-        // Add click handlers for individual tools
+        // Add click handlers for server selection buttons
+        this.elements.toolsList.querySelectorAll('.select-server-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const server = btn.dataset.server;
+                this.toggleServerTools(server);
+            });
+        });
+        
+        // Add click handlers for individual tool selection
         this.elements.toolsList.querySelectorAll('.tool-tag').forEach(tag => {
             tag.addEventListener('click', () => {
-                const server = tag.dataset.server;
-                const tool = tag.dataset.tool;
-                this.testTool(server, tool);
+                const toolKey = tag.dataset.toolKey;
+                this.toggleTool(toolKey, tag);
             });
+        });
+    }
+    
+    toggleServerTools(serverName) {
+        const serverTools = this.tools.find(t => t.server === serverName);
+        if (!serverTools) return;
+        
+        const serverToolKeys = serverTools.tools.map(tool => `${serverName}_${tool}`);
+        const allSelected = serverToolKeys.every(key => this.selectedTools.has(key));
+        
+        if (allSelected) {
+            // Deselect all tools from this server
+            serverToolKeys.forEach(key => this.selectedTools.delete(key));
+        } else {
+            // Select all tools from this server
+            serverToolKeys.forEach(key => this.selectedTools.add(key));
+        }
+        
+        // Update the display
+        this.updateToolsList();
+        this.updateSelectedToolsDisplay();
+    }
+    
+    toggleTool(toolKey, tagElement) {
+        if (this.selectedTools.has(toolKey)) {
+            this.selectedTools.delete(toolKey);
+            tagElement.classList.remove('selected');
+        } else {
+            this.selectedTools.add(toolKey);
+            tagElement.classList.add('selected');
+        }
+        
+        this.updateSelectedToolsDisplay();
+    }
+    
+    updateSelectedToolsDisplay() {
+        // Update button text based on selection
+        this.elements.toolsList.querySelectorAll('.select-server-btn').forEach(btn => {
+            const server = btn.dataset.server;
+            const serverTools = this.tools.find(t => t.server === server);
+            if (!serverTools) return;
+            
+            const serverToolKeys = serverTools.tools.map(tool => `${server}_${tool}`);
+            const selectedCount = serverToolKeys.filter(key => this.selectedTools.has(key)).length;
+            
+            if (selectedCount === 0) {
+                btn.textContent = 'Select All';
+                btn.classList.remove('selected');
+            } else if (selectedCount === serverToolKeys.length) {
+                btn.textContent = 'Deselect All';
+                btn.classList.add('selected');
+            } else {
+                btn.textContent = `Select All (${selectedCount}/${serverToolKeys.length})`;
+                btn.classList.remove('selected');
+            }
         });
     }
     
@@ -286,11 +362,15 @@ class ChatUI {
         // Show thinking indicator
         const thinkingMessage = this.addMessage('assistant', '', true);
         
-        // Send to backend
+        // Prepare selected tools for backend
+        const selectedToolsList = Array.from(this.selectedTools);
+        
+        // Send to backend with selected tools
         this.websocket.send(JSON.stringify({
             type: 'chat',
             content: message,
             model: this.currentModel,
+            selected_tools: selectedToolsList,
             user: this.user
         }));
         
