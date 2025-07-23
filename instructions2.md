@@ -16,6 +16,9 @@ Reference: `frontend-example.html` shows the general layout (functionality will 
 - **Code Analysis**: Ruff for fast Python linting and formatting
 - **Containerization**: Docker with Fedora:latest base image
 
+
+The CHAT ui backend will be an MCP client, and it can connect to different mcp servers. 
+
 ### Project Structure
 
 ```text
@@ -108,6 +111,8 @@ Runtime configuration containing for each LLM:
 
 ### MCP Configuration (`mcp.json`)
 
+The CHAT ui backend will be an MCP client, and it can connect to different mcp servers. 
+
 Configuration for MCP servers including:
 
 - `groups`: User groups allowed to access the MCP server
@@ -168,3 +173,7 @@ if __name__ == "__main__":
 
 add a readme.md
 add a .gitignore file
+
+
+use uv and virtual venv
+uv venv venv

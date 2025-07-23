@@ -4,14 +4,104 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chat UI</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked@9.1.6/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.5/dist/purify.min.js"></script>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div id="chat-container">
-        <div id="chat-messages"></div>
-        <input type="text" id="chat-input" placeholder="Type your message...">
-        <button id="send-button">Send</button>
+    <!-- Main Chat Area -->
+    <div id="main-content" class="main-content">
+        <!-- Header -->
+        <header class="header">
+            <h1>Chat UI</h1>
+            <div class="header-controls">
+                <!-- Model Selection Dropdown -->
+                <div class="dropdown-container">
+                    <button id="model-button" class="dropdown-button">
+                        <span id="selected-model">Select a model...</span>
+                        <svg class="dropdown-arrow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </button>
+                    <div id="model-dropdown" class="dropdown-menu hidden">
+                        <!-- Models will be populated by JavaScript -->
+                    </div>
+                </div>
+                
+                <div class="user-info">
+                    <span id="user-email">Loading...</span>
+                </div>
+                
+                <button id="toggle-tools-panel" class="icon-button">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"></path>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <!-- Chat Messages -->
+        <main id="messages" class="messages custom-scrollbar">
+            <div class="message-container">
+                <!-- Welcome Message -->
+                <div class="message assistant">
+                    <div class="message-avatar assistant-avatar">A</div>
+                    <div class="message-bubble assistant-bubble">
+                        <p class="message-author">Loading...</p>
+                        <div class="message-content">
+                            <p>Loading application...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Chat Input -->
+        <footer class="input-area">
+            <div class="input-wrapper">
+                <div class="input-container">
+                    <textarea id="message-input" placeholder="Type your message..." rows="1"></textarea>
+                    <button id="send-button" class="send-button" disabled>
+                        <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div class="input-controls">
+                    <div class="connection-status">
+                        <div id="connection-status" class="status disconnected">
+                            <div class="status-dot"></div>
+                            <span>Disconnected</span>
+                        </div>
+                    </div>
+                    <p class="input-hint">Press Shift + Enter for new line</p>
+                </div>
+            </div>
+        </footer>
     </div>
-    <script src="app.js"></script>
+
+    <!-- Collapsible Tools Panel -->
+    <aside id="tools-panel" class="tools-panel tools-panel-hidden">
+        <!-- Panel Header -->
+        <div class="panel-header">
+            <h2>Tools & Integrations</h2>
+            <button id="close-tools-panel" class="icon-button">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        
+        <!-- Tools List -->
+        <div class="panel-content">
+            <div id="tools-list" class="tools-list">
+                <div class="loading">Loading tools...</div>
+            </div>
+        </div>
+    </aside>
+
+    <script type="module" src="app.js"></script>
 </body>
 </html>
