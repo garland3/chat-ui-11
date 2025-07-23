@@ -145,6 +145,8 @@ The backend includes two demo MCP servers:
 - **Server-side validation**: All MCP access requests validated
 - **Exclusive servers**: Some MCP servers cannot run concurrently for security
 
+**Note**: For testing different authorization scenarios, you can toggle the `mock_groups` configuration in `backend/auth.py`. The file contains commented examples showing different user group assignments that can be uncommented to test various permission levels.
+
 ## API Endpoints
 
 - `GET /`: Main chat interface
