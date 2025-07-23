@@ -15,7 +15,7 @@ import yaml
 from dotenv import load_dotenv
 
 from middleware import AuthMiddleware
-from mcp_client import MCPClient
+from mcp_client import MCPToolManager
 from auth import is_user_in_group
 
 # Load environment variables
@@ -34,24 +34,26 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-# Global MCP client
-mcp_client = None
+# Global MCP tool manager
+mcp_manager = None
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifecycle events for the application."""
-    global mcp_client
+    global mcp_manager
     
     # Startup
     logger.info("Starting Chat UI backend")
-    mcp_client = MCPClient()
+    mcp_manager = MCPToolManager()
+    await mcp_manager.initialize_clients()
+    await mcp_manager.discover_tools()
     yield
     
     # Shutdown
     logger.info("Shutting down Chat UI backend")
-    if mcp_client:
-        await mcp_client.cleanup()
+    if mcp_manager:
+        await mcp_manager.cleanup()
 
 
 # Create FastAPI app
@@ -166,25 +168,29 @@ async def auth_endpoint():
 async def get_config(current_user: str = Depends(get_current_user)):
     """Get available models, tools, and data sources for the user."""
     llm_config = load_llm_config()
-    available_servers = mcp_client.get_available_servers()
     
-    # Filter servers based on user permissions
-    authorized_servers = []
-    for server_name in available_servers:
-        required_groups = mcp_client.get_server_groups(server_name)
-        if not required_groups:  # No restrictions
-            authorized_servers.append(server_name)
-        else:
-            # Check if user is in any required group
-            for group in required_groups:
-                if is_user_in_group(current_user, group):
-                    authorized_servers.append(server_name)
-                    break
+    # Get authorized servers for the user
+    authorized_servers = mcp_manager.get_authorized_servers(current_user, is_user_in_group)
+    
+    # Get detailed tool information for authorized servers
+    tools_info = []
+    for server_name in authorized_servers:
+        if server_name in mcp_manager.available_tools:
+            server_tools = mcp_manager.available_tools[server_name]['tools']
+            server_config = mcp_manager.available_tools[server_name]['config']
+            
+            tools_info.append({
+                'server': server_name,
+                'tools': [tool.name for tool in server_tools],
+                'tool_count': len(server_tools),
+                'description': server_config.get('description', f'{server_name} tools'),
+                'is_exclusive': server_config.get('is_exclusive', False)
+            })
     
     return {
         "app_name": os.getenv("APP_NAME", "Chat UI"),
         "models": list(llm_config.get("models", {}).keys()) if llm_config else [],
-        "tools": authorized_servers,
+        "tools": tools_info,
         "user": current_user
     }
 
@@ -285,7 +291,7 @@ async def handle_mcp_request(websocket: WebSocket, message: Dict[str, Any], user
             raise ValueError("Server name required")
         
         # Check authorization
-        required_groups = mcp_client.get_server_groups(server_name)
+        required_groups = mcp_manager.get_server_groups(server_name)
         authorized = False
         
         if not required_groups:  # No restrictions
@@ -299,12 +305,14 @@ async def handle_mcp_request(websocket: WebSocket, message: Dict[str, Any], user
         if not authorized:
             raise HTTPException(status_code=403, detail="Not authorized for this MCP server")
         
-        # Start server if not running
-        await mcp_client.start_server(server_name)
+        # Call the MCP tool
+        tool_name = message.get("tool_name", "")
+        arguments = message.get("arguments", {})
         
-        # Send request to MCP server
-        mcp_request = message.get("request", {})
-        response = await mcp_client.send_request(server_name, mcp_request)
+        if not tool_name:
+            raise ValueError("Tool name required")
+        
+        response = await mcp_manager.call_tool(server_name, tool_name, arguments)
         
         await websocket.send_text(json.dumps({
             "type": "mcp_response",

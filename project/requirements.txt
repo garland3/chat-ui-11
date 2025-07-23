@@ -5,5 +5,5 @@ python-multipart
 pydantic
 pyyaml
 python-dotenv
-mcp
+fastmcp
 requests

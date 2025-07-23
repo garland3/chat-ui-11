@@ -206,26 +206,29 @@ class ChatUI {
             return;
         }
         
-        // Create tool descriptions
-        const toolDescriptions = {
-            'filesystem': 'File system operations: read, write, list directories, and manage files safely.',
-            'calculator': 'Mathematical calculations: basic arithmetic, trigonometry, and expression evaluation.',
-            'secure_tools': 'Advanced security-sensitive tools for authorized users only.'
-        };
-        
         this.elements.toolsList.innerHTML = this.tools
-            .map(tool => `
-                <div class="tool-item" data-tool="${tool}">
-                    <h3>${tool.charAt(0).toUpperCase() + tool.slice(1)}</h3>
-                    <p>${toolDescriptions[tool] || 'Tool for various operations and integrations.'}</p>
+            .map(toolServer => `
+                <div class="tool-server" data-server="${toolServer.server}">
+                    <div class="tool-server-header">
+                        <h3>${toolServer.server.charAt(0).toUpperCase() + toolServer.server.slice(1)}</h3>
+                        <span class="tool-count">${toolServer.tool_count} tools</span>
+                        ${toolServer.is_exclusive ? '<span class="exclusive-badge">Exclusive</span>' : ''}
+                    </div>
+                    <p class="tool-server-description">${toolServer.description}</p>
+                    <div class="tool-list">
+                        ${toolServer.tools.map(tool => `
+                            <span class="tool-tag" data-server="${toolServer.server}" data-tool="${tool}">${tool}</span>
+                        `).join('')}
+                    </div>
                 </div>
             `).join('');
         
-        // Add click handlers for tools
-        this.elements.toolsList.querySelectorAll('.tool-item').forEach(item => {
-            item.addEventListener('click', () => {
-                const tool = item.dataset.tool;
-                this.testTool(tool);
+        // Add click handlers for individual tools
+        this.elements.toolsList.querySelectorAll('.tool-tag').forEach(tag => {
+            tag.addEventListener('click', () => {
+                const server = tag.dataset.server;
+                const tool = tag.dataset.tool;
+                this.testTool(server, tool);
             });
         });
     }
@@ -300,24 +303,38 @@ class ChatUI {
         this.updateSendButton();
     }
     
-    testTool(toolName) {
+    testTool(serverName, toolName) {
         if (!this.websocket || this.websocket.readyState !== WebSocket.OPEN) {
             this.showError('WebSocket not connected');
             return;
         }
         
-        // Send MCP request
+        // Send MCP request to test a specific tool
         this.websocket.send(JSON.stringify({
             type: 'mcp_request',
-            server: toolName,
-            request: {
-                method: 'tools/list',
-                params: {}
-            },
+            server: serverName,
+            tool_name: toolName,
+            arguments: this.getTestArguments(toolName),
             user: this.user
         }));
         
-        this.addMessage('system', `Testing tool: ${toolName}`);
+        this.addMessage('assistant', `Testing ${toolName} from ${serverName} server...`);
+    }
+    
+    getTestArguments(toolName) {
+        // Provide sample test arguments for different tools
+        const testArgs = {
+            'add': { a: 5, b: 3 },
+            'subtract': { a: 10, b: 4 },
+            'multiply': { a: 6, b: 7 },
+            'divide': { a: 15, b: 3 },
+            'sqrt': { number: 16 },
+            'list_directory': { path: '.' },
+            'file_exists': { path: 'README.md' },
+            'evaluate': { expression: '2 + 2 * 3' }
+        };
+        
+        return testArgs[toolName] || {};
     }
     
     handleWebSocketMessage(data) {

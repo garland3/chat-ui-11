@@ -177,3 +177,25 @@ add a .gitignore file
 
 use uv and virtual venv
 uv venv venv
+
+## Recent Improvements and Clarifications
+
+• **Frontend Dark Theme Redesign**: Completely redesigned the frontend to match modern dark-themed chat interfaces similar to ChatGPT/Claude with proper message bubbles, avatars, and collapsible tools panel. The interface now uses Inter font, backdrop blur effects, and a professional gray-900 color scheme.
+
+• **Dynamic App Name Configuration**: The application name is now configurable via the `.env` file (`APP_NAME` variable) and dynamically loads across all UI elements including page title, header, and message authors. This allows easy branding customization for different deployments.
+
+• **Auto-Model Selection**: The frontend automatically selects the first available LLM model on startup, eliminating the need for manual model selection before chatting. Users can still manually change models via the dropdown in the header.
+
+• **Enhanced Configuration Loading**: Improved error handling for both `llmconfig.yml` and `mcp.json` with multiple path searching, detailed logging, and helpful error messages. The system now provides clear guidance when configuration files are missing or malformed.
+
+• **WebSocket Authentication Security**: Added proper WebSocket authentication that checks for `x-email-header` during handshake from reverse proxy in production mode. Debug mode falls back to `test@test.com` for local development testing.
+
+• **OpenAI-Compatible LLM Integration**: Implemented real LLM API calls using `requests` library with OpenAI-compliant endpoints, proper error handling, and async execution. The system supports environment variable expansion for API keys and comprehensive logging.
+
+• **Markdown Rendering with Code Copy**: Added full markdown-to-HTML rendering for assistant messages using Marked.js with DOMPurify sanitization. Code blocks include copy-to-clipboard functionality with visual feedback and fallback support for older browsers.
+
+• **Improved Project Structure**: Moved `requirements.txt` to project root and created a simplified `start.sh` script that uses `uv venv venv` for virtual environment management. The startup script automatically installs dependencies and launches uvicorn with reload for development.
+
+• **Better Logging and Debugging**: Enhanced logging throughout the application with user-specific WebSocket tracking, detailed LLM API call logging, and clear success/error messages. Configuration loading now shows exactly where files were found and how many models/tools were loaded.
+
+• **Production-Ready Security**: Implemented comprehensive security measures including XSS protection via DOMPurify, server-side request validation, group-based MCP tool authorization, and proper authentication middleware. The system maintains security in production while providing debug fallbacks for development.
