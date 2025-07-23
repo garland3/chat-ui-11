@@ -411,8 +411,7 @@ async def websocket_endpoint(websocket: WebSocket):
             
             if message["type"] == "chat":
                 await handle_chat_message(websocket, message, user_email)
-            elif message["type"] == "mcp_request":
-                await handle_mcp_request(websocket, message, user_email)
+            
             else:
                 await websocket.send_text(json.dumps({
                     "type": "error",
@@ -480,49 +479,6 @@ async def handle_chat_message(websocket: WebSocket, message: Dict[str, Any], use
         }))
 
 
-async def handle_mcp_request(websocket: WebSocket, message: Dict[str, Any], user_email: str):
-    """Handle MCP tool requests."""
-    try:
-        server_name = message.get("server")
-        if not server_name:
-            raise ValueError("Server name required")
-        
-        # Check authorization
-        required_groups = mcp_manager.get_server_groups(server_name)
-        authorized = False
-        
-        if not required_groups:  # No restrictions
-            authorized = True
-        else:
-            for group in required_groups:
-                if is_user_in_group(user_email, group):
-                    authorized = True
-                    break
-        
-        if not authorized:
-            raise HTTPException(status_code=403, detail="Not authorized for this MCP server")
-        
-        # Call the MCP tool
-        tool_name = message.get("tool_name", "")
-        arguments = message.get("arguments", {})
-        
-        if not tool_name:
-            raise ValueError("Tool name required")
-        
-        response = await mcp_manager.call_tool(server_name, tool_name, arguments)
-        
-        await websocket.send_text(json.dumps({
-            "type": "mcp_response",
-            "server": server_name,
-            "response": response
-        }))
-        
-    except Exception as e:
-        logger.error(f"Error handling MCP request: {e}")
-        await websocket.send_text(json.dumps({
-            "type": "error",
-            "message": f"Error processing MCP request: {str(e)}"
-        }))
 
 
 if __name__ == "__main__":
