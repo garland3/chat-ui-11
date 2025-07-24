@@ -7,8 +7,7 @@ from typing import Any, Callable, Dict, List, Optional
 from fastapi import WebSocket, WebSocketDisconnect
 
 from mcp_client import MCPToolManager
-from utils import call_llm_with_tools, validate_selected_tools
-import rag_client
+from message_processor import MessageProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +33,9 @@ class ChatSession:
         self.selected_data_sources: List[str] = []
         self.only_rag: bool = True  # Default to true as per instructions
         self.session_id: str = id(self)
+        
+        # Initialize message processor
+        self.message_processor = MessageProcessor(self)
 
         logger.info(
             "ChatSession created for user: %s (session: %s)",
@@ -71,188 +73,19 @@ class ChatSession:
             await self._trigger_callbacks("session_error", error=exc)
 
     async def handle_chat_message(self, message: Dict[str, Any]) -> None:
-        """Process a chat message with LLM integration and tool calls."""
-        try:
-            await self._trigger_callbacks("before_message_processing", message=message)
-
-            content = message.get("content", "")
-            self.model_name = message.get("model", "")
-            self.selected_tools = message.get("selected_tools", [])
-            self.selected_data_sources = message.get("selected_data_sources", [])
-            self.only_rag = message.get("only_rag", True)
-
-            logger.info(
-                "Received chat message from %s: content='%s...', model='%s', tools=%s, data_sources=%s, only_rag=%s",
-                self.user_email,
-                content[:50],
-                self.model_name,
-                self.selected_tools,
-                self.selected_data_sources,
-                self.only_rag,
-            )
-
-            if not content or not self.model_name:
-                raise ValueError("Message content and model name are required.")
-
-            await self._trigger_callbacks("before_user_message_added", content=content)
-
-            user_message = {"role": "user", "content": content}
-            self.messages.append(user_message)
-
-            await self._trigger_callbacks("after_user_message_added", user_message=user_message)
-
-            # Handle RAG-only mode vs normal processing pipeline
-            if self.only_rag and self.selected_data_sources:
-                # RAG-only mode: Skip tool calling and processing, query RAG directly
-                logger.info(
-                    "Using RAG-only mode for user %s with data sources: %s",
-                    self.user_email,
-                    self.selected_data_sources,
-                )
-                
-                await self._trigger_callbacks("before_rag_call", messages=self.messages)
-                llm_response = await self._handle_rag_only_query()
-                await self._trigger_callbacks("after_rag_call", llm_response=llm_response)
-            else:
-                # Normal processing pipeline with optional RAG integration
-                await self._trigger_callbacks("before_validation")
-                self.validated_servers = await validate_selected_tools(
-                    self.selected_tools, self.user_email, self.mcp_manager
-                )
-                await self._trigger_callbacks(
-                    "after_validation", validated_servers=self.validated_servers
-                )
-
-                logger.info(
-                    "Calling LLM %s for user %s with %d servers",
-                    self.model_name,
-                    self.user_email,
-                    len(self.validated_servers),
-                )
-
-                await self._trigger_callbacks("before_llm_call", messages=self.messages)
-                
-                # If data sources are selected, integrate RAG results into the normal pipeline
-                if self.selected_data_sources:
-                    llm_response = await self._handle_rag_integrated_query()
-                else:
-                    llm_response = await call_llm_with_tools(
-                        self.model_name,
-                        self.messages,
-                        self.validated_servers,
-                        self.user_email,
-                        self.websocket,
-                        self.mcp_manager,
-                    )
-                    
-                await self._trigger_callbacks("after_llm_call", llm_response=llm_response)
-
-            assistant_message = {"role": "assistant", "content": llm_response}
-            self.messages.append(assistant_message)
-            await self._trigger_callbacks(
-                "after_assistant_message_added", assistant_message=assistant_message
-            )
-
-            payload = {
-                "type": "chat_response",
-                "message": llm_response,
-                "model": self.model_name,
-                "user": self.user_email,
-            }
-
-            await self._trigger_callbacks("before_response_send", payload=payload)
-            await self.send_json(payload)
-            await self._trigger_callbacks("after_response_send", payload=payload)
-            logger.info("LLM response sent to user %s", self.user_email)
-        except Exception as exc:  # pragma: no cover - unexpected errors
-            logger.error("Error handling chat message for %s: %s", self.user_email, exc, exc_info=True)
-            await self._trigger_callbacks("message_error", error=exc)
-            await self.send_error(f"Error processing message: {exc}")
+        """
+        Process a chat message with LLM integration and tool calls.
+        
+        This method delegates to the MessageProcessor which contains the most
+        critical logic in the entire codebase.
+        """
+        await self.message_processor.handle_chat_message(message)
 
     async def send_json(self, data: Dict[str, Any]) -> None:
         await self.websocket.send_text(json.dumps(data))
 
     async def send_error(self, error_message: str) -> None:
         await self.send_json({"type": "error", "message": error_message})
-    
-    async def _handle_rag_only_query(self) -> str:
-        """Handle RAG-only queries by querying the first selected data source."""
-        if not self.selected_data_sources:
-            return "No data sources selected for RAG query."
-        
-        # Use the first selected data source for now
-        # In the future, this could be enhanced to query multiple sources
-        data_source = self.selected_data_sources[0]
-        
-        try:
-            response = await rag_client.rag_client.query_rag(
-                self.user_email,
-                data_source,
-                self.messages
-            )
-            return response
-        except Exception as exc:
-            logger.error(f"Error in RAG-only query for {self.user_email}: {exc}")
-            return f"Error querying RAG system: {str(exc)}"
-    
-    async def _handle_rag_integrated_query(self) -> str:
-        """Handle queries that integrate RAG with normal LLM processing."""
-        if not self.selected_data_sources:
-            # Fallback to normal LLM call if no data sources
-            return await call_llm_with_tools(
-                self.model_name,
-                self.messages,
-                self.validated_servers,
-                self.user_email,
-                self.websocket,
-                self.mcp_manager,
-            )
-        
-        # Get RAG context from the first data source
-        data_source = self.selected_data_sources[0]
-        
-        try:
-            # Query RAG for context
-            rag_response = await rag_client.rag_client.query_rag(
-                self.user_email,
-                data_source,
-                self.messages
-            )
-            
-            # Integrate RAG context into the conversation
-            # Add the RAG response as context for the LLM
-            messages_with_rag = self.messages.copy()
-            
-            # Add RAG context as a system message
-            rag_context_message = {
-                "role": "system", 
-                "content": f"Retrieved context from {data_source}:\n\n{rag_response}\n\nUse this context to inform your response to the user's query."
-            }
-            messages_with_rag.insert(-1, rag_context_message)  # Insert before the last user message
-            
-            # Call LLM with the enriched context
-            llm_response = await call_llm_with_tools(
-                self.model_name,
-                messages_with_rag,
-                self.validated_servers,
-                self.user_email,
-                self.websocket,
-                self.mcp_manager,
-            )
-            
-            return llm_response
-            
-        except Exception as exc:
-            logger.error(f"Error in RAG-integrated query for {self.user_email}: {exc}")
-            # Fallback to normal LLM call on RAG error
-            return await call_llm_with_tools(
-                self.model_name,
-                self.messages,
-                self.validated_servers,
-                self.user_email,
-                self.websocket,
-                self.mcp_manager,
-            )
 
 
 class SessionManager:

@@ -15,6 +15,18 @@ A modern LLM chat interface with MCP (Model Context Protocol) integration, simil
 
 ## Architecture
 
+### Core Message Processing
+
+**CRITICAL**: The `MessageProcessor` class in `backend/message_processor.py` contains the **most important logic in the entire codebase**. The `handle_chat_message()` method:
+
+- Orchestrates the entire chat message processing pipeline
+- Handles RAG-only vs integrated processing modes  
+- Manages tool validation and LLM calls
+- Coordinates callbacks throughout the message lifecycle
+- Processes WebSocket messages and responses
+
+This was extracted from `ChatSession` to improve modularity, testability, and maintainability while preserving encapsulation through dependency injection of the session instance.
+
 ### Technology Stack
 - **Backend**: FastAPI with WebSockets
 - **Frontend**: Vanilla JavaScript (ES6 modules)
@@ -31,12 +43,15 @@ A modern LLM chat interface with MCP (Model Context Protocol) integration, simil
 │   └── app.js         # Application logic
 ├── backend/           # FastAPI backend (MCP client)
 │   ├── main.py        # Main FastAPI application
+│   ├── session.py     # WebSocket session management
+│   ├── message_processor.py # Core message processing logic
 │   ├── middleware.py  # Authentication middleware
 │   ├── auth.py        # Authorization functions
 │   ├── mcp_client.py  # MCP client implementation
 │   ├── mcp/           # MCP servers
 │   │   ├── filesystem/ # File system operations
-│   │   └── calculator/ # Mathematical calculations
+│   │   ├── calculator/ # Mathematical calculations
+│   │   └── thinking/   # Structured thinking tool
 │   └── logs/          # Application logs
 ├── Dockerfile         # Container configuration
 ├── .env               # Environment variables
