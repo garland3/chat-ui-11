@@ -1,12 +1,11 @@
 """FastMCP client for connecting to MCP servers and managing tools."""
 
-import asyncio
-import json
 import logging
 import os
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Any
 
 from fastmcp import Client
+from config_utils import load_mcp_config
 
 logger = logging.getLogger(__name__)
 
@@ -16,43 +15,10 @@ class MCPToolManager:
     
     def __init__(self, config_path: str = "mcp.json"):
         self.config_path = config_path
-        self.servers_config = {}
+        self.servers_config = load_mcp_config(config_path)
         self.clients = {}
         self.available_tools = {}
-        self.load_config()
         
-    def load_config(self):
-        """Load MCP server configuration."""
-        config_paths = [
-            self.config_path,          # Default: mcp.json
-            f"../{self.config_path}",  # Parent directory
-            os.path.join(os.path.dirname(__file__), "..", self.config_path)  # Relative to script
-        ]
-        
-        for config_path in config_paths:
-            try:
-                if os.path.exists(config_path):
-                    logger.info(f"Found MCP config at: {os.path.abspath(config_path)}")
-                    with open(config_path, 'r') as f:
-                        self.servers_config = json.load(f)
-                        if isinstance(self.servers_config, dict):
-                            logger.info(f"Loaded MCP config with {len(self.servers_config)} servers: {list(self.servers_config.keys())}")
-                            return
-                        else:
-                            logger.error(f"Invalid JSON format in {config_path}: expected dict, got {type(self.servers_config)}")
-                            self.servers_config = {}
-                            return
-            except json.JSONDecodeError as e:
-                logger.error(f"JSON parsing error in {config_path}: {e}")
-                self.servers_config = {}
-                return
-            except Exception as e:
-                logger.error(f"Error reading {config_path}: {e}")
-                continue
-        
-        logger.warning(f"MCP config file not found in any of these locations: {config_paths}")
-        logger.info("Create mcp.json with your MCP server configurations to enable tool support")
-        self.servers_config = {}
     
     async def initialize_clients(self):
         """Initialize FastMCP clients for all configured servers."""

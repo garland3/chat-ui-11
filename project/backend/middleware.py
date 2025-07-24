@@ -1,10 +1,8 @@
 """FastAPI middleware for authentication and logging."""
 
 import logging
-import os
-from typing import Optional
 
-from fastapi import Request, HTTPException
+from fastapi import Request
 from fastapi.responses import RedirectResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response

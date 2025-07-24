@@ -9,7 +9,6 @@ async def callback_name(session: ChatSession, **kwargs) -> None:
 """
 
 import logging
-from typing import Dict, Any
 
 logger = logging.getLogger(__name__)
 
