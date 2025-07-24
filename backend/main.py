@@ -64,12 +64,13 @@ from callbacks import (
     dynamic_model_selection_callback,
     conversation_context_callback,
 )
+from rag_client import rag_client
 
 mcp_manager: Optional[MCPToolManager] = None
 session_manager: Optional[SessionManager] = None
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from the parent directory
+load_dotenv(dotenv_path="../.env")
 
 # Setup logging
 os.makedirs("logs", exist_ok=True)
@@ -155,6 +156,9 @@ async def get_config(current_user: str = Depends(get_current_user)):
     """
     llm_config = load_llm_config()
     
+    # Get RAG data sources for the user
+    rag_data_sources = await rag_client.discover_data_sources(current_user)
+    
     # Get authorized servers for the user - this filters out unauthorized servers completely
     authorized_servers = mcp_manager.get_authorized_servers(current_user, is_user_in_group)
     
@@ -183,6 +187,7 @@ async def get_config(current_user: str = Depends(get_current_user)):
         "app_name": os.getenv("APP_NAME", "Chat UI"),
         "models": list(llm_config.get("models", {}).keys()) if llm_config else [],
         "tools": tools_info,  # Only authorized servers are included
+        "data_sources": rag_data_sources,  # RAG data sources for the user
         "user": current_user,
         "active_sessions": session_manager.get_session_count() if session_manager else 0,
         "authorized_servers": authorized_servers  # Optional: expose for debugging

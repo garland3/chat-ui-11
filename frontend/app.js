@@ -12,6 +12,9 @@ class ChatUI {
         this.models = [];
         this.tools = [];
         this.selectedTools = new Set(); // Track selected tools
+        this.dataSources = [];
+        this.selectedDataSources = new Set(); // Track selected data sources
+        this.onlyRag = true; // Default to true as per instructions
         
         this.initializeMarkdown();
         this.initializeElements();
@@ -66,7 +69,14 @@ class ChatUI {
             // Tools panel elements
             toggleToolsPanel: document.getElementById('toggle-tools-panel'),
             closeToolsPanel: document.getElementById('close-tools-panel'),
-            toolsPanel: document.getElementById('tools-panel')
+            toolsPanel: document.getElementById('tools-panel'),
+            
+            // RAG panel elements
+            toggleRagPanel: document.getElementById('toggle-rag-panel'),
+            closeRagPanel: document.getElementById('close-rag-panel'),
+            ragPanel: document.getElementById('rag-panel'),
+            onlyRagCheckbox: document.getElementById('only-rag'),
+            dataSourcesList: document.getElementById('data-sources-list')
         };
     }
     
@@ -93,6 +103,13 @@ class ChatUI {
         // Tools panel functionality
         this.elements.toggleToolsPanel.addEventListener('click', () => this.toggleToolsPanel());
         this.elements.closeToolsPanel.addEventListener('click', () => this.closeToolsPanel());
+        
+        // RAG panel functionality
+        this.elements.toggleRagPanel.addEventListener('click', () => this.toggleRagPanel());
+        this.elements.closeRagPanel.addEventListener('click', () => this.closeRagPanel());
+        this.elements.onlyRagCheckbox.addEventListener('change', (e) => {
+            this.onlyRag = e.target.checked;
+        });
         
         // Close dropdown when clicking outside
         document.addEventListener('click', () => {
@@ -136,6 +153,7 @@ class ChatUI {
             this.appName = config.app_name || 'Chat UI';
             this.models = config.models || [];
             this.tools = config.tools || [];
+            this.dataSources = config.data_sources || [];
             this.user = config.user || 'Unknown';
             
             this.updateUI();
@@ -163,6 +181,9 @@ class ChatUI {
         
         // Update tools list
         this.updateToolsList();
+        
+        // Update data sources list
+        this.updateDataSourcesList();
     }
     
     updateWelcomeMessage() {
@@ -309,6 +330,45 @@ class ChatUI {
         });
     }
     
+    updateDataSourcesList() {
+        if (this.dataSources.length === 0) {
+            this.elements.dataSourcesList.innerHTML = '<div class="loading">No data sources available</div>';
+            return;
+        }
+        
+        this.elements.dataSourcesList.innerHTML = this.dataSources
+            .map(dataSource => {
+                const isSelected = this.selectedDataSources.has(dataSource);
+                return `
+                    <div class="data-source-item ${isSelected ? 'selected' : ''}" 
+                         data-source="${dataSource}">
+                        <div class="data-source-name">${dataSource.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}</div>
+                        <div class="data-source-description">Click to ${isSelected ? 'deselect' : 'select'} this data source</div>
+                    </div>
+                `;
+            }).join('');
+        
+        // Add click handlers for data source selection
+        this.elements.dataSourcesList.querySelectorAll('.data-source-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const dataSource = item.dataset.source;
+                this.toggleDataSource(dataSource, item);
+            });
+        });
+    }
+    
+    toggleDataSource(dataSource, itemElement) {
+        if (this.selectedDataSources.has(dataSource)) {
+            this.selectedDataSources.delete(dataSource);
+            itemElement.classList.remove('selected');
+            itemElement.querySelector('.data-source-description').textContent = 'Click to select this data source';
+        } else {
+            this.selectedDataSources.add(dataSource);
+            itemElement.classList.add('selected');
+            itemElement.querySelector('.data-source-description').textContent = 'Click to deselect this data source';
+        }
+    }
+    
     updateConnectionStatus(connected) {
         const statusText = this.elements.connectionStatus.querySelector('span');
         if (statusText) {
@@ -340,6 +400,14 @@ class ChatUI {
         this.elements.toolsPanel.classList.add('tools-panel-hidden');
     }
     
+    toggleRagPanel() {
+        this.elements.ragPanel.classList.toggle('rag-panel-hidden');
+    }
+    
+    closeRagPanel() {
+        this.elements.ragPanel.classList.add('rag-panel-hidden');
+    }
+    
     autoResizeTextarea() {
         const textarea = this.elements.messageInput;
         textarea.style.height = 'auto';
@@ -362,15 +430,18 @@ class ChatUI {
         // Show thinking indicator
         const thinkingMessage = this.addMessage('assistant', '', true);
         
-        // Prepare selected tools for backend
+        // Prepare selected tools and data sources for backend
         const selectedToolsList = Array.from(this.selectedTools);
+        const selectedDataSourcesList = Array.from(this.selectedDataSources);
         
-        // Send to backend with selected tools
+        // Send to backend with selected tools and RAG parameters
         this.websocket.send(JSON.stringify({
             type: 'chat',
             content: message,
             model: this.currentModel,
             selected_tools: selectedToolsList,
+            selected_data_sources: selectedDataSourcesList,
+            only_rag: this.onlyRag,
             user: this.user
         }));
         

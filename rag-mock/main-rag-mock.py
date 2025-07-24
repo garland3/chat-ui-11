@@ -145,6 +145,7 @@ async def discover_data_sources(
     the specified user is authorized to access. This is useful for UIs
     that need to populate a dropdown of available data sources for a user.
     """
+    print(f"Discovering data sources for user '{user_name}'")
     if user_name not in USERS_GROUPS_DB:
         raise HTTPException(status_code=404, detail=f"User '{user_name}' not found.")
 
@@ -171,13 +172,7 @@ async def discover_data_sources(
     response_model=ChatCompletionResponse,
     summary="Generate a chat completion with data source authorization"
 )
-async def create_chat_completion(
-    request: ChatCompletionRequest,
-    is_authorized: bool = Depends(
-        lambda user_name=Body(..., embed=True), data_source=Body(..., embed=True):
-            authorize_user_for_data_source(user_name, data_source)
-    )
-):
+async def create_chat_completion(request: ChatCompletionRequest):
     """
     This endpoint mimics the OpenAI Chat Completions API but adds two key fields:
     - `user_name`: To identify who is making the request.
@@ -187,6 +182,11 @@ async def create_chat_completion(
     `data_source`. If authorized, it retrieves the relevant data and constructs
     a mock response.
     """
+    print(f"Received request from user '{request.user_name}' for data source '{request.data_source}'")
+    
+    # Authorize user for the data source
+    authorize_user_for_data_source(request.user_name, request.data_source)
+    
     retrieved_data = RAG_DATA_DB.get(request.data_source, "No specific data found, but access is permitted.")
     user_query = next((msg.content for msg in request.messages if msg.role == 'user'), "No user query found.")
 
@@ -212,5 +212,5 @@ if __name__ == "__main__":
     # 1. Install the necessary packages: pip install "fastapi[all]"
     # 2. Run the server: uvicorn main:app --reload
     # 3. Open your browser to http://127.0.0.1:8000/docs to see the interactive API documentation.
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8001)
 

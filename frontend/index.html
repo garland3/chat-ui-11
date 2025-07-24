@@ -11,6 +11,35 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- RAG Data Sources Panel -->
+    <aside id="rag-panel" class="rag-panel rag-panel-hidden">
+        <!-- Panel Header -->
+        <div class="panel-header">
+            <h2>Data Sources</h2>
+            <button id="close-rag-panel" class="icon-button">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        
+        <!-- RAG Controls -->
+        <div class="rag-controls">
+            <label class="checkbox-container">
+                <input type="checkbox" id="only-rag" checked>
+                <span class="checkmark"></span>
+                Only RAG
+            </label>
+        </div>
+        
+        <!-- Data Sources List -->
+        <div class="panel-content">
+            <div id="data-sources-list" class="data-sources-list">
+                <div class="loading">Loading data sources...</div>
+            </div>
+        </div>
+    </aside>
+
     <!-- Main Chat Area -->
     <div id="main-content" class="main-content">
         <!-- Header -->
@@ -34,7 +63,13 @@
                     <span id="user-email">Loading...</span>
                 </div>
                 
-                <button id="toggle-tools-panel" class="icon-button">
+                <button id="toggle-rag-panel" class="icon-button" title="Toggle Data Sources">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h18M3 12h18M3 17h18"></path>
+                    </svg>
+                </button>
+                
+                <button id="toggle-tools-panel" class="icon-button" title="Toggle Tools">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"></path>
                     </svg>
