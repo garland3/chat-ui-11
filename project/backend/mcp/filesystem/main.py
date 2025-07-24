@@ -4,7 +4,6 @@ Filesystem MCP Server using FastMCP
 Provides file system read/write operations through MCP protocol.
 """
 
-import os
 from pathlib import Path
 from typing import Any, Dict
 
@@ -31,7 +30,7 @@ def _safe_path(path: str) -> Path:
     try:
         resolved_path.relative_to(BASE_PATH)
     except ValueError:
-        raise PermissionError(f"Access denied: path outside base directory")
+        raise PermissionError("Access denied: path outside base directory")
     
     return resolved_path
 
