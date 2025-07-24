@@ -86,6 +86,23 @@ class ChatSession:
 
     async def send_error(self, error_message: str) -> None:
         await self.send_json({"type": "error", "message": error_message})
+    
+    async def send_update_to_ui(self, update_type: str, data: Dict[str, Any]) -> None:
+        """
+        Send intermediate updates to the UI during message processing.
+        
+        Args:
+            update_type: Type of update (tool_call, tool_result, etc.)
+            data: Update data to send to the frontend
+        """
+        payload = {
+            "type": "intermediate_update",
+            "update_type": update_type,
+            "data": data,
+            "user": self.user_email
+        }
+        await self.send_json(payload)
+        logger.info(f"Sent {update_type} update to user {self.user_email}")
 
 
 class SessionManager:

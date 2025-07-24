@@ -130,6 +130,7 @@ async def call_llm_with_tools(
     user_email: str,
     websocket: WebSocket,
     mcp_manager: MCPToolManager,
+    session=None,  # Optional session for UI updates
 ) -> str:
     """Call LLM with tool-calling support."""
     if not validated_servers:
@@ -185,6 +186,17 @@ async def call_llm_with_tools(
                     mapping = tool_mapping[function_name]
                     server_name = mapping["server"]
                     tool_name = mapping["tool_name"]
+                    
+                    # Send tool call notification to UI
+                    if session:
+                        await session.send_update_to_ui("tool_call", {
+                            "tool_name": tool_name,
+                            "server_name": server_name,
+                            "function_name": function_name,
+                            "parameters": function_args,
+                            "tool_call_id": tool_call["id"]
+                        })
+                    
                     try:
                         logger.info(
                             "Executing tool %s on server %s for user %s",
@@ -202,16 +214,42 @@ async def call_llm_with_tools(
                                 content_text = str(tool_result.content)
                         else:
                             content_text = str(tool_result)
+                        
+                        # Send tool result notification to UI
+                        if session:
+                            await session.send_update_to_ui("tool_result", {
+                                "tool_name": tool_name,
+                                "server_name": server_name,
+                                "function_name": function_name,
+                                "tool_call_id": tool_call["id"],
+                                "result": content_text,
+                                "success": True
+                            })
+                        
                         tool_results.append(
                             {"tool_call_id": tool_call["id"], "role": "tool", "content": content_text}
                         )
                     except Exception as exc:
                         logger.error("Error executing tool %s: %s", tool_name, exc)
+                        error_message = f"Tool execution failed: {exc}"
+                        
+                        # Send tool error notification to UI
+                        if session:
+                            await session.send_update_to_ui("tool_result", {
+                                "tool_name": tool_name,
+                                "server_name": server_name,
+                                "function_name": function_name,
+                                "tool_call_id": tool_call["id"],
+                                "result": error_message,
+                                "success": False,
+                                "error": str(exc)
+                            })
+                        
                         tool_results.append(
                             {
                                 "tool_call_id": tool_call["id"],
                                 "role": "tool",
-                                "content": json.dumps({"error": f"Tool execution failed: {exc}"}),
+                                "content": json.dumps({"error": error_message}),
                             }
                         )
             if tool_results:

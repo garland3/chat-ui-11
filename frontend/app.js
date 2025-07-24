@@ -512,9 +512,115 @@ class ChatUI {
                 this.showError(data.message);
                 break;
                 
+            case 'intermediate_update':
+                this.handleIntermediateUpdate(data);
+                break;
+                
             default:
                 console.warn('Unknown message type:', data.type);
         }
+    }
+    
+    handleIntermediateUpdate(data) {
+        const updateType = data.update_type;
+        const updateData = data.data;
+        
+        switch (updateType) {
+            case 'tool_call':
+                this.addToolCallUpdate(updateData);
+                break;
+            case 'tool_result':
+                this.addToolResultUpdate(updateData);
+                break;
+            default:
+                console.warn('Unknown intermediate update type:', updateType);
+        }
+    }
+    
+    addToolCallUpdate(data) {
+        const messageContainer = this.elements.messages.querySelector('.message-container');
+        
+        const updateDiv = document.createElement('div');
+        updateDiv.className = 'intermediate-update tool-call-update';
+        updateDiv.dataset.toolCallId = data.tool_call_id;
+        
+        const content = `
+            <div class="tool-update-header">
+                <span class="tool-info">Calling tool: <strong>${data.tool_name}</strong> (${data.server_name})</span>
+                <span class="tool-status calling">Executing...</span>
+            </div>
+            <div class="tool-parameters">
+                <details>
+                    <summary>Parameters</summary>
+                    <pre><code>${JSON.stringify(data.parameters, null, 2)}</code></pre>
+                </details>
+            </div>
+        `;
+        
+        updateDiv.innerHTML = content;
+        messageContainer.appendChild(updateDiv);
+        this.scrollToBottom();
+    }
+    
+    addToolResultUpdate(data) {
+        // Find the corresponding tool call update
+        const messageContainer = this.elements.messages.querySelector('.message-container');
+        const toolCallUpdate = messageContainer.querySelector(`[data-tool-call-id="${data.tool_call_id}"]`);
+        
+        if (toolCallUpdate) {
+            // Update the existing tool call to show result
+            const statusElement = toolCallUpdate.querySelector('.tool-status');
+            const parametersDiv = toolCallUpdate.querySelector('.tool-parameters');
+            
+            if (data.success) {
+                statusElement.textContent = 'Completed';
+                statusElement.className = 'tool-status completed';
+            } else {
+                statusElement.textContent = 'Failed';
+                statusElement.className = 'tool-status failed';
+            }
+            
+            // Add result section
+            const resultDiv = document.createElement('div');
+            resultDiv.className = 'tool-result';
+            
+            const resultContent = data.success 
+                ? `<details>
+                     <summary>Result</summary>
+                     <pre><code>${data.result}</code></pre>
+                   </details>`
+                : `<details open>
+                     <summary>Error</summary>
+                     <pre class="error"><code>${data.result}</code></pre>
+                   </details>`;
+            
+            resultDiv.innerHTML = resultContent;
+            parametersDiv.after(resultDiv);
+        } else {
+            // Fallback: create a standalone result update
+            const updateDiv = document.createElement('div');
+            updateDiv.className = 'intermediate-update tool-result-update';
+            
+            const status = data.success ? 'completed' : 'failed';
+            
+            const content = `
+                <div class="tool-update-header">
+                    <span class="tool-info">Tool result: <strong>${data.tool_name}</strong></span>
+                    <span class="tool-status ${status}">${data.success ? 'Completed' : 'Failed'}</span>
+                </div>
+                <div class="tool-result">
+                    <details ${data.success ? '' : 'open'}>
+                        <summary>Result</summary>
+                        <pre class="${data.success ? '' : 'error'}"><code>${data.result}</code></pre>
+                    </details>
+                </div>
+            `;
+            
+            updateDiv.innerHTML = content;
+            messageContainer.appendChild(updateDiv);
+        }
+        
+        this.scrollToBottom();
     }
     
     addMessage(sender, content, showThinking = false) {
