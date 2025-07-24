@@ -22,7 +22,7 @@ The CHAT ui backend will be an MCP client, and it can connect to different mcp s
 ### Project Structure
 
 ```text
-project/
+
 ├── frontend/          # Frontend application
 ├── backend/           # FastAPI backend
 │   ├── mcp/          # MCP servers (each in separate folder)

@@ -24,7 +24,7 @@ A modern LLM chat interface with MCP (Model Context Protocol) integration, simil
 
 ### Project Structure
 ```
-project/
+
 ├── frontend/          # Frontend application
 │   ├── index.html     # Main chat interface
 │   ├── style.css      # UI styles
@@ -50,7 +50,6 @@ project/
 
 1. **Build the container**:
    ```bash
-   cd project
    docker build -t chat-ui .
    ```
 
@@ -66,7 +65,7 @@ project/
 
 1. **Set up Python environment**:
    ```bash
-   cd project/backend
+   cd backend
    uv venv
    source .venv/bin/activate  # On Windows: .venv\Scripts\activate
    uv pip install -r requirements.txt
