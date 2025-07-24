@@ -44,7 +44,16 @@
     <div id="main-content" class="main-content">
         <!-- Header -->
         <header class="header">
-            <h1>Chat UI</h1>
+            <div class="header-left">
+                <button id="toggle-rag-panel" class="icon-button" title="Toggle Data Sources">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h18M3 12h18M3 17h18"></path>
+                    </svg>
+                </button>
+            </div>
+            
+            <h1 class="header-title">Chat UI</h1>
+            
             <div class="header-controls">
                 <!-- Model Selection Dropdown -->
                 <div class="dropdown-container">
@@ -62,12 +71,6 @@
                 <div class="user-info">
                     <span id="user-email">Loading...</span>
                 </div>
-                
-                <button id="toggle-rag-panel" class="icon-button" title="Toggle Data Sources">
-                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7h18M3 12h18M3 17h18"></path>
-                    </svg>
-                </button>
                 
                 <button id="toggle-tools-panel" class="icon-button" title="Toggle Tools">
                     <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">

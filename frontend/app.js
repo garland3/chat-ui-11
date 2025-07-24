@@ -53,7 +53,7 @@ class ChatUI {
     
     initializeElements() {
         this.elements = {
-            appTitle: document.querySelector('.header h1'),
+            appTitle: document.querySelector('.header-title'),
             userEmail: document.getElementById('user-email'),
             toolsList: document.getElementById('tools-list'),
             connectionStatus: document.getElementById('connection-status'),

@@ -55,6 +55,23 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    position: relative;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    flex: 1;
+}
+
+.header-title {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    color: #e5e7eb; /* gray-200 */
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0;
 }
 
 .header h1 {
@@ -67,6 +84,8 @@ body {
     display: flex;
     align-items: center;
     gap: 1rem;
+    flex: 1;
+    justify-content: flex-end;
 }
 
 .user-info {
@@ -804,6 +823,10 @@ body {
         display: none;
     }
     
+    .header-title {
+        font-size: 1.125rem;
+    }
+    
     .messages {
         padding: 1rem;
     }
@@ -846,8 +869,8 @@ body {
 }
 
 @media (max-width: 640px) {
-    .header h1 {
-        font-size: 1.125rem;
+    .header-title {
+        font-size: 1rem;
     }
     
     .dropdown-button {

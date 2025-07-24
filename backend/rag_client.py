@@ -13,11 +13,60 @@ class RAGClient:
     """Client for communicating with RAG mock API."""
     
     def __init__(self):
+        self.mock_mode = os.getenv("MOCK_RAG", "false").lower() == "true"
         self.base_url = os.getenv("RAG_MOCK_URL", "http://localhost:8001")
         self.timeout = 30.0
+        self.test_client = None
+        
+        if self.mock_mode:
+            self._setup_test_client()
+            logger.info(f"RAG Client initialized in mock mode: {self.mock_mode}")
+        else:
+            logger.info(f"RAG Client initialized in HTTP mode, URL: {self.base_url}")
+    
+    def _setup_test_client(self):
+        """Set up FastAPI TestClient for mock mode."""
+        try:
+            import sys
+            import os
+            # Add the rag-mock directory to the path
+            rag_mock_path = os.path.join(os.path.dirname(__file__), "..", "rag-mock")
+            rag_mock_path = os.path.abspath(rag_mock_path)
+            logger.info(f"Adding RAG mock path to sys.path: {rag_mock_path}")
+            
+            if rag_mock_path not in sys.path:
+                sys.path.insert(0, rag_mock_path)
+            
+            from fastapi.testclient import TestClient
+            # Import the app from the rag mock
+            logger.info("Importing main_rag_mock module...")
+            from main_rag_mock import app as rag_app
+            
+            self.test_client = TestClient(rag_app)
+            logger.info("RAG TestClient initialized successfully")
+        except Exception as exc:
+            logger.error(f"Failed to setup RAG TestClient: {exc}")
+            import traceback
+            logger.error(f"Full traceback: {traceback.format_exc()}")
+            # Fall back to HTTP mode
+            self.mock_mode = False
         
     async def discover_data_sources(self, user_name: str) -> List[str]:
         """Discover data sources accessible by a user."""
+        logger.info(f"discover_data_sources called - mock_mode: {self.mock_mode}, test_client: {self.test_client is not None}")
+        
+        if self.mock_mode and self.test_client:
+            try:
+                logger.info(f"Using TestClient to discover data sources for {user_name}")
+                response = self.test_client.get(f"/v1/discover/datasources/{user_name}")
+                response.raise_for_status()
+                data = response.json()
+                return data.get("accessible_data_sources", [])
+            except Exception as exc:
+                logger.error(f"TestClient error while discovering data sources for {user_name}: {exc}")
+                return []
+        
+        # HTTP mode
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.get(
@@ -45,16 +94,40 @@ class RAGClient:
     
     async def query_rag(self, user_name: str, data_source: str, messages: List[Dict]) -> str:
         """Query RAG endpoint for a response."""
+        payload = {
+            "messages": messages,
+            "user_name": user_name,
+            "data_source": data_source,
+            "model": "gpt-4-rag-mock",
+            "stream": False
+        }
+        
+        if self.mock_mode and self.test_client:
+            try:
+                logger.info(f"Using TestClient to query RAG for {user_name} with data source {data_source}")
+                response = self.test_client.post("/v1/chat/completions", json=payload)
+                response.raise_for_status()
+                data = response.json()
+                
+                # Extract the assistant message from the response
+                if "choices" in data and len(data["choices"]) > 0:
+                    choice = data["choices"][0]
+                    if "message" in choice and "content" in choice["message"]:
+                        return choice["message"]["content"]
+                
+                return "No response from RAG system."
+            except Exception as exc:
+                logger.error(f"TestClient error while querying RAG for {user_name}: {exc}")
+                if hasattr(exc, 'response') and hasattr(exc.response, 'status_code'):
+                    if exc.response.status_code == 403:
+                        raise HTTPException(status_code=403, detail="Access denied to data source")
+                    elif exc.response.status_code == 404:
+                        raise HTTPException(status_code=404, detail="Data source not found")
+                raise HTTPException(status_code=500, detail="Internal server error")
+        
+        # HTTP mode
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
-                payload = {
-                    "messages": messages,
-                    "user_name": user_name,
-                    "data_source": data_source,
-                    "model": "gpt-4-rag-mock",
-                    "stream": False
-                }
-                
                 response = await client.post(
                     f"{self.base_url}/v1/chat/completions",
                     json=payload
@@ -86,5 +159,12 @@ class RAGClient:
             raise HTTPException(status_code=500, detail="Internal server error")
 
 
-# Global RAG client instance
-rag_client = RAGClient()
+def initialize_rag_client():
+    """Initialize the global RAG client after environment variables are loaded."""
+    global rag_client
+    rag_client = RAGClient()
+    return rag_client
+
+
+# Global RAG client instance - will be initialized in main.py after env vars are loaded
+rag_client = None

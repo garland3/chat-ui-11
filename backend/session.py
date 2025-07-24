@@ -8,7 +8,7 @@ from fastapi import WebSocket, WebSocketDisconnect
 
 from mcp_client import MCPToolManager
 from utils import call_llm_with_tools, validate_selected_tools
-from rag_client import rag_client
+import rag_client
 
 logger = logging.getLogger(__name__)
 
@@ -185,7 +185,7 @@ class ChatSession:
         data_source = self.selected_data_sources[0]
         
         try:
-            response = await rag_client.query_rag(
+            response = await rag_client.rag_client.query_rag(
                 self.user_email,
                 data_source,
                 self.messages
@@ -213,7 +213,7 @@ class ChatSession:
         
         try:
             # Query RAG for context
-            rag_response = await rag_client.query_rag(
+            rag_response = await rag_client.rag_client.query_rag(
                 self.user_email,
                 data_source,
                 self.messages
