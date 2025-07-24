@@ -1,9 +1,0 @@
-fastapi
-uvicorn[standard]
-websockets
-python-multipart
-pydantic
-pyyaml
-python-dotenv
-fastmcp
-requests
