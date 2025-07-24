@@ -126,18 +126,33 @@ class MCPToolManager:
     def get_authorized_servers(self, user_email: str, auth_check_func) -> List[str]:
         """Get list of servers the user is authorized to use."""
         authorized = []
+        available_servers = self.get_available_servers()
         
-        for server_name in self.get_available_servers():
+        logger.info(f"Checking authorization for user {user_email} across {len(available_servers)} servers: {available_servers}")
+        
+        for server_name in available_servers:
             required_groups = self.get_server_groups(server_name)
+            logger.info(f"Server {server_name} requires groups: {required_groups}")
+            
             if not required_groups:  # No restrictions
+                logger.info(f"Server {server_name} has no group restrictions - adding to authorized list")
                 authorized.append(server_name)
             else:
                 # Check if user is in any required group
+                user_authorized = False
                 for group in required_groups:
-                    if auth_check_func(user_email, group):
+                    is_in_group = auth_check_func(user_email, group)
+                    logger.info(f"User {user_email} in group '{group}': {is_in_group}")
+                    if is_in_group:
+                        logger.info(f"User {user_email} authorized for server {server_name}")
                         authorized.append(server_name)
+                        user_authorized = True
                         break
+                
+                if not user_authorized:
+                    logger.info(f"User {user_email} NOT authorized for server {server_name}")
         
+        logger.info(f"Final authorized servers for {user_email}: {authorized}")
         return authorized
     
     async def cleanup(self):
