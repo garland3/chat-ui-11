@@ -1,0 +1,30 @@
+{
+  "filesystem": {
+    "command": ["python", "mcp/filesystem/main.py"],
+    "cwd": "backend",
+    "groups": ["users", "mcp_basic"],
+    "is_exclusive": false,
+    "description": "File system read/write operations"
+  },
+  "calculator": {
+    "command": ["python", "mcp/calculator/main.py"],
+    "cwd": "backend",
+    "groups": ["users"],
+    "is_exclusive": false,
+    "description": "Basic mathematical calculations"
+  },
+  "rag": {
+    "command": ["python", "mcp/rag/main.py"],
+    "cwd": "backend",
+    "groups": ["users"],
+    "is_exclusive": false,
+    "description": "Data retrieval and processing"
+  },
+  "secure": {
+    "command": ["python", "mcp/secure/main.py"],
+    "cwd": "backend",
+    "groups": ["admin", "mcp_advanced"],
+    "is_exclusive": true,
+    "description": "Advanced security-sensitive tools"
+  }
+}
