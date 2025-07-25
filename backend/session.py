@@ -26,7 +26,16 @@ class ChatSession:
         self.user_email = user_email
         self.mcp_manager = mcp_manager
         self._callbacks = callbacks
-        self.messages: List[Dict[str, Any]] = []
+        
+        # Initialize messages with system prompt
+        from prompt_utils import load_system_prompt
+        system_content = load_system_prompt(user_email)
+        self.messages: List[Dict[str, Any]] = [
+            {
+                "role": "system",
+                "content": system_content,
+            }
+        ]
         self.model_name: Optional[str] = None
         self.selected_tools: List[str] = []
         self.validated_servers: List[str] = []
@@ -38,7 +47,7 @@ class ChatSession:
         self.message_processor = MessageProcessor(self)
 
         logger.info(
-            "ChatSession created for user: %s (session: %s)",
+            "ChatSession created for user: %s (session: %s) with system prompt loaded",
             self.user_email,
             self.session_id,
         )
