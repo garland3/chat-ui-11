@@ -134,6 +134,9 @@ models:
 }
 ```
 
+### System Prompt Configuration
+The AI assistant behavior can be customized by editing `backend/prompts/system_prompt.md`. This file contains the system prompt that's loaded at runtime for new conversations. The prompt supports user personalization with `{user_email}` placeholders and is automatically formatted when loaded. Changes to this file take effect immediately for new conversations without requiring a server restart.
+
 ## MCP Servers
 
 The backend includes two demo MCP servers:
