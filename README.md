@@ -137,6 +137,20 @@ models:
 ### System Prompt Configuration
 The AI assistant behavior can be customized by editing `backend/prompts/system_prompt.md`. This file contains the system prompt that's loaded at runtime for new conversations. The prompt supports user personalization with `{user_email}` placeholders and is automatically formatted when loaded. Changes to this file take effect immediately for new conversations without requiring a server restart.
 
+### Offline Deployment
+For deployments without internet access, run the dependency download script to eliminate all external CDN calls:
+
+```bash
+python scripts/download-deps.py
+```
+
+This downloads the required JavaScript libraries (marked.js and DOMPurify) to `frontend/vendor/` and removes all external dependencies from the application. The main route serves `index.html` directly instead of redirecting to static files.
+
+**Manual edits required after running the script:**
+- Remove Google Fonts CDN links from `index.html` (fonts can be system fonts)
+- Remove source map reference from `purify.min.js` to prevent CDN lookups
+- Add vendor directory mounts in `main.py` for proper static file serving
+
 ## MCP Servers
 
 The backend includes two demo MCP servers:

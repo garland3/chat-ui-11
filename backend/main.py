@@ -45,7 +45,7 @@ from typing import Optional
 
 from fastapi import FastAPI, WebSocket, HTTPException, Depends
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 
 from middleware import AuthMiddleware
@@ -137,6 +137,8 @@ app.add_middleware(AuthMiddleware, debug_mode=DEBUG_MODE)
 
 # Serve static files
 app.mount("/static", StaticFiles(directory="../frontend"), name="static")
+app.mount("/vendor", StaticFiles(directory="../frontend/vendor"), name="vendor")
+app.mount("/fonts", StaticFiles(directory="../frontend/fonts"), name="fonts")
 
 
 # --- API Endpoints ---
@@ -144,7 +146,7 @@ app.mount("/static", StaticFiles(directory="../frontend"), name="static")
 @app.get("/")
 async def root():
     """Serve the main chat interface."""
-    return RedirectResponse(url="/static/index.html")
+    return FileResponse("../frontend/index.html")
 
 
 @app.get("/auth")
