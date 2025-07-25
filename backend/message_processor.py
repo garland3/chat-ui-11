@@ -180,6 +180,7 @@ class MessageProcessor:
             self.session.selected_tools = message.get("selected_tools", [])
             self.session.selected_data_sources = message.get("selected_data_sources", [])
             self.session.only_rag = message.get("only_rag", True)
+            self.session.tool_choice_required = message.get("tool_choice_required", False)
 
             logger.info(
                 "Received chat message from %s: content='%s...', model='%s', tools=%s, data_sources=%s, only_rag=%s",
@@ -245,6 +246,7 @@ class MessageProcessor:
                         self.session.mcp_manager,
                         self.session,  # Pass session for UI updates
                         agent_mode,  # Pass agent mode flag
+                        self.session.tool_choice_required,  # Pass tool choice preference
                     )
                     
                 await self.session._trigger_callbacks("after_llm_call", llm_response=llm_response)
@@ -307,6 +309,8 @@ class MessageProcessor:
                 self.session.websocket,
                 self.session.mcp_manager,
                 self.session,  # Pass session for UI updates
+                False,  # agent_mode
+                self.session.tool_choice_required,  # Pass tool choice preference
             )
         
         # Get RAG context from the first data source
@@ -340,6 +344,8 @@ class MessageProcessor:
                 self.session.websocket,
                 self.session.mcp_manager,
                 self.session,  # Pass session for UI updates
+                False,  # agent_mode
+                self.session.tool_choice_required,  # Pass tool choice preference
             )
             
             return llm_response
@@ -355,4 +361,6 @@ class MessageProcessor:
                 self.session.websocket,
                 self.session.mcp_manager,
                 self.session,  # Pass session for UI updates
+                False,  # agent_mode
+                self.session.tool_choice_required,  # Pass tool choice preference
             )

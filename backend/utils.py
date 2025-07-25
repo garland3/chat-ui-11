@@ -131,6 +131,7 @@ async def call_llm_with_tools(
     mcp_manager: MCPToolManager,
     session=None,  # Optional session for UI updates
     agent_mode: bool = False,  # New parameter for agent mode
+    tool_choice_required: bool = False,  # New parameter for tool choice preference
 ) -> str:
     """Call LLM with tool-calling support."""
     if not validated_servers:
@@ -162,12 +163,14 @@ async def call_llm_with_tools(
     model_id = model_config.model_name
 
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+    # Use user's tool choice preference, but fallback to exclusive server logic if not explicitly set
     is_exclusive = any(mcp_manager.is_server_exclusive(s) for s in validated_servers)
+    tool_choice = "required" if (tool_choice_required or is_exclusive) else "auto"
     payload = {
         "model": model_id,
         "messages": messages,
         "tools": tools_schema,
-        "tool_choice": "required" if is_exclusive else "auto",
+        "tool_choice": tool_choice,
         "max_tokens": 1000,
         "temperature": 0.7,
     }

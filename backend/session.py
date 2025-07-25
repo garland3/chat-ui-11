@@ -41,6 +41,7 @@ class ChatSession:
         self.validated_servers: List[str] = []
         self.selected_data_sources: List[str] = []
         self.only_rag: bool = True  # Default to true as per instructions
+        self.tool_choice_required: bool = False  # Tool choice mode: False = auto, True = required
         self.session_id: str = id(self)
         
         # Initialize message processor

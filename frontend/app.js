@@ -20,6 +20,10 @@ class ChatUI {
         this.currentAgentStep = 0; // Current step counter
         this.agentModeAvailable = true; // Whether agent mode UI is available
         this.isWelcomeScreenVisible = true; // Track welcome screen visibility
+        this.toolChoiceRequired = false; // Tool choice mode: false = auto, true = required
+        
+        // Load saved tool selections from localStorage
+        this.loadToolSelections();
         
         this.initializeMarkdown();
         this.initializeElements();
@@ -79,6 +83,7 @@ class ChatUI {
             toggleToolsPanel: document.getElementById('toggle-tools-panel'),
             closeToolsPanel: document.getElementById('close-tools-panel'),
             toolsPanel: document.getElementById('tools-panel'),
+            toolChoiceRequiredButton: document.getElementById('tool-choice-required-btn'),
             
             // RAG panel elements
             toggleRagPanel: document.getElementById('toggle-rag-panel'),
@@ -132,6 +137,9 @@ class ChatUI {
         // Tools panel functionality
         this.elements.toggleToolsPanel.addEventListener('click', () => this.toggleToolsPanel());
         this.elements.closeToolsPanel.addEventListener('click', () => this.closeToolsPanel());
+        this.elements.toolChoiceRequiredButton.addEventListener('click', () => {
+            this.toggleToolChoiceRequired();
+        });
         
         // RAG panel functionality
         this.elements.toggleRagPanel.addEventListener('click', () => this.toggleRagPanel());
@@ -163,6 +171,30 @@ class ChatUI {
         document.addEventListener('click', () => {
             this.closeDropdown();
         });
+    }
+    
+    loadToolSelections() {
+        // Load tool selections from localStorage
+        try {
+            const savedSelections = localStorage.getItem('chatui-selected-tools');
+            if (savedSelections) {
+                const selections = JSON.parse(savedSelections);
+                this.selectedTools = new Set(selections);
+            }
+        } catch (error) {
+            console.warn('Failed to load tool selections from localStorage:', error);
+            this.selectedTools = new Set();
+        }
+    }
+    
+    saveToolSelections() {
+        // Save current tool selections to localStorage
+        try {
+            const selections = Array.from(this.selectedTools);
+            localStorage.setItem('chatui-selected-tools', JSON.stringify(selections));
+        } catch (error) {
+            console.warn('Failed to save tool selections to localStorage:', error);
+        }
     }
     
     connectWebSocket() {
@@ -236,6 +268,9 @@ class ChatUI {
         
         // Show/hide agent mode button based on availability
         this.updateAgentModeVisibility();
+        
+        // Update tool choice button state
+        this.updateToolChoiceButton();
     }
     
     updateWelcomeMessage() {
@@ -290,10 +325,14 @@ class ChatUI {
             return;
         }
         
-        // Auto-select canvas tool by default
-        const canvasTool = this.tools.find(tool => tool.server === 'canvas');
-        if (canvasTool && canvasTool.tools.includes('canvas')) {
-            this.selectedTools.add('canvas_canvas');
+        // Auto-select canvas tool by default for new users (only if no selections saved)
+        const hasAnySavedSelections = localStorage.getItem('chatui-selected-tools');
+        if (!hasAnySavedSelections) {
+            const canvasTool = this.tools.find(tool => tool.server === 'canvas');
+            if (canvasTool && canvasTool.tools.includes('canvas')) {
+                this.selectedTools.add('canvas_canvas');
+                this.saveToolSelections(); // Save this initial selection
+            }
         }
         
         this.elements.toolsList.innerHTML = this.tools
@@ -361,6 +400,7 @@ class ChatUI {
         // Update the display
         this.updateToolsList();
         this.updateSelectedToolsDisplay();
+        this.saveToolSelections(); // Save to localStorage
     }
     
     toggleTool(toolKey, tagElement) {
@@ -373,6 +413,7 @@ class ChatUI {
         }
         
         this.updateSelectedToolsDisplay();
+        this.saveToolSelections(); // Save to localStorage
     }
     
     updateSelectedToolsDisplay() {
@@ -466,6 +507,19 @@ class ChatUI {
     
     closeToolsPanel() {
         this.elements.toolsPanel.classList.add('tools-panel-hidden');
+    }
+    
+    toggleToolChoiceRequired() {
+        this.toolChoiceRequired = !this.toolChoiceRequired;
+        this.updateToolChoiceButton();
+    }
+    
+    updateToolChoiceButton() {
+        if (this.toolChoiceRequired) {
+            this.elements.toolChoiceRequiredButton.classList.add('active');
+        } else {
+            this.elements.toolChoiceRequiredButton.classList.remove('active');
+        }
     }
     
     toggleRagPanel() {
@@ -600,6 +654,7 @@ class ChatUI {
             selected_tools: selectedToolsList,
             selected_data_sources: selectedDataSourcesList,
             only_rag: this.onlyRag,
+            tool_choice_required: this.toolChoiceRequired,
             user: this.user
         };
         

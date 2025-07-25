@@ -800,6 +800,54 @@ body {
     margin-right: -18rem;
 }
 
+/* Tool Choice Controls */
+.tool-choice-controls {
+    padding: 1rem;
+    border-bottom: 1px solid #374151; /* gray-700 */
+}
+
+.tool-choice-button {
+    /* Reset browser defaults */
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    
+    /* Full width with margins */
+    width: calc(100% - 2rem);
+    margin: 0 1rem;
+    display: block;
+    
+    /* Custom styling */
+    background: #374151; /* gray-700 */
+    color: #e5e7eb; /* gray-200 */
+    border: 1px solid #4b5563; /* gray-600 */
+    border-radius: 6px;
+    padding: 0.5rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+    box-sizing: border-box;
+}
+
+.tool-choice-button:hover {
+    background: #4b5563; /* gray-600 */
+    border-color: #6b7280; /* gray-500 */
+}
+
+.tool-choice-button.active {
+    background: #3b82f6; /* blue-500 */
+    border-color: #2563eb; /* blue-600 */
+    color: #ffffff;
+}
+
+.tool-choice-button.active:hover {
+    background: #2563eb; /* blue-600 */
+    border-color: #1d4ed8; /* blue-700 */
+}
+
 /* RAG Panel */
 .rag-panel {
     width: 18rem;
