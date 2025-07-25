@@ -3,8 +3,9 @@
 import logging
 import os
 from typing import Dict, List, Optional
-import httpx
 from fastapi import HTTPException
+
+from http_client import create_rag_client
 
 logger = logging.getLogger(__name__)
 
@@ -13,10 +14,13 @@ class RAGClient:
     """Client for communicating with RAG mock API."""
     
     def __init__(self):
-        self.mock_mode = os.getenv("MOCK_RAG", "false").lower() == "true"
-        self.base_url = os.getenv("RAG_MOCK_URL", "http://localhost:8001")
+        from config import config_manager
+        app_settings = config_manager.app_settings
+        self.mock_mode = app_settings.mock_rag
+        self.base_url = app_settings.rag_mock_url
         self.timeout = 30.0
         self.test_client = None
+        self.http_client = create_rag_client(self.base_url, self.timeout)
         
         if self.mock_mode:
             self._setup_test_client()
@@ -45,9 +49,7 @@ class RAGClient:
             self.test_client = TestClient(rag_app)
             logger.info("RAG TestClient initialized successfully")
         except Exception as exc:
-            logger.error(f"Failed to setup RAG TestClient: {exc}")
-            import traceback
-            logger.error(f"Full traceback: {traceback.format_exc()}")
+            logger.error(f"Failed to setup RAG TestClient: {exc}", exc_info=True)
             # Fall back to HTTP mode
             self.mock_mode = False
         
@@ -63,33 +65,19 @@ class RAGClient:
                 data = response.json()
                 return data.get("accessible_data_sources", [])
             except Exception as exc:
-                logger.error(f"TestClient error while discovering data sources for {user_name}: {exc}")
+                logger.error(f"TestClient error while discovering data sources for {user_name}: {exc}", exc_info=True)
                 return []
         
-        # HTTP mode
+        # HTTP mode using unified client
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.get(
-                    f"{self.base_url}/v1/discover/datasources/{user_name}"
-                )
-                response.raise_for_status()
-                data = response.json()
-                return data.get("accessible_data_sources", [])
-        except httpx.RequestError as exc:
-            logger.error(f"Request error while discovering data sources for {user_name}: {exc}")
-            import traceback
-            print(traceback.format_exc())
-            # Return empty list instead of raising error for graceful degradation
-            return []
-        except httpx.HTTPStatusError as exc:
-            logger.error(f"HTTP error {exc.response.status_code} while discovering data sources for {user_name}: {exc}")
-            if exc.response.status_code == 404:
-                # User not found
-                return []
-            # Return empty list for other errors to avoid breaking the app
+            data = await self.http_client.get(f"/v1/discover/datasources/{user_name}")
+            return data.get("accessible_data_sources", [])
+        except HTTPException as exc:
+            logger.warning(f"HTTP error discovering data sources for {user_name}: {exc.detail}")
+            # Return empty list for graceful degradation instead of raising
             return []
         except Exception as exc:
-            logger.error(f"Unexpected error while discovering data sources for {user_name}: {exc}")
+            logger.error(f"Unexpected error while discovering data sources for {user_name}: {exc}", exc_info=True)
             return []
     
     async def query_rag(self, user_name: str, data_source: str, messages: List[Dict]) -> str:
@@ -117,7 +105,7 @@ class RAGClient:
                 
                 return "No response from RAG system."
             except Exception as exc:
-                logger.error(f"TestClient error while querying RAG for {user_name}: {exc}")
+                logger.error(f"TestClient error while querying RAG for {user_name}: {exc}", exc_info=True)
                 if hasattr(exc, 'response') and hasattr(exc.response, 'status_code'):
                     if exc.response.status_code == 403:
                         raise HTTPException(status_code=403, detail="Access denied to data source")
@@ -125,37 +113,23 @@ class RAGClient:
                         raise HTTPException(status_code=404, detail="Data source not found")
                 raise HTTPException(status_code=500, detail="Internal server error")
         
-        # HTTP mode
+        # HTTP mode using unified client
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.post(
-                    f"{self.base_url}/v1/chat/completions",
-                    json=payload
-                )
-                response.raise_for_status()
-                data = response.json()
-                
-                # Extract the assistant message from the response
-                if "choices" in data and len(data["choices"]) > 0:
-                    choice = data["choices"][0]
-                    if "message" in choice and "content" in choice["message"]:
-                        return choice["message"]["content"]
-                
-                return "No response from RAG system."
-                
-        except httpx.RequestError as exc:
-            logger.error(f"Request error while querying RAG for {user_name}: {exc}")
-            raise HTTPException(status_code=503, detail="RAG service unavailable")
-        except httpx.HTTPStatusError as exc:
-            logger.error(f"HTTP error {exc.response.status_code} while querying RAG for {user_name}: {exc}")
-            if exc.response.status_code == 403:
-                raise HTTPException(status_code=403, detail="Access denied to data source")
-            elif exc.response.status_code == 404:
-                raise HTTPException(status_code=404, detail="Data source not found")
-            else:
-                raise HTTPException(status_code=503, detail="RAG service error")
+            data = await self.http_client.post("/v1/chat/completions", json_data=payload)
+            
+            # Extract the assistant message from the response
+            if "choices" in data and len(data["choices"]) > 0:
+                choice = data["choices"][0]
+                if "message" in choice and "content" in choice["message"]:
+                    return choice["message"]["content"]
+            
+            return "No response from RAG system."
+            
+        except HTTPException:
+            # Re-raise HTTPExceptions from the unified client (they already have proper error handling)
+            raise
         except Exception as exc:
-            logger.error(f"Unexpected error while querying RAG for {user_name}: {exc}")
+            logger.error(f"Unexpected error while querying RAG for {user_name}: {exc}", exc_info=True)
             raise HTTPException(status_code=500, detail="Internal server error")
 
 

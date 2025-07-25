@@ -51,7 +51,7 @@ from middleware import AuthMiddleware
 from mcp_client import MCPToolManager
 from auth import is_user_in_group
 from session import SessionManager
-from config_utils import load_llm_config
+from config import config_manager
 from utils import get_current_user
 from callbacks import (
     log_session_events_callback,
@@ -128,8 +128,9 @@ async def lifespan(app: FastAPI):
 
 
 # Create FastAPI app
-DEBUG_MODE = os.getenv("DEBUG_MODE", "false").lower() == "true"
-app = FastAPI(title="Chat UI Backend", lifespan=lifespan)
+app_settings = config_manager.app_settings
+DEBUG_MODE = app_settings.debug_mode
+app = FastAPI(title=app_settings.app_name, lifespan=lifespan)
 
 # Add middleware
 app.add_middleware(AuthMiddleware, debug_mode=DEBUG_MODE)
@@ -153,7 +154,7 @@ async def get_config(current_user: str = Depends(get_current_user)):
     """Get available models, tools, and data sources for the user.
     Only returns MCP servers and tools that the user is authorized to access.
     """
-    llm_config = load_llm_config()
+    llm_config = config_manager.llm_config
     
     # Get RAG data sources for the user
     rag_data_sources = await rag_client.rag_client.discover_data_sources(current_user)
@@ -194,18 +195,15 @@ async def get_config(current_user: str = Depends(get_current_user)):
     logger.info(f"User {current_user} has access to {len(authorized_servers)} servers: {authorized_servers}")
     logger.info(f"Returning {len(tools_info)} server tool groups to frontend for user {current_user}")
     
-    # Check if agent mode is available
-    agent_mode_available = os.getenv("AGENT_MODE_AVAILABLE", "true").lower() == "true"
-    
     return {
-        "app_name": os.getenv("APP_NAME", "Chat UI"),
-        "models": list(llm_config.get("models", {}).keys()) if llm_config else [],
+        "app_name": app_settings.app_name,
+        "models": list(llm_config.models.keys()),
         "tools": tools_info,  # Only authorized servers are included
         "data_sources": rag_data_sources,  # RAG data sources for the user
         "user": current_user,
         "active_sessions": session_manager.get_session_count() if session_manager else 0,
         "authorized_servers": authorized_servers,  # Optional: expose for debugging
-        "agent_mode_available": agent_mode_available  # Whether agent mode UI should be shown
+        "agent_mode_available": app_settings.agent_mode_available  # Whether agent mode UI should be shown
     }
 
 
@@ -291,5 +289,4 @@ app.mount("/", StaticFiles(directory="../frontend", html=True), name="root")
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.getenv("PORT", 8000))
-    uvicorn.run("main:app", host="0.0.0.0", port=port, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=app_settings.port, reload=True)

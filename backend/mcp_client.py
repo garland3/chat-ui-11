@@ -5,7 +5,8 @@ import os
 from typing import Dict, List, Any
 
 from fastmcp import Client
-from config_utils import load_mcp_config
+from config import config_manager
+from auth_utils import create_authorization_manager
 
 logger = logging.getLogger(__name__)
 
@@ -15,7 +16,8 @@ class MCPToolManager:
     
     def __init__(self, config_path: str = "mcp.json"):
         self.config_path = config_path
-        self.servers_config = load_mcp_config(config_path)
+        mcp_config = config_manager.mcp_config
+        self.servers_config = {name: server.model_dump() for name, server in mcp_config.servers.items()}
         self.clients = {}
         self.available_tools = {}
         
@@ -27,24 +29,17 @@ class MCPToolManager:
                 # TODO: allow different mcp types. 
                 # Create client based on server type
                 server_path = f"mcp/{server_name}/main.py"
-                print(f"[DEBUG] Attempting to initialize {server_name} at path: {server_path}")
+                logger.debug(f"Attempting to initialize {server_name} at path: {server_path}")
                 if os.path.exists(server_path):
-                    print(f"[DEBUG] Server script exists for {server_name}, creating client...")
+                    logger.debug(f"Server script exists for {server_name}, creating client...")
                     client = Client(server_path)
                     self.clients[server_name] = client
                     logger.info(f"Created MCP client for {server_name}")
-                    print(f"[DEBUG] Successfully created client for {server_name}")
+                    logger.debug(f"Successfully created client for {server_name}")
                 else:
-                    logger.error(f"MCP server script not found: {server_path}")
-                    print(f"[DEBUG] Server script NOT found: {server_path}")
-                    # add traceback
-                    import traceback
-                    print(traceback.format_exc())
+                    logger.error(f"MCP server script not found: {server_path}", exc_info=True)
             except Exception as e:
-                logger.error(f"Error creating client for {server_name}: {e}")
-                import traceback
-                print(f"[DEBUG] Full traceback for {server_name}:")
-                print(traceback.format_exc())
+                logger.error(f"Error creating client for {server_name}: {e}", exc_info=True)
     
     async def discover_tools(self):
         """Discover tools from all MCP servers."""
@@ -52,30 +47,26 @@ class MCPToolManager:
 
         
         for server_name, client in self.clients.items():
-            print(f"[DEBUG] Attempting to discover tools from {server_name}")
+            logger.debug(f"Attempting to discover tools from {server_name}")
             try:
-                print(f"[DEBUG] Opening client connection for {server_name}")
+                logger.debug(f"Opening client connection for {server_name}")
                 async with client:
-                    print(f"[DEBUG] Client connected for {server_name}, listing tools...")
+                    logger.debug(f"Client connected for {server_name}, listing tools...")
                     tools = await client.list_tools()
-                    print(f"[DEBUG] Got {len(tools)} tools from {server_name}: {[tool.name for tool in tools]}")
+                    logger.debug(f"Got {len(tools)} tools from {server_name}: {[tool.name for tool in tools]}")
                     self.available_tools[server_name] = {
                         'tools': tools,
                         'config': self.servers_config[server_name]
                     }
                     logger.info(f"Discovered {len(tools)} tools from {server_name}")
-                    print(f"[DEBUG] Successfully stored tools for {server_name}")
+                    logger.debug(f"Successfully stored tools for {server_name}")
             except Exception as e:
-                logger.error(f"Error discovering tools from {server_name}: {e}")
-                # use traceback
-                import traceback
-                print(f"[DEBUG] Full traceback for {server_name} tool discovery:")
-                print(traceback.format_exc())
+                logger.error(f"Error discovering tools from {server_name}: {e}", exc_info=True)
                 self.available_tools[server_name] = {
                     'tools': [],
                     'config': self.servers_config[server_name]
                 }
-                print(f"[DEBUG] Set empty tools list for failed server {server_name}")
+                logger.debug(f"Set empty tools list for failed server {server_name}")
     
     def get_server_groups(self, server_name: str) -> List[str]:
         """Get required groups for a server."""
@@ -163,35 +154,16 @@ class MCPToolManager:
     
     def get_authorized_servers(self, user_email: str, auth_check_func) -> List[str]:
         """Get list of servers the user is authorized to use."""
-        authorized = []
-        available_servers = self.get_available_servers()
-        
-        logger.info(f"Checking authorization for user {user_email} across {len(available_servers)} servers: {available_servers}")
-        
-        for server_name in available_servers:
-            required_groups = self.get_server_groups(server_name)
-            logger.info(f"Server {server_name} requires groups: {required_groups}")
-            
-            if not required_groups:  # No restrictions
-                logger.info(f"Server {server_name} has no group restrictions - adding to authorized list")
-                authorized.append(server_name)
-            else:
-                # Check if user is in any required group
-                user_authorized = False
-                for group in required_groups:
-                    is_in_group = auth_check_func(user_email, group)
-                    logger.info(f"User {user_email} in group '{group}': {is_in_group}")
-                    if is_in_group:
-                        logger.info(f"User {user_email} authorized for server {server_name}")
-                        authorized.append(server_name)
-                        user_authorized = True
-                        break
-                
-                if not user_authorized:
-                    logger.info(f"User {user_email} NOT authorized for server {server_name}")
-        
-        logger.info(f"Final authorized servers for {user_email}: {authorized}")
-        return authorized
+        try:
+            auth_manager = create_authorization_manager(auth_check_func)
+            return auth_manager.filter_authorized_servers(
+                user_email, 
+                self.servers_config, 
+                self.get_server_groups
+            )
+        except Exception as e:
+            logger.error(f"Error getting authorized servers for {user_email}: {e}", exc_info=True)
+            return []
     
     async def cleanup(self):
         """Cleanup all clients."""

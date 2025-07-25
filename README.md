@@ -9,9 +9,36 @@ A modern LLM chat interface with MCP (Model Context Protocol) integration, simil
 - **Authentication**: Reverse proxy authentication with x-email-header support
 - **Authorization**: Group-based access control for MCP servers
 - **Real-time Communication**: WebSocket-based chat interface
+- **Modern Configuration**: Pydantic-based type-safe configuration system
+- **Unified Error Handling**: Centralized HTTP client and comprehensive error logging
 - **Modular Design**: Highly modular codebase with maximum 400 lines per file
 - **Vanilla JavaScript**: Frontend built without build tools for easy npm migration
 - **Security**: Robust authentication, authorization, and server-side validation
+
+## 🆕 Recent Improvements (v2.0)
+
+The codebase has been significantly refactored for better maintainability and reliability:
+
+### **Configuration System Overhaul**
+- **Pydantic Models**: Type-safe configuration with automatic validation
+- **Centralized Management**: Single `config.py` file manages all settings
+- **Environment Integration**: Seamless .env file loading with fallback defaults
+- **Eliminated Duplication**: Removed ~150 lines of duplicate configuration code
+
+### **Unified HTTP Client**
+- **Consistent Error Handling**: Standardized HTTP error responses across all services
+- **Comprehensive Logging**: All HTTP errors now include full tracebacks
+- **Reusable**: Single HTTP client used by RAG service and other components
+
+### **Authorization Utilities**
+- **Centralized Logic**: All authorization logic moved to `auth_utils.py`
+- **Better Security**: Enhanced security violation logging and monitoring
+- **Testable**: Clean, testable authorization functions
+
+### **Enhanced Error Logging**
+- **Full Tracebacks**: All errors now use `exc_info=True` for complete stack traces
+- **Standardized**: Consistent error logging patterns throughout codebase
+- **Debug Cleanup**: Removed all debug print statements in favor of proper logging
 
 ## Architecture
 
@@ -36,7 +63,6 @@ This was extracted from `ChatSession` to improve modularity, testability, and ma
 
 ### Project Structure
 ```
-
 ├── frontend/          # Frontend application
 │   ├── index.html     # Main chat interface
 │   ├── style.css      # UI styles
@@ -45,14 +71,24 @@ This was extracted from `ChatSession` to improve modularity, testability, and ma
 │   ├── main.py        # Main FastAPI application
 │   ├── session.py     # WebSocket session management
 │   ├── message_processor.py # Core message processing logic
+│   ├── config.py      # 🆕 Unified Pydantic configuration system
+│   ├── http_client.py # 🆕 Unified HTTP client with error handling
+│   ├── auth_utils.py  # 🆕 Centralized authorization utilities
 │   ├── middleware.py  # Authentication middleware
 │   ├── auth.py        # Authorization functions
 │   ├── mcp_client.py  # MCP client implementation
+│   ├── utils.py       # Utility functions (refactored)
+│   ├── rag_client.py  # RAG integration client (refactored)
+│   ├── callbacks.py   # Event callback functions
+│   ├── prompt_utils.py # System prompt utilities
 │   ├── mcp/           # MCP servers
 │   │   ├── filesystem/ # File system operations
 │   │   ├── calculator/ # Mathematical calculations
-│   │   └── thinking/   # Structured thinking tool
+│   │   ├── secure/     # Secure operations
+│   │   ├── thinking/   # Structured thinking tool
+│   │   └── duckduckgo/ # Web search integration
 │   └── logs/          # Application logs
+├── rag-mock/          # Mock RAG service for testing
 ├── Dockerfile         # Container configuration
 ├── .env               # Environment variables
 ├── llmconfig.yml      # LLM configurations
@@ -102,10 +138,31 @@ This was extracted from `ChatSession` to improve modularity, testability, and ma
 
 ## Configuration
 
+The project now uses a **modern Pydantic-based configuration system** that provides type safety, validation, and centralized management of all settings.
+
+### Configuration Architecture
+
+- **`config.py`** - Unified configuration management with Pydantic models
+- **Type-safe** - Automatic validation and type checking
+- **Environment integration** - Seamless .env file loading
+- **Centralized** - Single source of truth for all configuration
+
 ### Environment Variables (.env)
 ```bash
-DEBUG_MODE=true              # Skip authentication in development
+# Application Settings
+DEBUG_MODE=true              # Skip authentication in development  
 PORT=8000                   # Server port
+APP_NAME="Chat UI"          # Application name
+
+# RAG Settings
+MOCK_RAG=true               # Use mock RAG service for testing
+RAG_MOCK_URL=http://localhost:8001  # RAG service URL
+
+# Agent Settings
+AGENT_MODE_AVAILABLE=false  # Enable agent mode UI
+AGENT_MAX_STEPS=10          # Maximum agent reasoning steps
+
+# API Keys (used by LLM config)
 OPENAI_API_KEY=your_key     # OpenAI API key
 ANTHROPIC_API_KEY=your_key  # Anthropic API key
 GOOGLE_API_KEY=your_key     # Google API key
@@ -125,13 +182,41 @@ models:
 ```json
 {
   "filesystem": {
-    "command": ["python", "mcp/filesystem/main.py"],
-    "cwd": "backend",
     "groups": ["users", "mcp_basic"],
     "is_exclusive": false,
-    "description": "File system read/write operations"
+    "description": "File system read/write operations",
+    "enabled": true
+  },
+  "calculator": {
+    "groups": ["users"],
+    "is_exclusive": false,
+    "description": "Mathematical calculations",
+    "enabled": true
+  },
+  "duckduckgo": {
+    "groups": ["users", "mcp_basic"],
+    "is_exclusive": false,
+    "description": "Web search via DuckDuckGo",
+    "enabled": true
   }
 }
+```
+
+### Accessing Configuration in Code
+```python
+from config import config_manager
+
+# Get application settings
+app_settings = config_manager.app_settings
+print(f"Running {app_settings.app_name} on port {app_settings.port}")
+
+# Get LLM configuration
+llm_config = config_manager.llm_config
+models = list(llm_config.models.keys())
+
+# Get MCP configuration
+mcp_config = config_manager.mcp_config
+servers = list(mcp_config.servers.keys())
 ```
 
 ### System Prompt Configuration
@@ -256,10 +341,24 @@ The backend includes two demo MCP servers:
 
 ## Logging
 
+The application uses comprehensive logging with the following improvements:
+
+### **Enhanced Error Logging**
+- **Full Tracebacks**: All errors include complete stack traces (`exc_info=True`)
+- **Consistent Format**: Standardized logging patterns across all modules
+- **Security Auditing**: Special logging for security violations and authorization failures
+
+### **Log Files**
 All application logs are written to `backend/logs/app.log` with the following format:
 ```
-2024-01-01 12:00:00 - module - INFO - Request: GET /api/config
+2024-01-01 12:00:00,123 - module_name - ERROR - Error message with full traceback
 ```
+
+### **Log Levels**
+- **ERROR**: All exceptions and errors (with full tracebacks)
+- **WARNING**: Security violations, authorization failures, deprecated usage
+- **INFO**: Application lifecycle events, successful operations
+- **DEBUG**: Detailed debugging information (development only)
 
 ## Troubleshooting
 
@@ -271,9 +370,11 @@ All application logs are written to `backend/logs/app.log` with the following fo
 
 ### Development Tips
 - Use browser developer tools to inspect WebSocket messages
-- Check `backend/logs/app.log` for server-side errors
-- Verify environment variables are loaded correctly
+- Check `backend/logs/app.log` for server-side errors (now includes full tracebacks)
+- Verify environment variables with: `python -c "from config import config_manager; print(config_manager.app_settings)"`
+- Test configuration loading: `python -c "from config import config_manager; print('✅ Config OK')"`
 - Test MCP servers independently using command line
+- Use the new authorization utilities for consistent permission checking
 
 ## Contributing
 
@@ -282,6 +383,11 @@ All application logs are written to `backend/logs/app.log` with the following fo
 3. Write unit tests for new features
 4. Update documentation for API changes
 5. Follow existing code patterns and conventions
+6. **Use the new utilities**: 
+   - Import from `config.config_manager` for all configuration
+   - Use `http_client.UnifiedHTTPClient` for HTTP requests
+   - Use `auth_utils.AuthorizationManager` for permission checks
+   - Always use `exc_info=True` for error logging
 
 ## License
 

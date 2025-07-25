@@ -45,8 +45,9 @@ class MessageProcessor:
         Uses minimal changes approach to reuse all existing logic.
         """
         try:
-            max_steps_env = int(os.getenv("AGENT_MAX_STEPS", "10"))
-            max_steps = min(message.get("agent_max_steps", 5), max_steps_env)
+            from config import config_manager
+            app_settings = config_manager.app_settings
+            max_steps = min(message.get("agent_max_steps", 5), app_settings.agent_max_steps)
             step_count = 0
             
             logger.info(
