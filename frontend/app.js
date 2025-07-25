@@ -97,6 +97,12 @@ class ChatUI {
             agentStepsSlider: document.getElementById('agent-steps-slider'),
             agentStepsValue: document.getElementById('agent-steps-value'),
             agentProgress: document.getElementById('agent-progress'),
+            
+            // Canvas panel elements
+            canvasPanel: document.getElementById('canvas-panel'),
+            canvasContent: document.getElementById('canvas-content'),
+            closeCanvasPanel: document.getElementById('close-canvas-panel'),
+            chatContainer: document.getElementById('chat-container'),
             currentStep: document.getElementById('current-step'),
             maxSteps: document.getElementById('max-steps'),
             progressFill: document.getElementById('progress-fill')
@@ -149,6 +155,9 @@ class ChatUI {
             this.agentMaxSteps = parseInt(e.target.value);
             this.elements.agentStepsValue.textContent = this.agentMaxSteps;
         });
+        
+        // Canvas panel functionality
+        this.elements.closeCanvasPanel.addEventListener('click', () => this.closeCanvasPanel());
         
         // Close dropdown when clicking outside
         document.addEventListener('click', () => {
@@ -279,6 +288,12 @@ class ChatUI {
         if (this.tools.length === 0) {
             this.elements.toolsList.innerHTML = '<div class="loading">No tools available</div>';
             return;
+        }
+        
+        // Auto-select canvas tool by default
+        const canvasTool = this.tools.find(tool => tool.server === 'canvas');
+        if (canvasTool && canvasTool.tools.includes('canvas')) {
+            this.selectedTools.add('canvas_canvas');
         }
         
         this.elements.toolsList.innerHTML = this.tools
@@ -461,6 +476,47 @@ class ChatUI {
         this.elements.ragPanel.classList.add('rag-panel-hidden');
     }
     
+    showCanvasPanel() {
+        this.elements.canvasPanel.classList.remove('canvas-panel-hidden');
+        this.elements.canvasPanel.classList.add('canvas-panel-visible');
+        // Adjust chat container width when canvas is shown
+        this.elements.chatContainer.style.width = '50%';
+    }
+    
+    closeCanvasPanel() {
+        this.elements.canvasPanel.classList.remove('canvas-panel-visible');
+        this.elements.canvasPanel.classList.add('canvas-panel-hidden');
+        // Reset chat container width when canvas is hidden
+        this.elements.chatContainer.style.width = '100%';
+    }
+    
+    updateCanvasContent(content) {
+        // Clear placeholder and render markdown content
+        this.elements.canvasContent.innerHTML = '';
+        
+        const contentDiv = document.createElement('div');
+        contentDiv.className = 'markdown-content';
+        
+        if (typeof marked !== 'undefined') {
+            // Sanitize the content using DOMPurify if available
+            let htmlContent = marked.parse(content);
+            if (typeof DOMPurify !== 'undefined') {
+                htmlContent = DOMPurify.sanitize(htmlContent);
+            }
+            contentDiv.innerHTML = htmlContent;
+        } else {
+            // Fallback to plain text if marked is not available
+            contentDiv.textContent = content;
+        }
+        
+        this.elements.canvasContent.appendChild(contentDiv);
+        
+        // Show canvas panel if it's hidden
+        if (this.elements.canvasPanel.classList.contains('canvas-panel-hidden')) {
+            this.showCanvasPanel();
+        }
+    }
+    
     toggleAgentModal() {
         this.elements.agentModal.classList.toggle('hidden');
     }
@@ -620,6 +676,10 @@ class ChatUI {
                 this.handleAgentFinalResponse(data);
                 break;
                 
+            case 'canvas_content':
+                this.handleCanvasContent(data);
+                break;
+                
             default:
                 console.warn('Unknown message type:', data.type);
         }
@@ -635,6 +695,9 @@ class ChatUI {
                 break;
             case 'tool_result':
                 this.addToolResultUpdate(updateData);
+                break;
+            case 'canvas_content':
+                this.handleCanvasContent(updateData);
                 break;
             default:
                 console.warn('Unknown intermediate update type:', updateType);
@@ -761,6 +824,13 @@ class ChatUI {
         // Add final response with step summary
         const responseWithSummary = `${data.message}\n\n*Agent completed in ${data.steps_taken} steps*`;
         this.addMessage('assistant', responseWithSummary);
+    }
+    
+    handleCanvasContent(data) {
+        console.log('Canvas content received:', data);
+        if (data.content) {
+            this.updateCanvasContent(data.content);
+        }
     }
     
     addMessage(sender, content, showThinking = false) {

@@ -161,10 +161,22 @@ async def get_config(current_user: str = Depends(get_current_user)):
     # Get authorized servers for the user - this filters out unauthorized servers completely
     authorized_servers = mcp_manager.get_authorized_servers(current_user, is_user_in_group)
     
+    # Add canvas pseudo-tool to authorized servers (available to all users)
+    authorized_servers.append("canvas")
+    
     # Only build tool information for servers the user is authorized to access
     tools_info = []
     for server_name in authorized_servers:
-        if server_name in mcp_manager.available_tools:
+        # Handle canvas pseudo-tool
+        if server_name == "canvas":
+            tools_info.append({
+                'server': 'canvas',
+                'tools': ['canvas'],
+                'tool_count': 1,
+                'description': 'Canvas for showing final rendered content: complete code, reports, and polished documents. Use this to finalize your work. Most code and reports will be shown here.',
+                'is_exclusive': False
+            })
+        elif server_name in mcp_manager.available_tools:
             server_tools = mcp_manager.available_tools[server_name]['tools']
             server_config = mcp_manager.available_tools[server_name]['config']
             

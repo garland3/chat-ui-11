@@ -41,7 +41,28 @@
 
     <!-- Main Chat Area -->
     <div id="main-content" class="main-content">
-        <!-- Header -->
+        <!-- Canvas Panel -->
+        <aside id="canvas-panel" class="canvas-panel canvas-panel-hidden">
+            <div class="panel-header">
+                <h2>Canvas</h2>
+                <button id="close-canvas-panel" class="icon-button">
+                    <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="panel-content">
+                <div id="canvas-content" class="canvas-content">
+                    <div class="canvas-placeholder">
+                        <p>Canvas content will appear here when the AI uses the canvas tool.</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+        
+        <!-- Chat Content Container -->
+        <div id="chat-container" class="chat-container">
+            <!-- Header -->
         <header class="header">
             <div class="header-left">
                 <button id="toggle-rag-panel" class="icon-button" title="Toggle Data Sources">
@@ -127,7 +148,8 @@
                 </div>
             </div>
         </footer>
-    </div>
+        </div> <!-- End chat-container -->
+    </div> <!-- End main-content -->
 
     <!-- Collapsible Tools Panel -->
     <aside id="tools-panel" class="tools-panel tools-panel-hidden">

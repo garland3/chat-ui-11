@@ -85,7 +85,31 @@ class MCPToolManager:
         server_tool_mapping = {}
         
         for server_name in server_names:
-            if server_name in self.available_tools:
+            # Handle canvas pseudo-tool
+            if server_name == "canvas":
+                canvas_tool_schema = {
+                    "type": "function",
+                    "function": {
+                        "name": "canvas_canvas",
+                        "description": "Display final rendered content in a visual canvas panel. Use this for: 1) Complete code (not code discussions), 2) Final reports/documents (not report discussions), 3) Data visualizations, 4) Any polished content that should be viewed separately from the conversation. Put the actual content in the canvas, keep discussions in chat.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "content": {
+                                    "type": "string",
+                                    "description": "The content to display in the canvas. Can be markdown, code, or plain text."
+                                }
+                            },
+                            "required": ["content"]
+                        }
+                    }
+                }
+                tools_schema.append(canvas_tool_schema)
+                server_tool_mapping["canvas_canvas"] = {
+                    'server': 'canvas',
+                    'tool_name': 'canvas'
+                }
+            elif server_name in self.available_tools:
                 server_tools = self.available_tools[server_name]['tools']
                 for tool in server_tools:
                     # Convert MCP tool format to OpenAI function calling format

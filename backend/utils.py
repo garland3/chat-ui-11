@@ -37,7 +37,8 @@ async def validate_selected_tools(
         parts = tool_key.split("_", 1)
         if len(parts) == 2:
             server_name = parts[0]
-            if server_name in authorized_servers:
+            # Allow canvas pseudo-tool for all users
+            if server_name == "canvas" or server_name in authorized_servers:
                 requested_server_names.add(server_name)
             else:
                 logger.warning(
@@ -229,6 +230,25 @@ async def call_llm_with_tools(
                         "tool_call_id": tool_call["id"],
                         "role": "tool",
                         "content": f"Agent completion acknowledged: {summary}"
+                    })
+                    continue
+                
+                # Handle canvas tool specially
+                if function_name == "canvas_canvas":
+                    logger.info("Canvas tool called by user %s", user_email)
+                    content = function_args.get("content", "")
+                    
+                    # Send canvas content to UI
+                    if session:
+                        await session.send_update_to_ui("canvas_content", {
+                            "content": content,
+                            "tool_call_id": tool_call["id"]
+                        })
+                    
+                    tool_results.append({
+                        "tool_call_id": tool_call["id"],
+                        "role": "tool",
+                        "content": f"Content displayed in canvas successfully."
                     })
                     continue
                 
