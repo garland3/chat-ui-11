@@ -45,7 +45,6 @@ from typing import Optional
 
 from fastapi import FastAPI, WebSocket, HTTPException, Depends
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 
 from middleware import AuthMiddleware
@@ -140,13 +139,7 @@ app.mount("/static", StaticFiles(directory="../frontend"), name="static")
 app.mount("/vendor", StaticFiles(directory="../frontend/vendor"), name="vendor")
 app.mount("/fonts", StaticFiles(directory="../frontend/fonts"), name="fonts")
 
-
 # --- API Endpoints ---
-
-@app.get("/")
-async def root():
-    """Serve the main chat interface."""
-    return FileResponse("../frontend/index.html")
 
 
 @app.get("/auth")
@@ -280,6 +273,9 @@ async def websocket_endpoint(websocket: WebSocket):
     finally:
         session_manager.disconnect(websocket)
 
+
+# Mount frontend files at root for direct serving (must be last to avoid conflicts)
+app.mount("/", StaticFiles(directory="../frontend", html=True), name="root")
 
 if __name__ == "__main__":
     import uvicorn
