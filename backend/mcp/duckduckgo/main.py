@@ -73,6 +73,12 @@ def search_and_fetch(query: str, max_results: int = 3) -> Dict[str, Any]:
         A dictionary containing the search result's title, URL, and parsed content.
     """
     try:
+        # convert to int. max = 10, min = 1
+        max_results = int(max_results)
+        if max_results < 1:
+            max_results = 1
+        elif max_results > 10:
+            max_results = 10
         with DDGS() as ddgs:
             # Get multiple results to try if first one fails
             results = list(ddgs.text(query, max_results=max_results))
