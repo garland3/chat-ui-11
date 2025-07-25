@@ -481,6 +481,8 @@ class ChatUI {
         this.elements.canvasPanel.classList.add('canvas-panel-visible');
         // Adjust chat container width when canvas is shown
         this.elements.chatContainer.style.width = '50%';
+        // Ensure messages scroll properly after layout change
+        setTimeout(() => this.scrollToBottom(), 200);
     }
     
     closeCanvasPanel() {
@@ -488,6 +490,8 @@ class ChatUI {
         this.elements.canvasPanel.classList.add('canvas-panel-hidden');
         // Reset chat container width when canvas is hidden
         this.elements.chatContainer.style.width = '100%';
+        // Ensure messages scroll properly after layout change
+        setTimeout(() => this.scrollToBottom(), 200);
     }
     
     updateCanvasContent(content) {
@@ -557,6 +561,16 @@ class ChatUI {
         const hasMessage = this.elements.messageInput.value.trim().length > 0;
         const hasModel = this.currentModel && this.currentModel.length > 0;
         this.elements.sendButton.disabled = !hasMessage || !hasModel || !this.websocket || this.websocket.readyState !== WebSocket.OPEN;
+    }
+    
+    scrollToBottom() {
+        const messagesContainer = this.elements.messages;
+        if (messagesContainer) {
+            // Use requestAnimationFrame to ensure DOM has been updated
+            requestAnimationFrame(() => {
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            });
+        }
     }
     
     sendMessage() {
@@ -886,7 +900,9 @@ class ChatUI {
         messageDiv.appendChild(bubbleDiv);
         
         messageContainer.appendChild(messageDiv);
-        this.elements.messages.scrollTop = this.elements.messages.scrollHeight;
+        
+        // Scroll to bottom after adding message
+        setTimeout(() => this.scrollToBottom(), 100);
         
         return messageDiv;
     }

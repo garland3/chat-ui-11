@@ -28,9 +28,16 @@ def get_page_content(url: str) -> str:
     """
     try:
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate',
+            'Referer': 'https://www.google.com/',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
         }
-        response = requests.get(url, headers=headers, timeout=10)
+        
+        response = requests.get(url, headers=headers, timeout=15, allow_redirects=True)
         response.raise_for_status()  # Raise an exception for bad status codes (4xx or 5xx)
 
         soup = BeautifulSoup(response.text, 'html.parser')
@@ -54,50 +61,65 @@ def get_page_content(url: str) -> str:
 
 
 @mcp.tool
-def search_and_fetch(query: str) -> Dict[str, Any]:
+def search_and_fetch(query: str, max_results: int = 3) -> Dict[str, Any]:
     """
-    Searches DuckDuckGo for a query, fetches the first result, and returns its content.
+    Searches DuckDuckGo for a query, tries to fetch content from multiple results until successful.
 
     Args:
         query: The search term.
+        max_results: Maximum number of search results to try fetching (default 3).
 
     Returns:
         A dictionary containing the search result's title, URL, and parsed content.
     """
     try:
         with DDGS() as ddgs:
-            # Perform the search and get the first result
-            results = list(ddgs.text(query, max_results=1))
+            # Get multiple results to try if first one fails
+            results = list(ddgs.text(query, max_results=max_results))
 
         if not results:
             return {"error": "No results found for your query."}
 
-        # Extract information from the first result
-        first_result = results[0]
-        result_title = first_result.get('title')
-        result_url = first_result.get('href')
+        # Try each result until we successfully fetch content
+        errors_encountered = []
+        
+        for i, result in enumerate(results):
+            result_title = result.get('title')
+            result_url = result.get('href')
 
-        if not result_url:
-            return {"error": "Could not extract URL from search result."}
+            if not result_url:
+                errors_encountered.append(f"Result {i+1}: No URL found")
+                continue
 
-        # Fetch and parse the content of the page
-        content = get_page_content(result_url)
+            print(f"[DEBUG] Attempting to fetch content from: {result_url}")
+            
+            # Fetch and parse the content of the page
+            content = get_page_content(result_url)
 
-        if content.startswith("Error"):
-             return {
+            if content.startswith("Error"):
+                errors_encountered.append(f"Result {i+1} ({result_title}): {content}")
+                print(f"[DEBUG] Failed to fetch {result_url}: {content}")
+                continue
+            
+            # Success! Return the content
+            print(f"[DEBUG] Successfully fetched content from {result_url}")
+            return {
                 "operation": "search_and_fetch",
                 "query": query,
-                "error": content,
-                "source_title": result_title,
-                "source_url": result_url,
+                "result_title": result_title,
+                "result_url": result_url,
+                "content": content,
+                "attempt": i + 1,
+                "total_results": len(results)
             }
 
+        # If we get here, all results failed
         return {
             "operation": "search_and_fetch",
             "query": query,
-            "result_title": result_title,
-            "result_url": result_url,
-            "content": content
+            "error": f"Failed to fetch content from all {len(results)} search results",
+            "errors": errors_encountered,
+            "total_results": len(results)
         }
 
     except Exception as e:

@@ -27,17 +27,24 @@ class MCPToolManager:
                 # TODO: allow different mcp types. 
                 # Create client based on server type
                 server_path = f"mcp/{server_name}/main.py"
+                print(f"[DEBUG] Attempting to initialize {server_name} at path: {server_path}")
                 if os.path.exists(server_path):
+                    print(f"[DEBUG] Server script exists for {server_name}, creating client...")
                     client = Client(server_path)
                     self.clients[server_name] = client
                     logger.info(f"Created MCP client for {server_name}")
+                    print(f"[DEBUG] Successfully created client for {server_name}")
                 else:
                     logger.error(f"MCP server script not found: {server_path}")
+                    print(f"[DEBUG] Server script NOT found: {server_path}")
                     # add traceback
                     import traceback
                     print(traceback.format_exc())
             except Exception as e:
                 logger.error(f"Error creating client for {server_name}: {e}")
+                import traceback
+                print(f"[DEBUG] Full traceback for {server_name}:")
+                print(traceback.format_exc())
     
     async def discover_tools(self):
         """Discover tools from all MCP servers."""
@@ -45,23 +52,30 @@ class MCPToolManager:
 
         
         for server_name, client in self.clients.items():
+            print(f"[DEBUG] Attempting to discover tools from {server_name}")
             try:
+                print(f"[DEBUG] Opening client connection for {server_name}")
                 async with client:
+                    print(f"[DEBUG] Client connected for {server_name}, listing tools...")
                     tools = await client.list_tools()
+                    print(f"[DEBUG] Got {len(tools)} tools from {server_name}: {[tool.name for tool in tools]}")
                     self.available_tools[server_name] = {
                         'tools': tools,
                         'config': self.servers_config[server_name]
                     }
                     logger.info(f"Discovered {len(tools)} tools from {server_name}")
+                    print(f"[DEBUG] Successfully stored tools for {server_name}")
             except Exception as e:
                 logger.error(f"Error discovering tools from {server_name}: {e}")
                 # use traceback
                 import traceback
+                print(f"[DEBUG] Full traceback for {server_name} tool discovery:")
                 print(traceback.format_exc())
                 self.available_tools[server_name] = {
                     'tools': [],
                     'config': self.servers_config[server_name]
                 }
+                print(f"[DEBUG] Set empty tools list for failed server {server_name}")
     
     def get_server_groups(self, server_name: str) -> List[str]:
         """Get required groups for a server."""

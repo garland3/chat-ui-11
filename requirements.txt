@@ -1,3 +1,4 @@
+bs4
 fastapi
 uvicorn[standard]
 websockets
@@ -8,3 +9,4 @@ python-dotenv
 fastmcp
 requests
 httpx
+duckduckgo-search
