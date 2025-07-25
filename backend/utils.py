@@ -123,6 +123,34 @@ async def call_llm(model_name: str, messages: List[Dict[str, str]]) -> str:
         raise Exception("Invalid response format from LLM")
 
 
+def create_agent_completion_tool() -> Dict:
+    """Create the all_work_is_done tool for agent mode completion."""
+    return {
+        "type": "function",
+        "function": {
+            "name": "all_work_is_done",
+            "description": """IMPORTANT: Call this function when you have completely finished all the work requested by the user. 
+
+This function signals that you have successfully completed the entire task or question asked by the user. Only call this when:
+1. You have fully addressed the user's request
+2. All necessary steps have been completed
+3. You have provided a comprehensive final answer or solution
+4. No further work or analysis is needed
+
+Do not call this function if you need to continue thinking, gather more information, or perform additional steps.""",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "summary": {
+                        "type": "string",
+                        "description": "A brief summary of what was accomplished"
+                    }
+                },
+                "required": ["summary"]
+            }
+        }
+    }
+
 async def call_llm_with_tools(
     model_name: str,
     messages: List[Dict[str, str]],
@@ -131,6 +159,7 @@ async def call_llm_with_tools(
     websocket: WebSocket,
     mcp_manager: MCPToolManager,
     session=None,  # Optional session for UI updates
+    agent_mode: bool = False,  # New parameter for agent mode
 ) -> str:
     """Call LLM with tool-calling support."""
     if not validated_servers:
@@ -139,6 +168,15 @@ async def call_llm_with_tools(
     tools_data = mcp_manager.get_tools_for_servers(validated_servers)
     tools_schema = tools_data["tools"]
     tool_mapping = tools_data["mapping"]
+
+    # Add agent completion tool if in agent mode
+    if agent_mode:
+        agent_tool = create_agent_completion_tool()
+        tools_schema.append(agent_tool)
+        tool_mapping["all_work_is_done"] = {
+            "server": "agent_completion",
+            "tool_name": "all_work_is_done"
+        }
 
     if not tools_schema:
         return await call_llm(model_name, messages)
@@ -182,6 +220,18 @@ async def call_llm_with_tools(
             for tool_call in message["tool_calls"]:
                 function_name = tool_call["function"]["name"]
                 function_args = json.loads(tool_call["function"]["arguments"])
+                
+                # Handle agent completion tool specially
+                if function_name == "all_work_is_done":
+                    logger.info("Agent completion tool called by user %s", user_email)
+                    summary = function_args.get("summary", "Work completed")
+                    tool_results.append({
+                        "tool_call_id": tool_call["id"],
+                        "role": "tool",
+                        "content": f"Agent completion acknowledged: {summary}"
+                    })
+                    continue
+                
                 if function_name in tool_mapping:
                     mapping = tool_mapping[function_name]
                     server_name = mapping["server"]

@@ -76,10 +76,14 @@ class ChatSession:
         """
         Process a chat message with LLM integration and tool calls.
         
+        Routes to agent mode or normal processing based on message parameters.
         This method delegates to the MessageProcessor which contains the most
         critical logic in the entire codebase.
         """
-        await self.message_processor.handle_chat_message(message)
+        if message.get("agent_mode", False):
+            await self.message_processor.handle_agent_mode_message(message)
+        else:
+            await self.message_processor.handle_chat_message(message)
 
     async def send_json(self, data: Dict[str, Any]) -> None:
         await self.websocket.send_text(json.dumps(data))

@@ -38,12 +38,255 @@ body {
     scrollbar-color: #4b5563 #1f2937;
 }
 
+/* Agent Settings Modal */
+.agent-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.agent-modal.hidden {
+    display: none;
+}
+
+.agent-modal-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(4px);
+}
+
+.agent-modal-content {
+    position: relative;
+    background: #1f2937;
+    border: 1px solid #374151;
+    border-radius: 12px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    max-width: 480px;
+    width: 90%;
+    max-height: 80vh;
+    overflow: hidden;
+}
+
+.agent-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.5rem;
+    border-bottom: 1px solid #374151;
+    background: #111827;
+}
+
+.agent-modal-header h2 {
+    color: #e5e7eb;
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.agent-modal-body {
+    padding: 1.5rem;
+    overflow-y: auto;
+}
+
+.agent-setting {
+    margin-bottom: 1.5rem;
+}
+
+.agent-setting:last-child {
+    margin-bottom: 0;
+}
+
+.agent-setting-header {
+    margin-bottom: 0.5rem;
+}
+
+.agent-mode-label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.agent-status {
+    font-size: 0.75rem;
+    color: #9ca3af;
+    font-weight: normal;
+}
+
+.agent-setting-description {
+    color: #9ca3af;
+    font-size: 0.875rem;
+    line-height: 1.5;
+    margin: 0;
+}
+
+.agent-setting-label {
+    display: block;
+    color: #e5e7eb;
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-bottom: 0.75rem;
+}
+
+#agent-steps-value {
+    color: #60a5fa;
+    font-weight: 600;
+}
+
+.agent-slider {
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: #374151;
+    outline: none;
+    appearance: none;
+    margin-bottom: 0.5rem;
+}
+
+.agent-slider::-webkit-slider-thumb {
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #60a5fa;
+    cursor: pointer;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.agent-slider::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #60a5fa;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.agent-slider-labels {
+    display: flex;
+    justify-content: space-between;
+    color: #6b7280;
+    font-size: 0.75rem;
+}
+
+.agent-progress {
+    margin-top: 1rem;
+    padding: 1rem;
+    background: #111827;
+    border-radius: 8px;
+    border: 1px solid #374151;
+}
+
+.agent-progress.hidden {
+    display: none;
+}
+
+.progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
+.progress-title {
+    color: #e5e7eb;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.progress-text {
+    color: #9ca3af;
+    font-size: 0.875rem;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 8px;
+    background: #374151;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #60a5fa, #3b82f6);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+    width: 0%;
+}
+
 /* Main Content */
 .main-content {
     flex: 1;
     display: flex;
     flex-direction: column;
     transition: all 0.3s ease;
+}
+
+/* Welcome Screen */
+.welcome-screen {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.welcome-screen.hidden {
+    display: none;
+}
+
+/* Hide messages when welcome screen is visible */
+.welcome-screen:not(.hidden) + .messages {
+    display: none;
+}
+
+.welcome-logo {
+    margin-bottom: 1.5rem;
+}
+
+.logo-image {
+    max-width: 200px;
+    height: auto;
+    opacity: 0.9;
+    transition: opacity 0.3s ease;
+}
+
+.welcome-title {
+    margin-bottom: 1.5rem;
+}
+
+.welcome-title h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #f9fafb; /* gray-50 */
+    margin: 0;
+    text-align: center;
+}
+
+.welcome-message {
+    max-width: 600px;
+    font-size: 1.1rem;
+    color: #d1d5db; /* gray-300 */
+    line-height: 1.8;
+}
+
+.welcome-message span {
+    color: #60a5fa; /* blue-400 */
+    font-weight: 600;
 }
 
 /* Header */

@@ -187,6 +187,9 @@ async def get_config(current_user: str = Depends(get_current_user)):
     logger.info(f"User {current_user} has access to {len(authorized_servers)} servers: {authorized_servers}")
     logger.info(f"Returning {len(tools_info)} server tool groups to frontend for user {current_user}")
     
+    # Check if agent mode is available
+    agent_mode_available = os.getenv("AGENT_MODE_AVAILABLE", "true").lower() == "true"
+    
     return {
         "app_name": os.getenv("APP_NAME", "Chat UI"),
         "models": list(llm_config.get("models", {}).keys()) if llm_config else [],
@@ -194,7 +197,8 @@ async def get_config(current_user: str = Depends(get_current_user)):
         "data_sources": rag_data_sources,  # RAG data sources for the user
         "user": current_user,
         "active_sessions": session_manager.get_session_count() if session_manager else 0,
-        "authorized_servers": authorized_servers  # Optional: expose for debugging
+        "authorized_servers": authorized_servers,  # Optional: expose for debugging
+        "agent_mode_available": agent_mode_available  # Whether agent mode UI should be shown
     }
 
 

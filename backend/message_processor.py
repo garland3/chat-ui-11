@@ -7,7 +7,8 @@ pipeline including RAG, tool validation, LLM calls, and callback coordination.
 """
 
 import logging
-from typing import Any, Dict
+import os
+from typing import Any, Dict, Optional
 
 from utils import call_llm_with_tools, validate_selected_tools
 import rag_client
@@ -36,7 +37,130 @@ class MessageProcessor:
         """
         self.session = session
         
-    async def handle_chat_message(self, message: Dict[str, Any]) -> None:
+    async def handle_agent_mode_message(self, message: Dict[str, Any]) -> None:
+        """
+        Agent mode wrapper around handle_chat_message with step loop.
+        
+        Feeds LLM responses back as input until completion or max steps reached.
+        Uses minimal changes approach to reuse all existing logic.
+        """
+        try:
+            max_steps_env = int(os.getenv("AGENT_MAX_STEPS", "10"))
+            max_steps = min(message.get("agent_max_steps", 5), max_steps_env)
+            step_count = 0
+            
+            logger.info(
+                "Starting agent mode for user %s with max %d steps",
+                self.session.user_email,
+                max_steps
+            )
+            
+            # Initial user message
+            current_message = message.copy()
+            
+            while step_count < max_steps:
+                step_count += 1
+                
+                # Send step update to frontend
+                await self._send_agent_step_update(step_count, max_steps, "processing")
+                
+                # Call existing handle_chat_message but capture response
+                response = await self.handle_chat_message(current_message, agent_mode=True)
+                
+                # Check if agent used completion tool (detected by tool call)
+                if self._agent_used_completion_tool(response):
+                    logger.info("Agent used completion tool after %d steps", step_count)
+                    await self._send_final_agent_response(response, step_count, max_steps)
+                    break
+                
+                if not response:
+                    logger.warning("Agent step %d returned empty response", step_count)
+                    break
+                
+                # Check if LLM wants to continue or is done
+                if self._is_agent_complete(response):
+                    logger.info("Agent completed after %d steps", step_count)
+                    await self._send_final_agent_response(response, step_count, max_steps)
+                    break
+                    
+                # Check if we're at max steps
+                if step_count >= max_steps:
+                    logger.info("Agent reached max steps (%d)", max_steps)
+                    await self._send_final_agent_response(
+                        f"{response}\n\n[Agent completed after reaching maximum {max_steps} steps]", 
+                        step_count, 
+                        max_steps
+                    )
+                    break
+                
+                # Prepare next iteration - feed response back as "user" input
+                current_message = {
+                    "content": f"Continue reasoning from your previous response. Previous response: {response}",
+                    "model": current_message["model"],
+                    "selected_tools": current_message.get("selected_tools", []),
+                    "selected_data_sources": current_message.get("selected_data_sources", []),
+                    "only_rag": current_message.get("only_rag", True)
+                }
+                
+                logger.info("Agent step %d completed, continuing to step %d", step_count, step_count + 1)
+                
+        except Exception as exc:
+            logger.error("Error in agent mode for %s: %s", self.session.user_email, exc, exc_info=True)
+            await self.session._trigger_callbacks("message_error", error=exc)
+            await self.session.send_error(f"Error in agent mode: {exc}")
+
+    def _agent_used_completion_tool(self, response: str) -> bool:
+        """Check if agent used the all_work_is_done tool."""
+        if not response:
+            return False
+        # The response will contain "Agent completion acknowledged:" if the tool was used
+        return "Agent completion acknowledged:" in response
+    
+    def _is_agent_complete(self, response: str) -> bool:
+        """Check if agent thinks it's done (fallback method)."""
+        if not response:
+            return True
+            
+        completion_indicators = [
+            "FINAL_ANSWER:",
+            "CONCLUSION:",
+            "COMPLETE:",
+            "FINAL RESPONSE:",
+            "I have completed",
+            "The task is finished",
+            "Task completed",
+            "Analysis complete"
+        ]
+        response_upper = response.upper()
+        return any(indicator in response_upper for indicator in completion_indicators)
+
+    async def _send_agent_step_update(self, current_step: int, max_steps: int, status: str) -> None:
+        """Send agent step progress update to frontend."""
+        payload = {
+            "type": "agent_step_update",
+            "current_step": current_step,
+            "max_steps": max_steps,
+            "status": status,
+            "user": self.session.user_email
+        }
+        await self.session.send_json(payload)
+
+    async def _send_final_agent_response(self, response: str, steps_taken: int, max_steps: int) -> None:
+        """Send final agent response with step summary."""
+        payload = {
+            "type": "agent_final_response",
+            "message": response,
+            "steps_taken": steps_taken,
+            "max_steps": max_steps,
+            "user": self.session.user_email
+        }
+        
+        await self.session._trigger_callbacks("before_response_send", payload=payload)
+        await self.session.send_json(payload)
+        await self.session._trigger_callbacks("after_response_send", payload=payload)
+        logger.info("Agent final response sent to user %s after %d steps", self.session.user_email, steps_taken)
+
+    async def handle_chat_message(self, message: Dict[str, Any], agent_mode: bool = False) -> Optional[str]:
         """
         Process a chat message with LLM integration and tool calls.
         
@@ -119,6 +243,7 @@ class MessageProcessor:
                         self.session.websocket,
                         self.session.mcp_manager,
                         self.session,  # Pass session for UI updates
+                        agent_mode,  # Pass agent mode flag
                     )
                     
                 await self.session._trigger_callbacks("after_llm_call", llm_response=llm_response)
@@ -128,6 +253,10 @@ class MessageProcessor:
             await self.session._trigger_callbacks(
                 "after_assistant_message_added", assistant_message=assistant_message
             )
+
+            # In agent mode, return response instead of sending to WebSocket
+            if agent_mode:
+                return llm_response
 
             payload = {
                 "type": "chat_response",

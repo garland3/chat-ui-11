@@ -5,7 +5,7 @@ Provides mathematical operations through MCP protocol.
 """
 
 import math
-from typing import Any, Dict
+from typing import Any, Dict, Union
 
 from fastmcp import FastMCP
 
@@ -13,23 +13,41 @@ from fastmcp import FastMCP
 mcp = FastMCP("Calculator")
 
 
+def to_float(value: Union[str, int, float]) -> float:
+    """Convert input to float, handling strings and numbers."""
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        raise ValueError(f"Cannot convert '{value}' to a number")
+
+
+def to_int(value: Union[str, int, float]) -> int:
+    """Convert input to int, handling strings and numbers."""
+    try:
+        return int(float(value))  # Convert to float first to handle "5.0" -> 5
+    except (ValueError, TypeError):
+        raise ValueError(f"Cannot convert '{value}' to an integer")
+
+
 @mcp.tool
-def add(a: float, b: float) -> Dict[str, Any]:
+def add(a: Union[str, float], b: Union[str, float]) -> Dict[str, Any]:
     """
     Add two numbers.
     
     Args:
-        a: First number
-        b: Second number
+        a: First number (string or numerical)
+        b: Second number (string or numerical)
         
     Returns:
         Dictionary with operation details and result
     """
     try:
-        result = a + b
+        a_num = to_float(a)
+        b_num = to_float(b)
+        result = a_num + b_num
         return {
             "operation": "addition",
-            "operands": [a, b],
+            "operands": [a_num, b_num],
             "result": result
         }
     except Exception as e:
@@ -37,22 +55,24 @@ def add(a: float, b: float) -> Dict[str, Any]:
 
 
 @mcp.tool
-def subtract(a: float, b: float) -> Dict[str, Any]:
+def subtract(a: Union[str, float], b: Union[str, float]) -> Dict[str, Any]:
     """
     Subtract two numbers.
     
     Args:
-        a: First number (minuend)
-        b: Second number (subtrahend)
+        a: First number (minuend) (string or numerical)
+        b: Second number (subtrahend) (string or numerical)
         
     Returns:
         Dictionary with operation details and result
     """
     try:
-        result = a - b
+        a_num = to_float(a)
+        b_num = to_float(b)
+        result = a_num - b_num
         return {
             "operation": "subtraction",
-            "operands": [a, b],
+            "operands": [a_num, b_num],
             "result": result
         }
     except Exception as e:
@@ -60,22 +80,24 @@ def subtract(a: float, b: float) -> Dict[str, Any]:
 
 
 @mcp.tool
-def multiply(a: float, b: float) -> Dict[str, Any]:
+def multiply(a: Union[str, float], b: Union[str, float]) -> Dict[str, Any]:
     """
     Multiply two numbers.
     
     Args:
-        a: First number
-        b: Second number
+        a: First number (string or numerical)
+        b: Second number (string or numerical)
         
     Returns:
         Dictionary with operation details and result
     """
     try:
-        result = a * b
+        a_num = to_float(a)
+        b_num = to_float(b)
+        result = a_num * b_num
         return {
             "operation": "multiplication",
-            "operands": [a, b],
+            "operands": [a_num, b_num],
             "result": result
         }
     except Exception as e:
@@ -83,25 +105,28 @@ def multiply(a: float, b: float) -> Dict[str, Any]:
 
 
 @mcp.tool
-def divide(a: float, b: float) -> Dict[str, Any]:
+def divide(a: Union[str, float], b: Union[str, float]) -> Dict[str, Any]:
     """
     Divide two numbers.
     
     Args:
-        a: Dividend
-        b: Divisor
+        a: Dividend (string or numerical)
+        b: Divisor (string or numerical)
         
     Returns:
         Dictionary with operation details and result
     """
     try:
-        if b == 0:
+        a_num = to_float(a)
+        b_num = to_float(b)
+        
+        if b_num == 0:
             return {"error": "Division by zero"}
         
-        result = a / b
+        result = a_num / b_num
         return {
             "operation": "division",
-            "operands": [a, b],
+            "operands": [a_num, b_num],
             "result": result
         }
     except Exception as e:
@@ -109,23 +134,25 @@ def divide(a: float, b: float) -> Dict[str, Any]:
 
 
 @mcp.tool
-def power(base: float, exponent: float) -> Dict[str, Any]:
+def power(base: Union[str, float], exponent: Union[str, float]) -> Dict[str, Any]:
     """
     Raise base to the power of exponent.
     
     Args:
-        base: Base number
-        exponent: Power to raise the base to
+        base: Base number (string or numerical)
+        exponent: Power to raise the base to (string or numerical)
         
     Returns:
         Dictionary with operation details and result
     """
     try:
-        result = base ** exponent
+        base_num = to_float(base)
+        exponent_num = to_float(exponent)
+        result = base_num ** exponent_num
         return {
             "operation": "power",
-            "base": base,
-            "exponent": exponent,
+            "base": base_num,
+            "exponent": exponent_num,
             "result": result
         }
     except Exception as e:
@@ -133,24 +160,26 @@ def power(base: float, exponent: float) -> Dict[str, Any]:
 
 
 @mcp.tool
-def sqrt(number: float) -> Dict[str, Any]:
+def sqrt(number: Union[str, float]) -> Dict[str, Any]:
     """
     Calculate square root of a number.
     
     Args:
-        number: Number to calculate square root of
+        number: Number to calculate square root of (string or numerical)
         
     Returns:
         Dictionary with operation details and result
     """
     try:
-        if number < 0:
+        number_num = to_float(number)
+        
+        if number_num < 0:
             return {"error": "Cannot calculate square root of negative number"}
         
-        result = math.sqrt(number)
+        result = math.sqrt(number_num)
         return {
             "operation": "square_root",
-            "operand": number,
+            "operand": number_num,
             "result": result
         }
     except Exception as e:
@@ -158,24 +187,26 @@ def sqrt(number: float) -> Dict[str, Any]:
 
 
 @mcp.tool
-def factorial(n: int) -> Dict[str, Any]:
+def factorial(n: Union[str, int]) -> Dict[str, Any]:
     """
     Calculate factorial of a number.
     
     Args:
-        n: Non-negative integer to calculate factorial of
+        n: Non-negative integer to calculate factorial of (string or numerical)
         
     Returns:
         Dictionary with operation details and result
     """
     try:
-        if not isinstance(n, int) or n < 0:
+        n_int = to_int(n)
+        
+        if n_int < 0:
             return {"error": "Factorial requires a non-negative integer"}
         
-        result = math.factorial(n)
+        result = math.factorial(n_int)
         return {
             "operation": "factorial",
-            "operand": n,
+            "operand": n_int,
             "result": result
         }
     except Exception as e:
@@ -183,26 +214,36 @@ def factorial(n: int) -> Dict[str, Any]:
 
 
 @mcp.tool
-def sin(angle: float, degrees: bool = False) -> Dict[str, Any]:
+def sin(angle: Union[str, float], degrees: Union[str, bool] = False) -> Dict[str, Any]:
     """
     Calculate sine of an angle.
     
     Args:
-        angle: Angle value
+        angle: Angle value (string or numerical)
         degrees: Whether the angle is in degrees (default: False, radians)
         
     Returns:
         Dictionary with operation details and result
     """
     try:
-        if degrees:
-            angle = math.radians(angle)
+        angle_num = to_float(angle)
         
-        result = math.sin(angle)
+        # Handle degrees parameter conversion
+        if isinstance(degrees, str):
+            degrees_bool = degrees.lower() in ('true', '1', 'yes', 'on')
+        else:
+            degrees_bool = bool(degrees)
+        
+        if degrees_bool:
+            angle_rad = math.radians(angle_num)
+        else:
+            angle_rad = angle_num
+        
+        result = math.sin(angle_rad)
         return {
             "operation": "sine",
-            "angle": angle,
-            "degrees": degrees,
+            "angle": angle_num,
+            "degrees": degrees_bool,
             "result": result
         }
     except Exception as e:
@@ -210,26 +251,36 @@ def sin(angle: float, degrees: bool = False) -> Dict[str, Any]:
 
 
 @mcp.tool
-def cos(angle: float, degrees: bool = False) -> Dict[str, Any]:
+def cos(angle: Union[str, float], degrees: Union[str, bool] = False) -> Dict[str, Any]:
     """
     Calculate cosine of an angle.
     
     Args:
-        angle: Angle value
+        angle: Angle value (string or numerical)
         degrees: Whether the angle is in degrees (default: False, radians)
         
     Returns:
         Dictionary with operation details and result
     """
     try:
-        if degrees:
-            angle = math.radians(angle)
+        angle_num = to_float(angle)
         
-        result = math.cos(angle)
+        # Handle degrees parameter conversion
+        if isinstance(degrees, str):
+            degrees_bool = degrees.lower() in ('true', '1', 'yes', 'on')
+        else:
+            degrees_bool = bool(degrees)
+        
+        if degrees_bool:
+            angle_rad = math.radians(angle_num)
+        else:
+            angle_rad = angle_num
+        
+        result = math.cos(angle_rad)
         return {
             "operation": "cosine",
-            "angle": angle,
-            "degrees": degrees,
+            "angle": angle_num,
+            "degrees": degrees_bool,
             "result": result
         }
     except Exception as e:
@@ -248,6 +299,9 @@ def evaluate(expression: str) -> Dict[str, Any]:
         Dictionary with operation details and result
     """
     try:
+        # Convert to string if not already
+        expression_str = str(expression)
+        
         # Only allow safe mathematical operations
         allowed_names = {
             "abs": abs, "round": round, "min": min, "max": max,
@@ -261,11 +315,11 @@ def evaluate(expression: str) -> Dict[str, Any]:
         }
         
         # Evaluate expression in restricted environment
-        result = eval(expression, {"__builtins__": {}}, allowed_names)
+        result = eval(expression_str, {"__builtins__": {}}, allowed_names)
         
         return {
             "operation": "evaluate",
-            "expression": expression,
+            "expression": expression_str,
             "result": result
         }
     except Exception as e:

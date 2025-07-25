@@ -15,6 +15,11 @@ class ChatUI {
         this.dataSources = [];
         this.selectedDataSources = new Set(); // Track selected data sources
         this.onlyRag = true; // Default to true as per instructions
+        this.agentModeEnabled = false; // Agent mode state
+        this.agentMaxSteps = 5; // Default max steps
+        this.currentAgentStep = 0; // Current step counter
+        this.agentModeAvailable = true; // Whether agent mode UI is available
+        this.isWelcomeScreenVisible = true; // Track welcome screen visibility
         
         this.initializeMarkdown();
         this.initializeElements();
@@ -61,6 +66,10 @@ class ChatUI {
             messageInput: document.getElementById('message-input'),
             sendButton: document.getElementById('send-button'),
             
+            // Welcome screen elements
+            welcomeScreen: document.getElementById('welcome-screen'),
+            welcomeAppTitle: document.getElementById('welcome-app-title'),
+            
             // Dropdown elements
             modelButton: document.getElementById('model-button'),
             modelDropdown: document.getElementById('model-dropdown'),
@@ -76,7 +85,21 @@ class ChatUI {
             closeRagPanel: document.getElementById('close-rag-panel'),
             ragPanel: document.getElementById('rag-panel'),
             onlyRagCheckbox: document.getElementById('only-rag'),
-            dataSourcesList: document.getElementById('data-sources-list')
+            dataSourcesList: document.getElementById('data-sources-list'),
+            
+            // Agent mode elements
+            toggleAgentModal: document.getElementById('toggle-agent-modal'),
+            agentModal: document.getElementById('agent-modal'),
+            agentModalBackdrop: document.getElementById('agent-modal-backdrop'),
+            closeAgentModal: document.getElementById('close-agent-modal'),
+            agentModeCheckbox: document.getElementById('agent-mode'),
+            agentStatus: document.getElementById('agent-status'),
+            agentStepsSlider: document.getElementById('agent-steps-slider'),
+            agentStepsValue: document.getElementById('agent-steps-value'),
+            agentProgress: document.getElementById('agent-progress'),
+            currentStep: document.getElementById('current-step'),
+            maxSteps: document.getElementById('max-steps'),
+            progressFill: document.getElementById('progress-fill')
         };
     }
     
@@ -109,6 +132,22 @@ class ChatUI {
         this.elements.closeRagPanel.addEventListener('click', () => this.closeRagPanel());
         this.elements.onlyRagCheckbox.addEventListener('change', (e) => {
             this.onlyRag = e.target.checked;
+        });
+        
+        // Agent modal functionality
+        this.elements.toggleAgentModal.addEventListener('click', () => this.toggleAgentModal());
+        this.elements.closeAgentModal.addEventListener('click', () => this.closeAgentModal());
+        this.elements.agentModalBackdrop.addEventListener('click', () => this.closeAgentModal());
+        
+        // Agent mode functionality
+        this.elements.agentModeCheckbox.addEventListener('change', (e) => {
+            this.agentModeEnabled = e.target.checked;
+            this.updateAgentStatus();
+        });
+        
+        this.elements.agentStepsSlider.addEventListener('input', (e) => {
+            this.agentMaxSteps = parseInt(e.target.value);
+            this.elements.agentStepsValue.textContent = this.agentMaxSteps;
         });
         
         // Close dropdown when clicking outside
@@ -155,6 +194,7 @@ class ChatUI {
             this.tools = config.tools || [];
             this.dataSources = config.data_sources || [];
             this.user = config.user || 'Unknown';
+            this.agentModeAvailable = config.agent_mode_available !== false; // Default to true if not specified
             
             this.updateUI();
         } catch (error) {
@@ -184,16 +224,29 @@ class ChatUI {
         
         // Update data sources list
         this.updateDataSourcesList();
+        
+        // Show/hide agent mode button based on availability
+        this.updateAgentModeVisibility();
     }
     
     updateWelcomeMessage() {
-        const welcomeMessage = this.elements.messages.querySelector('.message.assistant');
-        if (welcomeMessage) {
-            const authorElement = welcomeMessage.querySelector('.message-author');
-            const contentElement = welcomeMessage.querySelector('.message-content p');
-            
-            if (authorElement) authorElement.textContent = this.appName;
-            if (contentElement) contentElement.textContent = `Welcome to ${this.appName}! Select a model and start chatting. You can also explore available tools in the side panel.`;
+        // Update the welcome screen app title
+        if (this.elements.welcomeAppTitle) {
+            this.elements.welcomeAppTitle.textContent = this.appName;
+        }
+    }
+    
+    showWelcomeScreen() {
+        if (this.elements.welcomeScreen) {
+            this.elements.welcomeScreen.classList.remove('hidden');
+            this.isWelcomeScreenVisible = true;
+        }
+    }
+    
+    hideWelcomeScreen() {
+        if (this.elements.welcomeScreen) {
+            this.elements.welcomeScreen.classList.add('hidden');
+            this.isWelcomeScreenVisible = false;
         }
     }
     
@@ -408,6 +461,36 @@ class ChatUI {
         this.elements.ragPanel.classList.add('rag-panel-hidden');
     }
     
+    toggleAgentModal() {
+        this.elements.agentModal.classList.toggle('hidden');
+    }
+    
+    closeAgentModal() {
+        this.elements.agentModal.classList.add('hidden');
+    }
+    
+    updateAgentModeVisibility() {
+        const agentButton = this.elements.toggleAgentModal;
+        if (this.agentModeAvailable) {
+            agentButton.style.display = '';
+        } else {
+            agentButton.style.display = 'none';
+            // Also close modal if it's open
+            this.closeAgentModal();
+        }
+    }
+    
+    updateAgentStatus() {
+        const statusElement = this.elements.agentStatus;
+        if (this.agentModeEnabled) {
+            statusElement.textContent = 'Enabled';
+            statusElement.style.color = '#60a5fa';
+        } else {
+            statusElement.textContent = 'Disabled';
+            statusElement.style.color = '#9ca3af';
+        }
+    }
+    
     autoResizeTextarea() {
         const textarea = this.elements.messageInput;
         textarea.style.height = 'auto';
@@ -424,6 +507,11 @@ class ChatUI {
         const message = this.elements.messageInput.value.trim();
         if (!message || !this.currentModel) return;
         
+        // Hide welcome screen when first message is sent
+        if (this.isWelcomeScreenVisible) {
+            this.hideWelcomeScreen();
+        }
+        
         // Add user message to chat
         this.addMessage('user', message);
         
@@ -434,8 +522,8 @@ class ChatUI {
         const selectedToolsList = Array.from(this.selectedTools);
         const selectedDataSourcesList = Array.from(this.selectedDataSources);
         
-        // Send to backend with selected tools and RAG parameters
-        this.websocket.send(JSON.stringify({
+        // Send to backend with selected tools, RAG parameters, and agent mode (if available)
+        const payload = {
             type: 'chat',
             content: message,
             model: this.currentModel,
@@ -443,7 +531,15 @@ class ChatUI {
             selected_data_sources: selectedDataSourcesList,
             only_rag: this.onlyRag,
             user: this.user
-        }));
+        };
+        
+        // Only include agent mode parameters if agent mode is available
+        if (this.agentModeAvailable) {
+            payload.agent_mode = this.agentModeEnabled;
+            payload.agent_max_steps = this.agentMaxSteps;
+        }
+        
+        this.websocket.send(JSON.stringify(payload));
         
         // Store thinking message for removal later
         this.currentThinkingMessage = thinkingMessage;
@@ -514,6 +610,14 @@ class ChatUI {
                 
             case 'intermediate_update':
                 this.handleIntermediateUpdate(data);
+                break;
+                
+            case 'agent_step_update':
+                this.handleAgentStepUpdate(data);
+                break;
+                
+            case 'agent_final_response':
+                this.handleAgentFinalResponse(data);
                 break;
                 
             default:
@@ -623,6 +727,42 @@ class ChatUI {
         this.scrollToBottom();
     }
     
+    handleAgentStepUpdate(data) {
+        this.currentAgentStep = data.current_step;
+        const maxSteps = data.max_steps;
+        
+        // Only update progress if modal is currently open
+        if (!this.elements.agentModal.classList.contains('hidden')) {
+            this.elements.agentProgress.classList.remove('hidden');
+            this.elements.currentStep.textContent = this.currentAgentStep;
+            this.elements.maxSteps.textContent = maxSteps;
+            
+            // Update progress bar
+            const progressPercent = (this.currentAgentStep / maxSteps) * 100;
+            this.elements.progressFill.style.width = `${progressPercent}%`;
+        }
+        
+        console.log(`Agent step ${this.currentAgentStep}/${maxSteps}`);
+    }
+    
+    handleAgentFinalResponse(data) {
+        // Remove thinking message if it exists
+        if (this.currentThinkingMessage) {
+            this.currentThinkingMessage.remove();
+            this.currentThinkingMessage = null;
+        }
+        
+        // Hide agent progress (only if modal is open)
+        if (!this.elements.agentModal.classList.contains('hidden')) {
+            this.elements.agentProgress.classList.add('hidden');
+        }
+        this.currentAgentStep = 0;
+        
+        // Add final response with step summary
+        const responseWithSummary = `${data.message}\n\n*Agent completed in ${data.steps_taken} steps*`;
+        this.addMessage('assistant', responseWithSummary);
+    }
+    
     addMessage(sender, content, showThinking = false) {
         const messageContainer = this.elements.messages.querySelector('.message-container');
         
@@ -686,19 +826,10 @@ class ChatUI {
     }
     
     clearChat() {
-        // Reset to welcome message
+        // Clear message container and show welcome screen
         const messageContainer = this.elements.messages.querySelector('.message-container');
-        messageContainer.innerHTML = `
-            <div class="message assistant">
-                <div class="message-avatar assistant-avatar">A</div>
-                <div class="message-bubble assistant-bubble">
-                    <p class="message-author">${this.appName}</p>
-                    <div class="message-content">
-                        <p>Welcome to ${this.appName}! Select a model and start chatting. You can also explore available tools in the side panel.</p>
-                    </div>
-                </div>
-            </div>
-        `;
+        messageContainer.innerHTML = '';
+        this.showWelcomeScreen();
     }
 }
 
