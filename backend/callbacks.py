@@ -91,14 +91,17 @@ async def dynamic_model_selection_callback(session: ChatSession, **kwargs) -> No
 
 async def conversation_context_callback(session: ChatSession, **kwargs) -> None:
     """Add initial conversation context."""
+    from prompt_utils import load_system_prompt
+    
     user_message = kwargs.get("user_message", {})
     if user_message and len(session.messages) == 1:
+        system_content = load_system_prompt(session.user_email)
         system_message = {
             "role": "system",
-            "content": f"You are helping {session.user_email}. Be helpful and concise.",
+            "content": system_content,
         }
         session.messages.insert(0, system_message)
         logger.info(
-            "[CALLBACK] Added system context for new conversation with %s",
+            "[CALLBACK] Added configurable system context for new conversation with %s",
             session.user_email,
         )
