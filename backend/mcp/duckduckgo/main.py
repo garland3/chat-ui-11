@@ -61,13 +61,13 @@ def get_page_content(url: str) -> str:
 
 
 @mcp.tool
-def search_and_fetch(query: str, max_results: int = 3) -> Dict[str, Any]:
+def search_and_fetch(query: str, max_results: Union[str, int] = 3) -> Dict[str, Any]:
     """
     Searches DuckDuckGo for a query, tries to fetch content from multiple results until successful.
 
     Args:
         query: The search term.
-        max_results: Maximum number of search results to try fetching (default 3).
+        max_results: Maximum number of search results to try fetching (default 3). Can be string or integer.
 
     Returns:
         A dictionary containing the search result's title, URL, and parsed content.
