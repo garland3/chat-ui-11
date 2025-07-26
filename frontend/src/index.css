@@ -244,6 +244,14 @@
     @apply m-0;
   }
 
+  .code-block-container .copy-button {
+    @apply select-none;
+  }
+
+  .code-block-container .copy-button:active {
+    @apply transform scale-95;
+  }
+
   /* Override highlight.js theme colors to match our dark theme */
   .hljs-keyword,
   .hljs-selector-tag,

@@ -1,7 +1,7 @@
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { useChat } from '../contexts/ChatContext'
-import { useState, memo } from 'react'
+import { useState, memo, useEffect } from 'react'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github-dark.css'
 
@@ -121,12 +121,17 @@ renderer.code = function(code, language) {
     }
   }
   
-  return `<div class="code-block-container relative bg-gray-900 rounded-lg my-4">
+  return `<div class="code-block-container relative bg-gray-900 rounded-lg my-4 border border-gray-700">
     <div class="flex items-center justify-between px-4 py-2 bg-gray-800 border-b border-gray-700">
-      <span class="text-xs text-gray-400 font-medium">${actualLanguage || 'text'}</span>
-      <button class="copy-button bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-2 py-1 rounded text-xs transition-colors" onclick="copyCodeBlock(this)" title="Copy code">Copy</button>
+      <span class="text-xs text-gray-400 font-medium uppercase tracking-wider">${actualLanguage || 'text'}</span>
+      <button 
+        class="copy-button bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-3 py-1 rounded text-xs transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500" 
+        data-action="copy-code"
+        title="Copy code to clipboard"
+        type="button"
+      >Copy</button>
     </div>
-    <pre class="p-4 overflow-x-auto bg-gray-900"><code class="hljs language-${actualLanguage || 'text'} text-sm">${highlightedCode}</code></pre>
+    <pre class="p-4 overflow-x-auto bg-gray-900 m-0"><code class="hljs language-${actualLanguage || 'text'} text-sm leading-relaxed">${highlightedCode}</code></pre>
   </div>`
 }
 
@@ -151,24 +156,79 @@ marked.setOptions({
   gfm: true
 })
 
-// Global function for copying code blocks
-window.copyCodeBlock = (button) => {
-  // Find the code block - it's in the next sibling (pre) element
-  const codeBlock = button.parentElement.parentElement.querySelector('code')
-  const text = codeBlock.textContent
-  
-  navigator.clipboard.writeText(text).then(() => {
-    const originalText = button.textContent
-    button.textContent = 'Copied!'
-    button.classList.add('bg-green-600', 'border-green-500')
+// Copy function for code blocks
+const copyCodeBlock = (button) => {
+  try {
+    // Find the code block container
+    const container = button.closest('.code-block-container')
+    if (!container) {
+      console.error('Could not find code block container')
+      return
+    }
     
-    setTimeout(() => {
-      button.textContent = originalText
-      button.classList.remove('bg-green-600', 'border-green-500')
-    }, 2000)
-  }).catch(err => {
-    console.error('Failed to copy text: ', err)
-  })
+    // Find the code element within the container
+    const codeBlock = container.querySelector('code')
+    if (!codeBlock) {
+      console.error('Could not find code element')
+      return
+    }
+    
+    // Get the text content
+    const text = codeBlock.textContent || codeBlock.innerText || ''
+    
+    // Copy to clipboard
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(() => {
+        showCopySuccess(button)
+      }).catch(err => {
+        console.error('Failed to copy with Clipboard API: ', err)
+        fallbackCopy(text, button)
+      })
+    } else {
+      fallbackCopy(text, button)
+    }
+  } catch (err) {
+    console.error('Error in copyCodeBlock: ', err)
+  }
+}
+
+// Show copy success feedback
+const showCopySuccess = (button) => {
+  const originalText = button.textContent
+  button.textContent = 'Copied!'
+  button.classList.add('bg-green-600', 'border-green-500')
+  button.classList.remove('bg-gray-700', 'border-gray-600')
+  
+  setTimeout(() => {
+    button.textContent = originalText
+    button.classList.remove('bg-green-600', 'border-green-500')
+    button.classList.add('bg-gray-700', 'border-gray-600')
+  }, 2000)
+}
+
+// Fallback copy method for older browsers
+const fallbackCopy = (text, button) => {
+  try {
+    const textArea = document.createElement('textarea')
+    textArea.value = text
+    textArea.style.position = 'fixed'
+    textArea.style.left = '-999999px'
+    textArea.style.top = '-999999px'
+    document.body.appendChild(textArea)
+    textArea.focus()
+    textArea.select()
+    
+    const successful = document.execCommand('copy')
+    document.body.removeChild(textArea)
+    
+    if (successful) {
+      showCopySuccess(button)
+    } else {
+      console.error('Fallback copy failed')
+    }
+  } catch (err) {
+    console.error('Fallback copy error: ', err)
+  }
 }
 
 // Helper function to process message content (strings and structured objects)
@@ -201,6 +261,21 @@ const Message = ({ message }) => {
   
   const isUser = message.role === 'user'
   const isSystem = message.role === 'system'
+
+  // Handle copy button clicks using event delegation
+  useEffect(() => {
+    const handleCopyClick = (event) => {
+      if (event.target.matches('[data-action="copy-code"]')) {
+        event.preventDefault()
+        copyCodeBlock(event.target)
+      }
+    }
+
+    document.addEventListener('click', handleCopyClick)
+    return () => {
+      document.removeEventListener('click', handleCopyClick)
+    }
+  }, [])
   
   const avatarBg = isUser ? 'bg-green-600' : isSystem ? 'bg-yellow-600' : 'bg-blue-600'
   const avatarText = isUser ? 'Y' : isSystem ? 'S' : 'A'
