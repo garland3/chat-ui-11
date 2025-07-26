@@ -12,7 +12,7 @@ const Sidebar = () => {
           onClick={() => setIsCollapsed(false)}
           className="w-full p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
         >
-          →
+          &gt;
         </button>
       </div>
     )
@@ -26,7 +26,7 @@ const Sidebar = () => {
           onClick={() => setIsCollapsed(true)}
           className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
         >
-          ←
+          &lt;
         </button>
       </div>
       

@@ -50,6 +50,7 @@ export const ChatProvider = ({ children }) => {
   // Load tool selections from localStorage
   useEffect(() => {
     loadToolSelections()
+    loadToolChoiceRequired()
   }, [])
 
   // WebSocket message handler
@@ -120,6 +121,25 @@ export const ChatProvider = ({ children }) => {
       localStorage.setItem('chatui-selected-tools', JSON.stringify(selectionsArray))
     } catch (error) {
       console.warn('Failed to save tool selections:', error)
+    }
+  }
+
+  const loadToolChoiceRequired = () => {
+    try {
+      const saved = localStorage.getItem('chatui-tool-choice-required')
+      if (saved !== null) {
+        setToolChoiceRequired(JSON.parse(saved))
+      }
+    } catch (error) {
+      console.warn('Failed to load tool choice required setting:', error)
+    }
+  }
+
+  const saveToolChoiceRequired = (value) => {
+    try {
+      localStorage.setItem('chatui-tool-choice-required', JSON.stringify(value))
+    } catch (error) {
+      console.warn('Failed to save tool choice required setting:', error)
     }
   }
 
@@ -230,9 +250,13 @@ export const ChatProvider = ({ children }) => {
         // Add tool call indicator message
         const toolCallMessage = {
           role: 'system',
-          content: `🔧 Calling tool: **${updateData.tool_name}** (${updateData.server_name})`,
+          content: `**Tool Call: ${updateData.tool_name}** (${updateData.server_name})`,
           type: 'tool_call',
-          tool_call_id: updateData.tool_call_id
+          tool_call_id: updateData.tool_call_id,
+          tool_name: updateData.tool_name,
+          server_name: updateData.server_name,
+          arguments: updateData.arguments || {},
+          status: 'calling'
         }
         setMessages(prev => [...prev, toolCallMessage])
         break
@@ -243,7 +267,9 @@ export const ChatProvider = ({ children }) => {
           if (msg.tool_call_id === updateData.tool_call_id) {
             return {
               ...msg,
-              content: `🔧 Tool: **${updateData.tool_name}** ${updateData.success ? '✅' : '❌'}`
+              content: `**Tool: ${updateData.tool_name}** - ${updateData.success ? 'Success' : 'Failed'}`,
+              status: updateData.success ? 'completed' : 'failed',
+              result: updateData.result || updateData.error || null
             }
           }
           return msg
@@ -285,7 +311,10 @@ export const ChatProvider = ({ children }) => {
     onlyRag,
     setOnlyRag,
     toolChoiceRequired,
-    setToolChoiceRequired,
+    setToolChoiceRequired: (value) => {
+      setToolChoiceRequired(value)
+      saveToolChoiceRequired(value)
+    },
     
     // Agent mode
     agentModeEnabled,

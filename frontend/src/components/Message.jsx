@@ -1,7 +1,7 @@
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { useChat } from '../contexts/ChatContext'
-import { useState } from 'react'
+import { useState, memo } from 'react'
 
 // Configure marked with custom renderer for code blocks
 const renderer = new marked.Renderer()
@@ -55,6 +55,64 @@ const Message = ({ message }) => {
   const authorName = isUser ? 'You' : isSystem ? 'System' : appName
   
   const renderContent = () => {
+    // Handle tool call messages specially
+    if (message.type === 'tool_call') {
+      return (
+        <div className="text-gray-200">
+          <div className="flex items-center gap-2 mb-3">
+            <span className={`px-2 py-1 rounded text-xs font-medium ${
+              message.status === 'calling' ? 'bg-blue-600' : 
+              message.status === 'completed' ? 'bg-green-600' : 'bg-red-600'
+            }`}>
+              {message.status === 'calling' ? 'CALLING' : 
+               message.status === 'completed' ? 'SUCCESS' : 'FAILED'}
+            </span>
+            <span className="font-medium">{message.tool_name}</span>
+            <span className="text-gray-400 text-sm">({message.server_name})</span>
+          </div>
+          
+          {/* Arguments Section */}
+          {message.arguments && Object.keys(message.arguments).length > 0 && (
+            <div className="mb-4">
+              <div className="border-l-4 border-blue-500 pl-4">
+                <h4 className="text-sm font-semibold text-blue-400 mb-2 flex items-center gap-2">
+                  <span className="text-blue-400">▶</span> Input Arguments
+                </h4>
+                <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 max-h-64 overflow-y-auto">
+                  <pre className="text-xs text-gray-300 overflow-x-auto whitespace-pre-wrap">
+                    {JSON.stringify(message.arguments, null, 2)}
+                  </pre>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Separator Line */}
+          {message.arguments && Object.keys(message.arguments).length > 0 && message.result && (
+            <div className="my-4">
+              <hr className="border-gray-600" />
+            </div>
+          )}
+          
+          {/* Result Section */}
+          {message.result && (
+            <div className="mb-2">
+              <div className="border-l-4 border-green-500 pl-4">
+                <h4 className="text-sm font-semibold text-green-400 mb-2 flex items-center gap-2">
+                  <span className="text-green-400">◀</span> Output Result
+                </h4>
+                <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 max-h-64 overflow-y-auto">
+                  <pre className="text-xs text-gray-300 overflow-x-auto whitespace-pre-wrap">
+                    {typeof message.result === 'string' ? message.result : JSON.stringify(message.result, null, 2)}
+                  </pre>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )
+    }
+    
     if (isUser || isSystem) {
       return <div className="text-gray-200">{message.content}</div>
     }
@@ -91,4 +149,4 @@ const Message = ({ message }) => {
   )
 }
 
-export default Message
+export default memo(Message)

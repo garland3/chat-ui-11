@@ -63,8 +63,14 @@ const Header = ({ onToggleRag, onToggleTools, onToggleAgent }) => {
         </div>
 
         {/* User Info */}
-        <div className="text-sm text-gray-300">
+        <div className="text-sm text-gray-300 hidden md:block">
           {user}
+        </div>
+
+        {/* Connection Status */}
+        <div className="flex items-center gap-2 text-xs">
+          <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
+          <span className="text-gray-400 hidden sm:inline">{connectionStatus}</span>
         </div>
 
         {/* Agent Settings Button */}
@@ -86,12 +92,6 @@ const Header = ({ onToggleRag, onToggleTools, onToggleAgent }) => {
         >
           <Settings className="w-5 h-5" />
         </button>
-      </div>
-
-      {/* Connection Status */}
-      <div className="absolute bottom-4 right-4 flex items-center gap-2 text-xs">
-        <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-        <span className="text-gray-400">{connectionStatus}</span>
       </div>
 
       {/* Close dropdown when clicking outside */}

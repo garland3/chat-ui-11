@@ -7,6 +7,7 @@ import WelcomeScreen from './WelcomeScreen'
 
 const ChatArea = ({ canvasPanelOpen }) => {
   const [inputValue, setInputValue] = useState('')
+  const [isMobile, setIsMobile] = useState(false)
   const textareaRef = useRef(null)
   const messagesRef = useRef(null)
   
@@ -28,12 +29,29 @@ const ChatArea = ({ canvasPanelOpen }) => {
     }
   }
 
-  // Scroll to bottom when messages change
+  // Check for mobile screen size
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+    
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
+  // Scroll to bottom when messages change - debounced for performance
   useEffect(() => {
     if (messagesRef.current) {
-      requestAnimationFrame(() => {
-        messagesRef.current.scrollTop = messagesRef.current.scrollHeight
-      })
+      const timeoutId = setTimeout(() => {
+        requestAnimationFrame(() => {
+          if (messagesRef.current) {
+            messagesRef.current.scrollTop = messagesRef.current.scrollHeight
+          }
+        })
+      }, 100)
+      
+      return () => clearTimeout(timeoutId)
     }
   }, [messages, isThinking])
 
@@ -66,26 +84,33 @@ const ChatArea = ({ canvasPanelOpen }) => {
   const canSend = inputValue.trim().length > 0 && currentModel && isConnected
 
   return (
-    <div className={`flex flex-col flex-1 ${canvasPanelOpen ? 'w-1/2' : 'w-full'} transition-all duration-200`}>
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
       {/* Welcome Screen */}
       {isWelcomeVisible && <WelcomeScreen />}
 
       {/* Messages */}
       <main 
         ref={messagesRef}
-        className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4"
+        className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4 min-h-0"
+        style={{ 
+          paddingRight: canvasPanelOpen && !isMobile ? 'calc(50vw + 1rem)' : '1rem',
+          transition: 'padding-right 300ms ease-in-out'
+        }}
       >
         {messages.map((message, index) => (
-          <Message key={index} message={message} />
+          <Message key={`${index}-${message.role}-${message.content?.substring(0, 20)}`} message={message} />
         ))}
         
         {/* Thinking indicator */}
         {isThinking && (
-          <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-medium">
+          <div className="flex items-start gap-3 max-w-4xl mx-auto">
+            <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
               A
             </div>
-            <div className="flex-1 bg-gray-800 rounded-lg p-4">
+            <div className="max-w-[70%] bg-gray-800 rounded-lg p-4">
+              <div className="text-sm font-medium text-gray-300 mb-2">
+                Chat UI
+              </div>
               <div className="flex items-center gap-2 text-gray-400">
                 <svg className="w-4 h-4 spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -99,7 +124,13 @@ const ChatArea = ({ canvasPanelOpen }) => {
       </main>
 
       {/* Input Area */}
-      <footer className="p-4 border-t border-gray-700">
+      <footer 
+        className="p-4 border-t border-gray-700 flex-shrink-0"
+        style={{ 
+          paddingRight: canvasPanelOpen && !isMobile ? 'calc(50vw + 1rem)' : '1rem',
+          transition: 'padding-right 300ms ease-in-out'
+        }}
+      >
         <div className="max-w-4xl mx-auto">
           <form onSubmit={handleSubmit} className="flex gap-3">
             <div className="flex-1 relative">
@@ -117,7 +148,7 @@ const ChatArea = ({ canvasPanelOpen }) => {
             <button
               type="submit"
               disabled={!canSend}
-              className={`px-4 py-3 rounded-lg flex items-center justify-center transition-colors ${
+              className={`px-4 py-3 rounded-lg flex items-center justify-center transition-colors flex-shrink-0 ${
                 canSend 
                   ? 'bg-blue-600 hover:bg-blue-700 text-white' 
                   : 'bg-gray-700 text-gray-400 cursor-not-allowed'
