@@ -50,6 +50,30 @@
     scrollbar-color: #4b5563 #1f2937;
   }
 
+  /* Table borders override - must be in components layer */
+  .prose table,
+  .prose-invert table,
+  .message-content table,
+  table {
+    border-collapse: collapse !important;
+    border-width: 1px !important;
+    border-style: solid !important;
+    border-color: #6b7280 !important;
+  }
+
+  .prose th,
+  .prose td,
+  .prose-invert th,
+  .prose-invert td,
+  .message-content th,
+  .message-content td,
+  th, td {
+    border-width: 1px !important;
+    border-style: solid !important;
+    border-color: #6b7280 !important;
+    padding: 0.5rem !important;
+  }
+
   /* Message bubble styles */
   .message-bubble {
     @apply rounded-lg p-4 max-w-2xl;

@@ -623,11 +623,12 @@ body {
     width: 100%;
     margin: 1rem 0;
     font-size: 0.875rem;
+    border: 1px solid #6b7280; /* gray-500 - outer border */
 }
 
 .message-content th,
 .message-content td {
-    border: 1px solid #4b5563; /* gray-600 */
+    border: 1px solid #6b7280; /* gray-500 - more visible */
     padding: 0.5rem;
     text-align: left;
 }
@@ -635,6 +636,55 @@ body {
 .message-content th {
     background: #374151; /* gray-700 */
     font-weight: 600;
+}
+
+/* Force table borders to be visible - override any resets */
+.prose table,
+.prose-invert table,
+.message-content table,
+table {
+    border-collapse: collapse !important;
+    border-width: 1px !important;
+    border-style: solid !important;
+    border-color: #6b7280 !important;
+}
+
+.prose th,
+.prose td,
+.prose-invert th,
+.prose-invert td,
+.message-content th,
+.message-content td,
+th, td {
+    border-width: 1px !important;
+    border-style: solid !important;
+    border-color: #6b7280 !important;
+    padding: 0.5rem !important;
+}
+
+/* Additional specific border-width overrides */
+.prose table *, 
+.prose-invert table *,
+.message-content table * {
+    border-width: 1px !important;
+}
+
+/* Override Tailwind's universal reset for table elements */
+table, table *, 
+.prose table, .prose table *,
+.prose-invert table, .prose-invert table *,
+.message-content table, .message-content table * {
+    border-width: 1px !important;
+}
+
+/* Specifically target th and td to override Tailwind reset */
+table th, table td,
+.prose table th, .prose table td,
+.prose-invert table th, .prose-invert table td,
+.message-content table th, .message-content table td {
+    border-width: 1px !important;
+    border-style: solid !important;
+    border-color: #6b7280 !important;
 }
 
 .message-content a {
