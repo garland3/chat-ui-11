@@ -230,4 +230,60 @@
   .animate-pulse-slow {
     animation: pulse 2s infinite;
   }
+
+  /* Syntax highlighting enhancements */
+  .code-block-container {
+    @apply rounded-lg overflow-hidden border border-gray-700;
+  }
+
+  .code-block-container .hljs {
+    @apply bg-gray-900 text-gray-200;
+  }
+
+  .code-block-container pre {
+    @apply m-0;
+  }
+
+  /* Override highlight.js theme colors to match our dark theme */
+  .hljs-keyword,
+  .hljs-selector-tag,
+  .hljs-literal,
+  .hljs-title,
+  .hljs-section,
+  .hljs-doctag,
+  .hljs-type,
+  .hljs-name,
+  .hljs-strong {
+    @apply text-blue-400;
+  }
+
+  .hljs-string,
+  .hljs-title.class_,
+  .hljs-title.class_.inherited__,
+  .hljs-title.function_,
+  .hljs-attr,
+  .hljs-symbol,
+  .hljs-bullet,
+  .hljs-link,
+  .hljs-emphasis,
+  .hljs-quote {
+    @apply text-green-400;
+  }
+
+  .hljs-number,
+  .hljs-regexp,
+  .hljs-variable,
+  .hljs-template-variable {
+    @apply text-yellow-400;
+  }
+
+  .hljs-comment,
+  .hljs-deletion,
+  .hljs-meta {
+    @apply text-gray-500;
+  }
+
+  .hljs-subst {
+    @apply text-gray-200;
+  }
 }

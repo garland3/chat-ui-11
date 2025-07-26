@@ -2,6 +2,47 @@ import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { useChat } from '../contexts/ChatContext'
 import { useState, memo } from 'react'
+import hljs from 'highlight.js'
+import 'highlight.js/styles/github-dark.css'
+
+// Register common languages for better syntax highlighting
+import javascript from 'highlight.js/lib/languages/javascript'
+import typescript from 'highlight.js/lib/languages/typescript'
+import python from 'highlight.js/lib/languages/python'
+import rust from 'highlight.js/lib/languages/rust'
+import go from 'highlight.js/lib/languages/go'
+import java from 'highlight.js/lib/languages/java'
+import cpp from 'highlight.js/lib/languages/cpp'
+import css from 'highlight.js/lib/languages/css'
+import html from 'highlight.js/lib/languages/xml'
+import json from 'highlight.js/lib/languages/json'
+import yaml from 'highlight.js/lib/languages/yaml'
+import sql from 'highlight.js/lib/languages/sql'
+import bash from 'highlight.js/lib/languages/bash'
+
+hljs.registerLanguage('javascript', javascript)
+hljs.registerLanguage('js', javascript)
+hljs.registerLanguage('typescript', typescript)
+hljs.registerLanguage('ts', typescript)
+hljs.registerLanguage('python', python)
+hljs.registerLanguage('py', python)
+hljs.registerLanguage('rust', rust)
+hljs.registerLanguage('rs', rust)
+hljs.registerLanguage('go', go)
+hljs.registerLanguage('golang', go)
+hljs.registerLanguage('java', java)
+hljs.registerLanguage('cpp', cpp)
+hljs.registerLanguage('c++', cpp)
+hljs.registerLanguage('css', css)
+hljs.registerLanguage('html', html)
+hljs.registerLanguage('xml', html)
+hljs.registerLanguage('json', json)
+hljs.registerLanguage('yaml', yaml)
+hljs.registerLanguage('yml', yaml)
+hljs.registerLanguage('sql', sql)
+hljs.registerLanguage('bash', bash)
+hljs.registerLanguage('shell', bash)
+hljs.registerLanguage('sh', bash)
 
 // Configure marked with custom renderer for code blocks
 const renderer = new marked.Renderer()
@@ -45,28 +86,75 @@ renderer.code = function(code, language) {
     codeString = String(code || '')
   }
   
-  const escapedCode = codeString.replace(/&/g, '&amp;')
-                        .replace(/</g, '&lt;')
-                        .replace(/>/g, '&gt;')
-                        .replace(/"/g, '&quot;')
-                        .replace(/'/g, '&#39;')
+  // Apply syntax highlighting
+  let highlightedCode = ''
+  if (actualLanguage && hljs.getLanguage(actualLanguage)) {
+    try {
+      const result = hljs.highlight(codeString, { language: actualLanguage })
+      highlightedCode = result.value
+    } catch (e) {
+      console.warn('Highlight.js error for language', actualLanguage, e)
+      // Fallback to manual escaping
+      highlightedCode = codeString.replace(/&/g, '&amp;')
+                          .replace(/</g, '&lt;')
+                          .replace(/>/g, '&gt;')
+                          .replace(/"/g, '&quot;')
+                          .replace(/'/g, '&#39;')
+    }
+  } else {
+    // Auto-detect language if not specified or not supported
+    try {
+      const result = hljs.highlightAuto(codeString)
+      highlightedCode = result.value
+      // Update language for display
+      if (result.language && !actualLanguage) {
+        actualLanguage = result.language
+      }
+    } catch (e) {
+      console.warn('Highlight.js auto-detection error', e)
+      // Fallback to manual escaping
+      highlightedCode = codeString.replace(/&/g, '&amp;')
+                          .replace(/</g, '&lt;')
+                          .replace(/>/g, '&gt;')
+                          .replace(/"/g, '&quot;')
+                          .replace(/'/g, '&#39;')
+    }
+  }
   
   return `<div class="code-block-container relative bg-gray-900 rounded-lg my-4">
-    <pre class="p-4 overflow-x-auto"><code class="language-${actualLanguage || 'text'} text-sm">${escapedCode}</code></pre>
-    <button class="copy-button absolute top-2 right-2 bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-2 py-1 rounded text-xs opacity-0 group-hover:opacity-100 transition-opacity" onclick="copyCodeBlock(this)" title="Copy code">Copy</button>
+    <div class="flex items-center justify-between px-4 py-2 bg-gray-800 border-b border-gray-700">
+      <span class="text-xs text-gray-400 font-medium">${actualLanguage || 'text'}</span>
+      <button class="copy-button bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-2 py-1 rounded text-xs transition-colors" onclick="copyCodeBlock(this)" title="Copy code">Copy</button>
+    </div>
+    <pre class="p-4 overflow-x-auto bg-gray-900"><code class="hljs language-${actualLanguage || 'text'} text-sm">${highlightedCode}</code></pre>
   </div>`
 }
 
 marked.setOptions({
   renderer: renderer,
-  highlight: null,
+  highlight: function(code, lang) {
+    if (lang && hljs.getLanguage(lang)) {
+      try {
+        return hljs.highlight(code, { language: lang }).value
+      } catch (err) {
+        console.warn('Highlight.js error:', err)
+      }
+    }
+    try {
+      return hljs.highlightAuto(code).value
+    } catch (err) {
+      console.warn('Highlight.js auto-detection error:', err)
+      return code
+    }
+  },
   breaks: true,
   gfm: true
 })
 
 // Global function for copying code blocks
 window.copyCodeBlock = (button) => {
-  const codeBlock = button.parentElement.querySelector('code')
+  // Find the code block - it's in the next sibling (pre) element
+  const codeBlock = button.parentElement.parentElement.querySelector('code')
   const text = codeBlock.textContent
   
   navigator.clipboard.writeText(text).then(() => {
