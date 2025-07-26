@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useChat } from '../contexts/ChatContext'
 import { useWS } from '../contexts/WSContext'
-import { Menu, ChevronDown, Settings, Bot } from 'lucide-react'
+import { Menu, ChevronDown, Settings, Bot, Download } from 'lucide-react'
 
 const Header = ({ onToggleRag, onToggleTools, onToggleAgent }) => {
   const { 
@@ -11,10 +11,14 @@ const Header = ({ onToggleRag, onToggleTools, onToggleAgent }) => {
     currentModel, 
     setCurrentModel, 
     agentModeAvailable,
-    selectedTools 
+    selectedTools,
+    downloadChat,
+    downloadChatAsText,
+    messages
   } = useChat()
   const { connectionStatus, isConnected } = useWS()
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [downloadDropdownOpen, setDownloadDropdownOpen] = useState(false)
 
   const handleModelSelect = (model) => {
     setCurrentModel(model)
@@ -81,6 +85,45 @@ const Header = ({ onToggleRag, onToggleTools, onToggleAgent }) => {
           <span className="text-gray-400 hidden sm:inline">{connectionStatus}</span>
         </div>
 
+        {/* Download Chat Button */}
+        <div className="relative">
+          <button
+            onClick={() => setDownloadDropdownOpen(!downloadDropdownOpen)}
+            disabled={messages.length === 0}
+            className={`p-2 rounded-lg transition-colors ${
+              messages.length === 0 
+                ? 'bg-gray-700 text-gray-500 cursor-not-allowed' 
+                : 'bg-gray-700 hover:bg-gray-600 text-gray-200'
+            }`}
+            title="Download Chat History"
+          >
+            <Download className="w-5 h-5" />
+          </button>
+          
+          {downloadDropdownOpen && messages.length > 0 && (
+            <div className="absolute right-0 top-full mt-1 w-48 bg-gray-800 border border-gray-600 rounded-lg shadow-lg z-50">
+              <button
+                onClick={() => {
+                  downloadChat()
+                  setDownloadDropdownOpen(false)
+                }}
+                className="w-full text-left px-4 py-2 text-sm text-gray-200 hover:bg-gray-700 first:rounded-t-lg"
+              >
+                Download as JSON
+              </button>
+              <button
+                onClick={() => {
+                  downloadChatAsText()
+                  setDownloadDropdownOpen(false)
+                }}
+                className="w-full text-left px-4 py-2 text-sm text-gray-200 hover:bg-gray-700 last:rounded-b-lg"
+              >
+                Download as Text
+              </button>
+            </div>
+          )}
+        </div>
+
         {/* Agent Settings Button */}
         {agentModeAvailable && (
           <button
@@ -107,6 +150,14 @@ const Header = ({ onToggleRag, onToggleTools, onToggleAgent }) => {
         <div 
           className="fixed inset-0 z-40" 
           onClick={() => setDropdownOpen(false)}
+        />
+      )}
+      
+      {/* Close download dropdown when clicking outside */}
+      {downloadDropdownOpen && (
+        <div 
+          className="fixed inset-0 z-40" 
+          onClick={() => setDownloadDropdownOpen(false)}
         />
       )}
     </header>

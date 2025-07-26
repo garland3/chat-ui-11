@@ -260,7 +260,11 @@ export const ChatProvider = ({ children }) => {
     }
 
     // Add user message
-    const userMessage = { role: 'user', content }
+    const userMessage = { 
+      role: 'user', 
+      content,
+      timestamp: new Date().toISOString()
+    }
     setMessages(prev => [...prev, userMessage])
     setIsThinking(true)
 
@@ -307,13 +311,21 @@ export const ChatProvider = ({ children }) => {
       switch (data.type) {
         case 'chat_response':
           setIsThinking(false)
-          const assistantMessage = { role: 'assistant', content: data.message }
+          const assistantMessage = { 
+            role: 'assistant', 
+            content: data.message,
+            timestamp: new Date().toISOString()
+          }
           setMessages(prev => [...prev, assistantMessage])
           break
 
         case 'error':
           setIsThinking(false)
-          const errorMessage = { role: 'system', content: `Error: ${data.message}` }
+          const errorMessage = { 
+            role: 'system', 
+            content: `Error: ${data.message}`,
+            timestamp: new Date().toISOString()
+          }
           setMessages(prev => [...prev, errorMessage])
           break
 
@@ -326,7 +338,8 @@ export const ChatProvider = ({ children }) => {
           setCurrentAgentStep(0)
           const agentResponse = { 
             role: 'assistant', 
-            content: `${data.message}\n\n*Agent completed in ${data.steps_taken} steps*` 
+            content: `${data.message}\n\n*Agent completed in ${data.steps_taken} steps*`,
+            timestamp: new Date().toISOString()
           }
           setMessages(prev => [...prev, agentResponse])
           break
@@ -359,7 +372,8 @@ export const ChatProvider = ({ children }) => {
             tool_name: updateData.tool_name,
             server_name: updateData.server_name,
             arguments: updateData.arguments || {},
-            status: 'calling'
+            status: 'calling',
+            timestamp: new Date().toISOString()
           }
           setMessages(prev => [...prev, toolCallMessage])
           break
@@ -409,6 +423,143 @@ export const ChatProvider = ({ children }) => {
     setCanvasContent('')
   }
 
+  const downloadChat = () => {
+    if (messages.length === 0) {
+      alert('No chat history to download')
+      return
+    }
+
+    // Format the chat data
+    const chatData = {
+      metadata: {
+        exportDate: new Date().toISOString(),
+        appName,
+        user,
+        model: currentModel,
+        selectedTools: Array.from(selectedTools),
+        selectedDataSources: Array.from(selectedDataSources),
+        onlyRag,
+        toolChoiceRequired,
+        agentModeEnabled,
+        agentMaxSteps,
+        messageCount: messages.length,
+        exportVersion: '1.0'
+      },
+      conversation: messages.map((message, index) => {
+        const baseMessage = {
+          index: index + 1,
+          role: message.role,
+          content: message.content,
+          timestamp: message.timestamp || new Date().toISOString()
+        }
+
+        // Add tool-specific data if it's a tool call/result
+        if (message.type === 'tool_call') {
+          baseMessage.messageType = 'tool_call'
+          baseMessage.toolDetails = {
+            name: message.tool_name,
+            server: message.server_name,
+            callId: message.tool_call_id,
+            arguments: message.arguments,
+            status: message.status
+          }
+          if (message.result) {
+            baseMessage.toolDetails.result = message.result
+          }
+        } else if (message.role === 'system') {
+          baseMessage.messageType = 'system'
+        } else if (message.role === 'assistant') {
+          baseMessage.messageType = 'assistant_response'
+        } else if (message.role === 'user') {
+          baseMessage.messageType = 'user_input'
+        }
+
+        return baseMessage
+      }),
+      canvasContent: canvasContent || null,
+      sessionSummary: {
+        totalMessages: messages.length,
+        userMessages: messages.filter(m => m.role === 'user').length,
+        assistantMessages: messages.filter(m => m.role === 'assistant').length,
+        systemMessages: messages.filter(m => m.role === 'system').length,
+        toolCalls: messages.filter(m => m.type === 'tool_call').length
+      }
+    }
+
+    // Create and download the file
+    const dataStr = JSON.stringify(chatData, null, 2)
+    const dataBlob = new Blob([dataStr], { type: 'application/json' })
+    
+    const url = URL.createObjectURL(dataBlob)
+    const link = document.createElement('a')
+    link.href = url
+    
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+    link.download = `chat-export-${timestamp}.json`
+    
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
+  const downloadChatAsText = () => {
+    if (messages.length === 0) {
+      alert('No chat history to download')
+      return
+    }
+
+    // Format the chat as readable text
+    let textContent = `Chat Export - ${appName}\n`
+    textContent += `Date: ${new Date().toLocaleString()}\n`
+    textContent += `User: ${user}\n`
+    textContent += `Model: ${currentModel}\n`
+    textContent += `Selected Tools: ${Array.from(selectedTools).join(', ') || 'None'}\n`
+    textContent += `Selected Data Sources: ${Array.from(selectedDataSources).join(', ') || 'None'}\n`
+    textContent += `Agent Mode: ${agentModeEnabled ? 'Enabled' : 'Disabled'}\n`
+    textContent += `\n${'='.repeat(50)}\n\n`
+
+    messages.forEach((message, index) => {
+      const timestamp = message.timestamp ? new Date(message.timestamp).toLocaleTimeString() : 'Unknown time'
+      
+      if (message.role === 'user') {
+        textContent += `[${timestamp}] USER:\n${message.content}\n\n`
+      } else if (message.role === 'assistant') {
+        textContent += `[${timestamp}] ASSISTANT:\n${message.content}\n\n`
+      } else if (message.role === 'system' && message.type === 'tool_call') {
+        textContent += `[${timestamp}] TOOL CALL - ${message.tool_name} (${message.server_name}):\n`
+        if (message.arguments && Object.keys(message.arguments).length > 0) {
+          textContent += `Arguments: ${JSON.stringify(message.arguments, null, 2)}\n`
+        }
+        textContent += `Status: ${message.status}\n`
+        if (message.result) {
+          textContent += `Result: ${typeof message.result === 'string' ? message.result : JSON.stringify(message.result, null, 2)}\n`
+        }
+        textContent += '\n'
+      } else if (message.role === 'system') {
+        textContent += `[${timestamp}] SYSTEM:\n${message.content}\n\n`
+      }
+    })
+
+    if (canvasContent) {
+      textContent += `${'='.repeat(50)}\nCANVAS CONTENT:\n${canvasContent}\n`
+    }
+
+    // Create and download the file
+    const dataBlob = new Blob([textContent], { type: 'text/plain' })
+    const url = URL.createObjectURL(dataBlob)
+    const link = document.createElement('a')
+    link.href = url
+    
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+    link.download = `chat-export-${timestamp}.txt`
+    
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
   const value = {
     // App state
     appName,
@@ -448,6 +599,8 @@ export const ChatProvider = ({ children }) => {
     isThinking,
     sendChatMessage,
     clearChat,
+    downloadChat,
+    downloadChatAsText,
     
     // Canvas
     canvasContent,
