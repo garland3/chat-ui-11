@@ -164,7 +164,7 @@ export const ChatProvider = ({ children }) => {
     setSelectedDataSources(newSelected)
   }
 
-  const sendChatMessage = (content) => {
+  const sendChatMessage = (content, files = {}) => {
     if (!content.trim() || !currentModel) return
 
     // Hide welcome screen on first message
@@ -186,7 +186,8 @@ export const ChatProvider = ({ children }) => {
       selected_data_sources: Array.from(selectedDataSources),
       only_rag: onlyRag,
       tool_choice_required: toolChoiceRequired,
-      user
+      user,
+      files // Add files to payload
     }
 
     // Add agent mode parameters if available

@@ -94,6 +94,24 @@ async def call_llm(model_name: str, messages: List[Dict[str, str]]) -> str:
         raise Exception("Invalid response format from LLM")
 
 
+def _inject_file_data(function_args: Dict, session) -> Dict:
+    """Inject file data into tool arguments if tool expects it and files are available"""
+    if not session or not hasattr(session, 'uploaded_files') or not session.uploaded_files:
+        return function_args
+    
+    # Check if tool has file_data_base64 parameter and filename parameter
+    if 'file_data_base64' in function_args and 'filename' in function_args:
+        filename = function_args.get('filename')
+        if filename and filename in session.uploaded_files:
+            # Create a copy to avoid modifying the original
+            enhanced_args = function_args.copy()
+            enhanced_args['file_data_base64'] = session.uploaded_files[filename]
+            logger.info(f"Injected file data for '{filename}' into tool call")
+            return enhanced_args
+    
+    return function_args
+
+
 def create_agent_completion_tool() -> Dict:
     """Create the all_work_is_done tool for agent mode completion."""
     return {
@@ -246,7 +264,11 @@ async def call_llm_with_tools(
                             server_name,
                             user_email,
                         )
-                        tool_result = await mcp_manager.call_tool(server_name, tool_name, function_args)
+                        
+                        # Inject file data if tool expects it and session has uploaded files
+                        enhanced_args = _inject_file_data(function_args, session)
+                        
+                        tool_result = await mcp_manager.call_tool(server_name, tool_name, enhanced_args)
                         if hasattr(tool_result, "content"):
                             if hasattr(tool_result.content, "__iter__") and not isinstance(tool_result.content, str):
                                 content_text = "\n".join(
@@ -322,3 +344,21 @@ async def call_llm_with_tools(
     except KeyError as exc:
         logger.error("Invalid response format from LLM: %s", exc, exc_info=True)
         raise Exception("Invalid response format from LLM")
+
+
+def _inject_file_data(function_args: Dict, session) -> Dict:
+    """Inject file data into tool arguments if tool expects it and files are available"""
+    if not session or not hasattr(session, 'uploaded_files') or not session.uploaded_files:
+        return function_args
+    
+    # Check if tool has file_data_base64 parameter and filename parameter
+    if 'file_data_base64' in function_args and 'filename' in function_args:
+        filename = function_args.get('filename')
+        if filename and filename in session.uploaded_files:
+            # Create a copy to avoid modifying the original
+            enhanced_args = function_args.copy()
+            enhanced_args['file_data_base64'] = session.uploaded_files[filename]
+            logger.info(f"Injected file data for '{filename}' into tool call")
+            return enhanced_args
+    
+    return function_args

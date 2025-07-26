@@ -256,6 +256,114 @@ const processMessageContent = (content) => {
   }
 }
 
+// Helper function to filter out base64 data from tool arguments for display
+const filterArgumentsForDisplay = (args) => {
+  if (!args || typeof args !== 'object') return args
+  
+  const filteredArgs = { ...args }
+  
+  // Hide base64 data but show filename for context
+  if (filteredArgs.file_data_base64) {
+    const dataSize = filteredArgs.file_data_base64.length
+    filteredArgs.file_data_base64 = `[File data: ${dataSize} characters - hidden for display]`
+  }
+  
+  return filteredArgs
+}
+
+// Helper function to filter and enhance tool results for display
+const processToolResult = (result) => {
+  if (!result) return result
+  
+  if (typeof result === 'string') {
+    try {
+      // Try to parse as JSON to check for returned files
+      const parsed = JSON.parse(result)
+      return processToolResult(parsed)
+    } catch (e) {
+      // Not JSON, return as is
+      return result
+    }
+  }
+  
+  if (typeof result === 'object') {
+    const processed = { ...result }
+    
+    // Handle returned files
+    if (processed.returned_file_base64 && processed.returned_file_name) {
+      const dataSize = processed.returned_file_base64.length
+      processed.returned_file_base64 = `[File data: ${dataSize} characters - hidden for display]`
+      processed._file_download_available = true
+    }
+    
+    // Hide any other base64 fields
+    Object.keys(processed).forEach(key => {
+      if (key.includes('base64') && key !== 'returned_file_base64') {
+        if (typeof processed[key] === 'string' && processed[key].length > 100) {
+          processed[key] = `[Base64 data: ${processed[key].length} characters - hidden for display]`
+        }
+      }
+    })
+    
+    return processed
+  }
+  
+  return result
+}
+
+// Helper function to download returned files
+const downloadReturnedFile = (filename, base64Data) => {
+  try {
+    // Convert base64 to blob
+    const byteCharacters = atob(base64Data)
+    const byteNumbers = new Array(byteCharacters.length)
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i)
+    }
+    const byteArray = new Uint8Array(byteNumbers)
+    
+    // Determine MIME type based on file extension
+    const extension = filename.split('.').pop()?.toLowerCase()
+    let mimeType = 'application/octet-stream'
+    
+    const mimeTypes = {
+      'pdf': 'application/pdf',
+      'txt': 'text/plain',
+      'json': 'application/json',
+      'csv': 'text/csv',
+      'png': 'image/png',
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'gif': 'image/gif',
+      'doc': 'application/msword',
+      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    }
+    
+    if (extension && mimeTypes[extension]) {
+      mimeType = mimeTypes[extension]
+    }
+    
+    const blob = new Blob([byteArray], { type: mimeType })
+    
+    // Create download link and trigger download
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    
+    // Clean up
+    setTimeout(() => URL.revokeObjectURL(url), 100)
+    
+  } catch (error) {
+    console.error('Error downloading file:', error)
+    alert('Failed to download file. Please try again.')
+  }
+}
+
 const Message = ({ message }) => {
   const { appName } = useChat()
   
@@ -307,7 +415,7 @@ const Message = ({ message }) => {
                 </h4>
                 <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 max-h-64 overflow-y-auto">
                   <pre className="text-xs text-gray-300 overflow-x-auto whitespace-pre-wrap">
-                    {JSON.stringify(message.arguments, null, 2)}
+                    {JSON.stringify(filterArgumentsForDisplay(message.arguments), null, 2)}
                   </pre>
                 </div>
               </div>
@@ -328,9 +436,44 @@ const Message = ({ message }) => {
                 <h4 className="text-sm font-semibold text-green-400 mb-2 flex items-center gap-2">
                   <span className="text-green-400">◀</span> Output Result
                 </h4>
+                
+                {/* Check for returned file and show download button */}
+                {(() => {
+                  let parsedResult = message.result
+                  if (typeof message.result === 'string') {
+                    try {
+                      parsedResult = JSON.parse(message.result)
+                    } catch (e) {
+                      parsedResult = message.result
+                    }
+                  }
+                  
+                  const hasReturnedFile = parsedResult && 
+                    typeof parsedResult === 'object' && 
+                    parsedResult.returned_file_name && 
+                    parsedResult.returned_file_base64
+                  
+                  return hasReturnedFile ? (
+                    <div className="mb-3">
+                      <button
+                        onClick={() => downloadReturnedFile(parsedResult.returned_file_name, parsedResult.returned_file_base64)}
+                        className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Download {parsedResult.returned_file_name}
+                      </button>
+                    </div>
+                  ) : null
+                })()}
+                
                 <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 max-h-64 overflow-y-auto">
                   <pre className="text-xs text-gray-300 overflow-x-auto whitespace-pre-wrap">
-                    {typeof message.result === 'string' ? message.result : JSON.stringify(message.result, null, 2)}
+                    {(() => {
+                      const processedResult = processToolResult(message.result)
+                      return typeof processedResult === 'string' ? processedResult : JSON.stringify(processedResult, null, 2)
+                    })()}
                   </pre>
                 </div>
               </div>

@@ -200,7 +200,10 @@ class MessageProcessor:
 
             await self.session._trigger_callbacks("before_user_message_added", content=content)
 
-            user_message = {"role": "user", "content": content}
+            # Append available files to content if any exist
+            enhanced_content = self._build_content_with_files(content)
+            
+            user_message = {"role": "user", "content": enhanced_content}
             self.session.messages.append(user_message)
 
             await self.session._trigger_callbacks("after_user_message_added", user_message=user_message)
@@ -372,3 +375,11 @@ class MessageProcessor:
                 False,  # agent_mode
                 self.session.tool_choice_required,  # Pass tool choice preference
             )
+
+    def _build_content_with_files(self, content: str) -> str:
+        """Append available files to user prompt if any exist"""
+        if not self.session.uploaded_files:
+            return content
+            
+        file_list = "\n".join(f"- {filename}" for filename in self.session.uploaded_files.keys())
+        return f"{content}\n\nFiles available:\n\n{file_list}"

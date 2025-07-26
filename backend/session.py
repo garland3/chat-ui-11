@@ -43,6 +43,7 @@ class ChatSession:
         self.only_rag: bool = True  # Default to true as per instructions
         self.tool_choice_required: bool = False  # Tool choice mode: False = auto, True = required
         self.session_id: str = id(self)
+        self.uploaded_files: Dict[str, str] = {}  # filename -> base64 mapping
         
         # Initialize message processor
         self.message_processor = MessageProcessor(self)
@@ -95,10 +96,24 @@ class ChatSession:
         This method delegates to the MessageProcessor which contains the most
         critical logic in the entire codebase.
         """
+        # Update uploaded files if provided
+        if "files" in message:
+            self.update_files(message["files"])
+        
         if message.get("agent_mode", False):
             await self.message_processor.handle_agent_mode_message(message)
         else:
             await self.message_processor.handle_chat_message(message)
+
+    def update_files(self, files: Dict[str, str]) -> None:
+        """Update the session's file mapping"""
+        if files:
+            self.uploaded_files.update(files)
+            logger.info(
+                "Updated files for session %s: %s", 
+                self.session_id, 
+                list(files.keys())
+            )
 
     async def send_json(self, data: Dict[str, Any]) -> None:
         """Send JSON data to the WebSocket if connection is still open."""

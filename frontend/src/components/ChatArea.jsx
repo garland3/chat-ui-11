@@ -1,15 +1,17 @@
 import { useState, useRef, useEffect } from 'react'
 import { useChat } from '../contexts/ChatContext'
 import { useWS } from '../contexts/WSContext'
-import { Send } from 'lucide-react'
+import { Send, Paperclip, X } from 'lucide-react'
 import Message from './Message'
 import WelcomeScreen from './WelcomeScreen'
 
 const ChatArea = ({ canvasPanelOpen }) => {
   const [inputValue, setInputValue] = useState('')
   const [isMobile, setIsMobile] = useState(false)
+  const [uploadedFiles, setUploadedFiles] = useState({})
   const textareaRef = useRef(null)
   const messagesRef = useRef(null)
+  const fileInputRef = useRef(null)
   
   const { 
     messages, 
@@ -60,7 +62,7 @@ const ChatArea = ({ canvasPanelOpen }) => {
     const message = inputValue.trim()
     if (!message || !currentModel || !isConnected) return
     
-    sendChatMessage(message)
+    sendChatMessage(message, uploadedFiles)
     setInputValue('')
     
     // Reset textarea height
@@ -79,6 +81,37 @@ const ChatArea = ({ canvasPanelOpen }) => {
   const handleInputChange = (e) => {
     setInputValue(e.target.value)
     autoResizeTextarea()
+  }
+
+  const handleFileUpload = (e) => {
+    const files = Array.from(e.target.files)
+    files.forEach(file => {
+      const reader = new FileReader()
+      reader.onload = (e) => {
+        const base64Data = e.target.result.split(',')[1] // Remove data URL prefix
+        setUploadedFiles(prev => ({
+          ...prev,
+          [file.name]: base64Data
+        }))
+      }
+      reader.readAsDataURL(file)
+    })
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
+  const removeFile = (filename) => {
+    setUploadedFiles(prev => {
+      const newFiles = { ...prev }
+      delete newFiles[filename]
+      return newFiles
+    })
+  }
+
+  const triggerFileUpload = () => {
+    fileInputRef.current?.click()
   }
 
   const canSend = inputValue.trim().length > 0 && currentModel && isConnected
@@ -132,7 +165,35 @@ const ChatArea = ({ canvasPanelOpen }) => {
         }}
       >
         <div className="max-w-4xl mx-auto">
+          {/* Uploaded Files Display */}
+          {Object.keys(uploadedFiles).length > 0 && (
+            <div className="mb-3 p-3 bg-gray-800 rounded-lg border border-gray-600">
+              <div className="text-sm text-gray-300 mb-2">Uploaded Files:</div>
+              <div className="flex flex-wrap gap-2">
+                {Object.keys(uploadedFiles).map(filename => (
+                  <div key={filename} className="flex items-center gap-2 bg-gray-700 px-3 py-1 rounded-full text-sm">
+                    <span className="text-gray-200">{filename}</span>
+                    <button
+                      onClick={() => removeFile(filename)}
+                      className="text-gray-400 hover:text-red-400 transition-colors"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
           <form onSubmit={handleSubmit} className="flex gap-3">
+            <button
+              type="button"
+              onClick={triggerFileUpload}
+              className="px-3 py-3 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg flex items-center justify-center transition-colors flex-shrink-0"
+              title="Upload files"
+            >
+              <Paperclip className="w-5 h-5" />
+            </button>
             <div className="flex-1 relative">
               <textarea
                 ref={textareaRef}
@@ -158,8 +219,21 @@ const ChatArea = ({ canvasPanelOpen }) => {
             </button>
           </form>
           
+          {/* Hidden file input */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            onChange={handleFileUpload}
+            className="hidden"
+            accept=".pdf,.txt,.doc,.docx,.jpg,.jpeg,.png,.gif"
+          />
+          
           <div className="flex items-center justify-between mt-2 text-xs text-gray-400">
             <span>Press Shift + Enter for new line</span>
+            {Object.keys(uploadedFiles).length > 0 && (
+              <span>{Object.keys(uploadedFiles).length} file(s) uploaded</span>
+            )}
           </div>
         </div>
       </footer>

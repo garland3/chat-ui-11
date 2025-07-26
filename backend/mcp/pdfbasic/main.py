@@ -1,18 +1,21 @@
 #!/usr/bin/env python3
 """
 PDF Analyzer MCP Server using FastMCP.
-Provides PDF text analysis through the MCP protocol.
+Provides PDF text analysis and report generation through the MCP protocol.
 """
 
 import base64
 import io
 import re
 from collections import Counter
-from typing import Any, Dict
+from typing import Any, Dict, Annotated
 
-# This tool requires the PyPDF2 library.
-# Install it using: pip install PyPDF2
+# This tool requires the PyPDF2 and reportlab libraries.
+# Install them using: pip install PyPDF2 reportlab
 from PyPDF2 import PdfReader
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.units import inch
 
 from fastmcp import FastMCP
 
@@ -21,7 +24,11 @@ mcp = FastMCP("PDF_Analyzer")
 
 
 @mcp.tool
-def analyze_pdf(filename: str, file_data_base64: str) -> Dict[str, Any]:
+def analyze_pdf(
+    instructions: Annotated[str, "Instructions for the tool, not used in this implementation"],
+    filename: Annotated[str, "The name of the file, which must have a '.pdf' extension"],
+    file_data_base64: Annotated[str, "LLM agent can leave blank. Do NOT fill. This will be filled by the framework."] = ""
+) -> Dict[str, Any]:
     """
     Analyzes the text content of a single PDF file.
 
@@ -30,6 +37,7 @@ def analyze_pdf(filename: str, file_data_base64: str) -> Dict[str, Any]:
     Base64 encoded string.
 
     Args:
+        instructions: Instructions for the tool, not used in this implementation.
         filename: The name of the file, which must have a '.pdf' extension.
         file_data_base64: The Base64-encoded string of the PDF file content.
 
@@ -37,6 +45,8 @@ def analyze_pdf(filename: str, file_data_base64: str) -> Dict[str, Any]:
         A dictionary containing the analysis results or an error message.
     """
     try:
+        # print the instructions.
+        print(f"Instructions: {instructions}")
         # 1. Validate that the filename is for a PDF
         if not filename.lower().endswith('.pdf'):
             return {"error": "Invalid file type. This tool only accepts PDF files."}
@@ -84,9 +94,108 @@ def analyze_pdf(filename: str, file_data_base64: str) -> Dict[str, Any]:
         return {"error": f"PDF analysis failed: {str(e)}"}
 
 
+@mcp.tool
+def analyze_and_report_pdf(
+    instructions: Annotated[str, "Instructions for the tool, not used in this implementation"],
+    filename: Annotated[str, "The name of the file, which must have a '.pdf' extension"],
+    file_data_base64: Annotated[str, "LLM agent can leave blank. Do NOT fill. This will be filled by the framework."] = ""
+) -> Dict[str, Any]:
+    """
+    Analyzes a PDF, then generates and returns a new PDF report with the results.
+
+    The report contains the total word count and the top 100 most frequent words.
+    This tool returns a new file back to the user.
+
+    Args:
+        instructions: Instructions for the tool, not used in this implementation.
+        filename: The name of the file to be analyzed.
+        file_data_base_64: The Base64-encoded string of the PDF file content.
+
+    Returns:
+        A dictionary containing the new report's filename and its Base64-encoded data.
+    """
+    # --- 1. Perform the same analysis as the first function ---
+    analysis_result = analyze_pdf(instructions, filename, file_data_base64)
+    if "error" in analysis_result:
+        return analysis_result # Return the error if analysis failed
+
+    # --- 2. Generate a PDF report from the analysis results ---
+    try:
+        buffer = io.BytesIO()
+        # Create a canvas to draw on, using the buffer as the "file"
+        p = canvas.Canvas(buffer, pagesize=letter)
+        width, height = letter
+
+        # Set up starting coordinates
+        x = inch
+        y = height - inch
+
+        # Write title
+        p.setFont("Helvetica-Bold", 16)
+        p.drawString(x, y, f"Analysis Report for: {analysis_result['filename']}")
+        y -= 0.5 * inch
+
+        # Write summary
+        p.setFont("Helvetica", 12)
+        p.drawString(x, y, f"Total Word Count: {analysis_result['total_word_count']}")
+        y -= 0.3 * inch
+
+        # Write header for top words
+        p.setFont("Helvetica-Bold", 12)
+        p.drawString(x, y, "Top 100 Most Frequent Words:")
+        y -= 0.25 * inch
+
+        # Write the list of top words
+        p.setFont("Helvetica", 10)
+        col1_x, col2_x, col3_x, col4_x = x, x + 1.75*inch, x + 3.5*inch, x + 5.25*inch
+        current_x = col1_x
+        
+        # Simple column layout
+        count = 0
+        for word, freq in analysis_result['top_100_words'].items():
+            if y < inch: # New page if we run out of space
+                p.showPage()
+                p.setFont("Helvetica", 10)
+                y = height - inch
+
+            p.drawString(current_x, y, f"{word}: {freq}")
+            
+            # Move to the next column
+            if count % 4 == 0: current_x = col2_x
+            elif count % 4 == 1: current_x = col3_x
+            elif count % 4 == 2: current_x = col4_x
+            else: # Move to the next row
+                current_x = col1_x
+                y -= 0.2 * inch
+            count += 1
+            
+        # Finalize the PDF
+        p.save()
+        
+        # --- 3. Encode the generated PDF for return ---
+        report_bytes = buffer.getvalue()
+        buffer.close()
+        report_base64 = base64.b64encode(report_bytes).decode('utf-8')
+
+        # Create a new filename for the report
+        report_filename = f"analysis_report_{filename.replace('.pdf', '.txt')}.pdf"
+
+        # --- 4. Return the new file data ---
+        return {
+            "operation": "pdf_analysis_report",
+            "original_filename": filename,
+            "returned_file_name": report_filename,
+            "returned_file_base64": report_base64,
+            "message": f"Successfully generated analysis report for {filename}."
+        }
+
+    except Exception as e:
+        return {"error": f"Failed to generate PDF report: {str(e)}"}
+
+
 if __name__ == "__main__":
     # This will start the server and listen for MCP requests.
     # To use it, you would run this script and then connect to it
     # with a FastMCP client.
-    print("Starting PDF Analyzer MCP server...")
+    print("Starting PDF Analyzer MCP server with report generation...")
     mcp.run()
