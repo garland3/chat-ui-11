@@ -34,5 +34,12 @@
     "groups": ["users"],
     "is_exclusive": false,
     "description": "DuckDuckGo search tool"
+  }, 
+  "pdfbasic": {
+    "command": ["python", "mcp/pdfbasic/main.py"],
+    "cwd": "backend",
+    "groups": ["users"],
+    "is_exclusive": false,
+    "description": "PDF analysis tool"
   }
 }

@@ -10,3 +10,4 @@ fastmcp
 requests
 httpx
 duckduckgo-search
+PyPDF2
