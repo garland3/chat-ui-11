@@ -56,17 +56,22 @@ This was extracted from `ChatSession` to improve modularity, testability, and ma
 
 ### Technology Stack
 - **Backend**: FastAPI with WebSockets
-- **Frontend**: Vanilla JavaScript (ES6 modules)
+- **Frontend**: React with Vite build system
 - **Python Package Manager**: uv with virtual environments
 - **Code Analysis**: Ruff for Python linting and formatting
 - **Containerization**: Docker with Fedora base image
 
 ### Project Structure
 ```
-├── frontend/          # Frontend application
-│   ├── index.html     # Main chat interface
-│   ├── style.css      # UI styles
-│   └── app.js         # Application logic
+├── frontend/          # React frontend application
+│   ├── dist/          # Built frontend files (served by backend)
+│   ├── src/           # React source code
+│   │   ├── components/ # React components
+│   │   ├── contexts/   # React contexts
+│   │   └── hooks/      # Custom React hooks
+│   ├── package.json   # Node.js dependencies
+│   └── vite.config.js # Vite build configuration
+├── old_frontend/      # Legacy vanilla JS frontend (deprecated)
 ├── backend/           # FastAPI backend (MCP client)
 │   ├── main.py        # Main FastAPI application
 │   ├── session.py     # WebSocket session management
@@ -128,12 +133,20 @@ This was extracted from `ChatSession` to improve modularity, testability, and ma
    # Edit .env with your API keys and settings
    ```
 
-3. **Start the backend**:
+3. **Build the frontend**:
    ```bash
+   cd ../frontend
+   npm install
+   npm run build
+   ```
+
+4. **Start the backend**:
+   ```bash
+   cd ../backend
    python main.py
    ```
 
-4. **Access the interface**:
+5. **Access the interface**:
    Open http://localhost:8000 in your browser
 
 ## Configuration
@@ -325,10 +338,10 @@ The backend includes two demo MCP servers:
 4. Set appropriate user groups
 
 ### Extending Frontend
-- Use ES6 modules for organization
-- Maintain vanilla JavaScript approach
-- Structure for easy npm migration
-- Follow existing patterns and conventions
+- Built with React and Vite for modern development
+- Uses Tailwind CSS for styling
+- WebSocket integration through React contexts
+- Components organized by functionality
 
 ## Security Considerations
 

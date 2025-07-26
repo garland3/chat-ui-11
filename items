@@ -1,0 +1,3 @@
+1. copy the logo image and favico from the old frontend
+2. the chat should have the dialog messages with the user on side and the assistant on the other.
+3. the chat mesages is taking almost the whole width, but it shoud only be about 70% for wide screens

@@ -2,7 +2,7 @@ FROM fedora:latest
 
 # Install system dependencies
 RUN dnf update -y && \
-    dnf install -y python3 python3-pip curl git && \
+    dnf install -y python3 python3-pip curl git nodejs npm && \
     dnf clean all
 
 # Install uv for Python package management
@@ -14,6 +14,11 @@ WORKDIR /app
 
 # Copy project files
 COPY . .
+
+# Build frontend
+RUN cd frontend && \
+    npm install && \
+    npm run build
 
 # Create virtual environment and install dependencies
 RUN cd backend && \

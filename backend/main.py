@@ -136,9 +136,9 @@ app = FastAPI(title=app_settings.app_name, lifespan=lifespan)
 app.add_middleware(AuthMiddleware, debug_mode=DEBUG_MODE)
 
 # Serve static files
-app.mount("/static", StaticFiles(directory="../frontend"), name="static")
-app.mount("/vendor", StaticFiles(directory="../frontend/vendor"), name="vendor")
-app.mount("/fonts", StaticFiles(directory="../frontend/fonts"), name="fonts")
+app.mount("/static", StaticFiles(directory="../frontend/dist"), name="static")
+app.mount("/vendor", StaticFiles(directory="../old_frontend/vendor"), name="vendor")
+app.mount("/fonts", StaticFiles(directory="../old_frontend/fonts"), name="fonts")
 
 # --- API Endpoints ---
 
@@ -285,7 +285,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
 
 # Mount frontend files at root for direct serving (must be last to avoid conflicts)
-app.mount("/", StaticFiles(directory="../frontend", html=True), name="root")
+app.mount("/", StaticFiles(directory="../frontend/dist", html=True), name="root")
 
 if __name__ == "__main__":
     import uvicorn
