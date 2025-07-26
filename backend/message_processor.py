@@ -184,16 +184,38 @@ class MessageProcessor:
             self.session.selected_data_sources = message.get("selected_data_sources", [])
             self.session.only_rag = message.get("only_rag", True)
             self.session.tool_choice_required = message.get("tool_choice_required", False)
+            self.session.uploaded_files = message.get("files", {})
 
             logger.info(
-                "Received chat message from %s: content='%s...', model='%s', tools=%s, data_sources=%s, only_rag=%s",
-                self.session.user_email,
-                content[:50],
-                self.session.model_name,
-                self.session.selected_tools,
-                self.session.selected_data_sources,
-                self.session.only_rag,
+                f"Received chat message from {self.session.user_email}: "
+                f"content='{content[:50]}...', model='{self.session.model_name}', "
+                f"tools={self.session.selected_tools}, data_sources={self.session.selected_data_sources}, "
+                f"only_rag={self.session.only_rag}, uploaded_files={list(self.session.uploaded_files.keys())}"
             )
+            
+            # Log file upload details for debugging
+            if self.session.uploaded_files:
+                logger.info(f"📁 User {self.session.user_email} uploaded {len(self.session.uploaded_files)} files:")
+                for filename, file_data in self.session.uploaded_files.items():
+                    file_size = len(file_data) if file_data else 0
+                    logger.info(f"  - {filename} (size: {file_size} bytes)")
+                    
+                # Show potential file-related tools that could be used
+                available_file_tools = [tool for tool in self.session.selected_tools 
+                                       if any(keyword in tool.lower() 
+                                             for keyword in ['pdf', 'file', 'document', 'analyze'])]
+                if available_file_tools:
+                    logger.info(f"📋 Available file processing tools: {available_file_tools}")
+                else:
+                    logger.warning(f"⚠️  No file processing tools selected despite file upload")
+            
+            # Log file uploads more clearly
+            if self.session.uploaded_files:
+                logger.info(f"📁 FILES UPLOADED: {len(self.session.uploaded_files)} files received:")
+                for filename in self.session.uploaded_files.keys():
+                    logger.info(f"📁   - {filename}")
+            else:
+                logger.info("📁 No files uploaded in this message")
 
             if not content or not self.session.model_name:
                 raise ValueError("Message content and model name are required.")
@@ -253,6 +275,7 @@ class MessageProcessor:
                         self.session,  # Pass session for UI updates
                         agent_mode,  # Pass agent mode flag
                         self.session.tool_choice_required,  # Pass tool choice preference
+                        self.session.selected_tools,  # Pass selected tools for filtering
                     )
                     
                 await self.session._trigger_callbacks("after_llm_call", llm_response=llm_response)
@@ -322,6 +345,7 @@ class MessageProcessor:
                 self.session,  # Pass session for UI updates
                 False,  # agent_mode
                 self.session.tool_choice_required,  # Pass tool choice preference
+                self.session.selected_tools,  # Pass selected tools for filtering
             )
         
         # Get RAG context from the first data source
@@ -357,6 +381,7 @@ class MessageProcessor:
                 self.session,  # Pass session for UI updates
                 False,  # agent_mode
                 self.session.tool_choice_required,  # Pass tool choice preference
+                self.session.selected_tools,  # Pass selected tools for filtering
             )
             
             return llm_response
@@ -374,6 +399,7 @@ class MessageProcessor:
                 self.session,  # Pass session for UI updates
                 False,  # agent_mode
                 self.session.tool_choice_required,  # Pass tool choice preference
+                self.session.selected_tools,  # Pass selected tools for filtering
             )
 
     def _build_content_with_files(self, content: str) -> str:

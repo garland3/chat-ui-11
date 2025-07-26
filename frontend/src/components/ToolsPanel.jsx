@@ -11,23 +11,35 @@ const ToolsPanel = ({ isOpen, onClose }) => {
   } = useChat()
 
   const toggleServerTools = (serverName) => {
+    console.log('🔧 [TOOLS DEBUG] toggleServerTools called for server:', serverName)
+    
     const serverTools = tools.find(t => t.server === serverName)
     if (!serverTools) return
 
     const serverToolKeys = serverTools.tools.map(tool => `${serverName}_${tool}`)
     const allSelected = serverToolKeys.every(key => selectedTools.has(key))
+    
+    console.log('🔧 [TOOLS DEBUG] Server tools:', serverToolKeys)
+    console.log('🔧 [TOOLS DEBUG] All selected before toggle:', allSelected)
+    console.log('🔧 [TOOLS DEBUG] Currently selected tools:', Array.from(selectedTools))
 
-    serverToolKeys.forEach(key => {
-      if (allSelected) {
-        if (selectedTools.has(key)) {
-          toggleTool(key)
-        }
-      } else {
+    if (allSelected) {
+      // Deselect All: Remove all tools from this server
+      console.log('🔧 [TOOLS DEBUG] Deselecting all tools from server:', serverName)
+      serverToolKeys.forEach(key => {
+        console.log('🔧 [TOOLS DEBUG] Deselecting tool:', key)
+        toggleTool(key) // This will remove if selected
+      })
+    } else {
+      // Select All: Add all tools from this server
+      console.log('🔧 [TOOLS DEBUG] Selecting all tools from server:', serverName)
+      serverToolKeys.forEach(key => {
+        console.log('🔧 [TOOLS DEBUG] Selecting tool:', key)
         if (!selectedTools.has(key)) {
-          toggleTool(key)
+          toggleTool(key) // Only toggle if not already selected
         }
-      }
-    })
+      })
+    }
   }
 
   const getServerButtonText = (serverName) => {
@@ -66,13 +78,13 @@ const ToolsPanel = ({ isOpen, onClose }) => {
       
       {/* Panel */}
       <aside className={`
-        fixed right-0 top-0 h-full w-80 bg-gray-800 border-l border-gray-700 z-50 transform transition-transform duration-300 ease-in-out
+        fixed right-0 top-0 h-full w-80 bg-gray-800 border-l border-gray-700 z-50 transform transition-transform duration-300 ease-in-out flex flex-col
         ${isOpen ? 'translate-x-0' : 'translate-x-full'}
         lg:relative lg:translate-x-0 lg:w-96
         ${!isOpen ? 'lg:hidden' : ''}
       `}>
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-700">
+        <div className="flex items-center justify-between p-4 border-b border-gray-700 flex-shrink-0">
           <h2 className="text-lg font-semibold text-gray-100">Tools & Integrations</h2>
           <button
             onClick={onClose}
@@ -83,7 +95,7 @@ const ToolsPanel = ({ isOpen, onClose }) => {
         </div>
 
         {/* Tool Choice Controls */}
-        <div className="p-4 border-b border-gray-700">
+        <div className="p-4 border-b border-gray-700 flex-shrink-0">
           <button
             onClick={() => setToolChoiceRequired(!toolChoiceRequired)}
             className={`w-full px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
@@ -97,7 +109,7 @@ const ToolsPanel = ({ isOpen, onClose }) => {
         </div>
 
         {/* Tools List */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 min-h-0">
           {tools.length === 0 ? (
             <div className="text-gray-400 text-center py-8">No tools available</div>
           ) : (

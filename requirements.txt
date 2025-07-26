@@ -11,3 +11,9 @@ requests
 httpx
 duckduckgo-search
 PyPDF2
+pandas
+matplotlib
+numpy
+scikit-learn
+scipy
+beautifulsoup4

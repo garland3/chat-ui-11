@@ -4,7 +4,15 @@ import { useWS } from '../contexts/WSContext'
 import { Menu, ChevronDown, Settings, Bot } from 'lucide-react'
 
 const Header = ({ onToggleRag, onToggleTools, onToggleAgent }) => {
-  const { appName, user, models, currentModel, setCurrentModel, agentModeAvailable } = useChat()
+  const { 
+    appName, 
+    user, 
+    models, 
+    currentModel, 
+    setCurrentModel, 
+    agentModeAvailable,
+    selectedTools 
+  } = useChat()
   const { connectionStatus, isConnected } = useWS()
   const [dropdownOpen, setDropdownOpen] = useState(false)
 

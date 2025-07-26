@@ -98,6 +98,9 @@ class ChatSession:
         """
         # Update uploaded files if provided
         if "files" in message:
+            # logging the files for debugging
+            logger.debug("Received files for session %s: %s", self.session_id, message["files"])
+            # Update the session's file mapping
             self.update_files(message["files"])
         
         if message.get("agent_mode", False):
@@ -114,6 +117,14 @@ class ChatSession:
                 self.session_id, 
                 list(files.keys())
             )
+        # log all File names and length of the base 64 to the log, use fstring, offset with \t
+        logger.info("Current files in session %s:", self.session_id)
+        if not self.uploaded_files:
+            logger.info("\tNo files uploaded yet.")
+        else:
+            # use fstring. 
+            for filename, base64_data in self.uploaded_files.items():
+                logger.info(f"\t{filename}: {len(base64_data)} bytes")
 
     async def send_json(self, data: Dict[str, Any]) -> None:
         """Send JSON data to the WebSocket if connection is still open."""

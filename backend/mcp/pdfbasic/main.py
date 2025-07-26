@@ -19,23 +19,13 @@ from reportlab.lib.units import inch
 
 from fastmcp import FastMCP
 
-# Initialize the MCP server
 mcp = FastMCP("PDF_Analyzer")
 
 
-@mcp.tool
-def analyze_pdf(
-    instructions: Annotated[str, "Instructions for the tool, not used in this implementation"],
-    filename: Annotated[str, "The name of the file, which must have a '.pdf' extension"],
-    file_data_base64: Annotated[str, "LLM agent can leave blank. Do NOT fill. This will be filled by the framework."] = ""
-) -> Dict[str, Any]:
+def _analyze_pdf_content(instructions: str, filename: str, file_data_base64: str) -> Dict[str, Any]:
     """
-    Analyzes the text content of a single PDF file.
-
-    It calculates the total word count and determines the top 100 most
-    frequently used words. The file content must be provided as a
-    Base64 encoded string.
-
+    Core PDF analysis logic that can be reused by multiple tools.
+    
     Args:
         instructions: Instructions for the tool, not used in this implementation.
         filename: The name of the file, which must have a '.pdf' extension.
@@ -91,11 +81,39 @@ def analyze_pdf(
         }
 
     except Exception as e:
+        # print traceback for debugging
+        import traceback
+        traceback.print_exc()
+        # 6. Return an error message if something goes wrong
         return {"error": f"PDF analysis failed: {str(e)}"}
 
 
 @mcp.tool
-def analyze_and_report_pdf(
+def analyze_pdf(
+    instructions: Annotated[str, "Instructions for the tool, not used in this implementation"],
+    filename: Annotated[str, "The name of the file, which must have a '.pdf' extension"],
+    file_data_base64: Annotated[str, "LLM agent can leave blank. Do NOT fill. This will be filled by the framework."] = ""
+) -> Dict[str, Any]:
+    """
+    Analyzes the text content of a single PDF file.
+
+    It calculates the total word count and determines the top 100 most
+    frequently used words. The file content must be provided as a
+    Base64 encoded string.
+
+    Args:
+        instructions: Instructions for the tool, not used in this implementation.
+        filename: The name of the file, which must have a '.pdf' extension.
+        file_data_base64: The Base64-encoded string of the PDF file content.
+
+    Returns:
+        A dictionary containing the analysis results or an error message.
+    """
+    return _analyze_pdf_content(instructions, filename, file_data_base64)
+
+
+@mcp.tool
+def generate_report_about_pdf(
     instructions: Annotated[str, "Instructions for the tool, not used in this implementation"],
     filename: Annotated[str, "The name of the file, which must have a '.pdf' extension"],
     file_data_base64: Annotated[str, "LLM agent can leave blank. Do NOT fill. This will be filled by the framework."] = ""
@@ -115,7 +133,7 @@ def analyze_and_report_pdf(
         A dictionary containing the new report's filename and its Base64-encoded data.
     """
     # --- 1. Perform the same analysis as the first function ---
-    analysis_result = analyze_pdf(instructions, filename, file_data_base64)
+    analysis_result = _analyze_pdf_content(instructions, filename, file_data_base64)
     if "error" in analysis_result:
         return analysis_result # Return the error if analysis failed
 
@@ -190,6 +208,9 @@ def analyze_and_report_pdf(
         }
 
     except Exception as e:
+        # print traceback for debugging
+        import traceback
+        traceback.print_exc()
         return {"error": f"Failed to generate PDF report: {str(e)}"}
 
 

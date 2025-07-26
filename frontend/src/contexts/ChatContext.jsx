@@ -12,6 +12,8 @@ export const useChat = () => {
 }
 
 export const ChatProvider = ({ children }) => {
+  console.log('🔧 [TOOLS DEBUG] ChatProvider component initialized')
+  
   // App state
   const [appName, setAppName] = useState('Chat UI')
   const [user, setUser] = useState('Unknown')
@@ -59,6 +61,29 @@ export const ChatProvider = ({ children }) => {
     return removeHandler
   }, [addMessageHandler])
 
+  // Debug: Track selectedTools changes
+  useEffect(() => {
+    const selectedToolsList = Array.from(selectedTools)
+    console.log('🔧 [TOOLS DEBUG] Selected tools changed:', {
+      count: selectedToolsList.length,
+      tools: selectedToolsList,
+      timestamp: new Date().toLocaleTimeString()
+    })
+    
+    // Also log which server each tool belongs to for easier debugging
+    if (selectedToolsList.length > 0) {
+      const toolsByServer = {}
+      selectedToolsList.forEach(toolKey => {
+        const [server, tool] = toolKey.split('_')
+        if (!toolsByServer[server]) {
+          toolsByServer[server] = []
+        }
+        toolsByServer[server].push(tool)
+      })
+      console.log('🔧 [TOOLS DEBUG] Tools by server:', toolsByServer)
+    }
+  }, [selectedTools])
+
   const loadConfig = async () => {
     try {
       const response = await fetch('/api/config')
@@ -69,7 +94,16 @@ export const ChatProvider = ({ children }) => {
       
       setAppName(config.app_name || 'Chat UI')
       setModels(config.models || [])
-      setTools(config.tools || [])
+      // Process tools to remove duplicate tool names within each server
+      const uniqueTools = (config.tools || []).map(toolServer => {
+        const uniqueToolNames = new Set(toolServer.tools)
+        return {
+          ...toolServer,
+          tools: Array.from(uniqueToolNames)
+        }
+      })
+      setTools(uniqueTools)
+      console.log('🔧 [TOOLS DEBUG] Loaded unique tools:', uniqueTools)
       setDataSources(config.data_sources || [])
       setUser(config.user || 'Unknown')
       setAgentModeAvailable(config.agent_mode_available !== false)
@@ -99,18 +133,22 @@ export const ChatProvider = ({ children }) => {
   }
 
   const loadToolSelections = () => {
+    console.log('🔧 [TOOLS DEBUG] loadToolSelections called')
     try {
       const savedSelections = localStorage.getItem('chatui-selected-tools')
       if (savedSelections) {
         const selections = JSON.parse(savedSelections)
+        console.log('🔧 [TOOLS DEBUG] Loading saved selections from localStorage:', selections)
         setSelectedTools(new Set(selections))
       } else {
         // Auto-select canvas tool for new users
+        console.log('🔧 [TOOLS DEBUG] No saved selections, auto-selecting canvas tool')
         setSelectedTools(new Set(['canvas_canvas']))
         saveToolSelections(['canvas_canvas'])
       }
     } catch (error) {
       console.warn('Failed to load tool selections:', error)
+      console.log('🔧 [TOOLS DEBUG] Error loading selections, clearing selectedTools')
       setSelectedTools(new Set())
     }
   }
@@ -144,12 +182,61 @@ export const ChatProvider = ({ children }) => {
   }
 
   const toggleTool = (toolKey) => {
+    console.log('🔧 [TOOLS DEBUG] toggleTool called with:', toolKey)
+    console.log('🔧 [TOOLS DEBUG] Current selectedTools before toggle:', Array.from(selectedTools))
+    
     const newSelected = new Set(selectedTools)
-    if (newSelected.has(toolKey)) {
+    const wasSelected = newSelected.has(toolKey)
+    
+    if (wasSelected) {
       newSelected.delete(toolKey)
+      console.log('🔧 [TOOLS DEBUG] Removed tool:', toolKey)
     } else {
       newSelected.add(toolKey)
+      console.log('🔧 [TOOLS DEBUG] Added tool:', toolKey)
     }
+    
+    console.log('🔧 [TOOLS DEBUG] New selectedTools after toggle:', Array.from(newSelected))
+    setSelectedTools(newSelected)
+    saveToolSelections(Array.from(newSelected))
+  }
+
+  const selectAllServerTools = (serverName) => {
+    console.log('🔧 [TOOLS DEBUG] selectAllServerTools called for server:', serverName)
+    
+    const serverTools = tools.find(t => t.server === serverName)
+    if (!serverTools) return
+
+    const serverToolKeys = serverTools.tools.map(tool => `${serverName}_${tool}`)
+    const newSelected = new Set(selectedTools)
+    
+    // Add all tools from this server (avoiding duplicates is handled by Set)
+    serverToolKeys.forEach(key => {
+      newSelected.add(key)
+      console.log('🔧 [TOOLS DEBUG] Adding tool to selection:', key)
+    })
+    
+    console.log('🔧 [TOOLS DEBUG] New selectedTools after selecting all:', Array.from(newSelected))
+    setSelectedTools(newSelected)
+    saveToolSelections(Array.from(newSelected))
+  }
+
+  const deselectAllServerTools = (serverName) => {
+    console.log('🔧 [TOOLS DEBUG] deselectAllServerTools called for server:', serverName)
+    
+    const serverTools = tools.find(t => t.server === serverName)
+    if (!serverTools) return
+
+    const serverToolKeys = serverTools.tools.map(tool => `${serverName}_${tool}`)
+    const newSelected = new Set(selectedTools)
+    
+    // Remove all tools from this server
+    serverToolKeys.forEach(key => {
+      newSelected.delete(key)
+      console.log('🔧 [TOOLS DEBUG] Removing tool from selection:', key)
+    })
+    
+    console.log('🔧 [TOOLS DEBUG] New selectedTools after deselecting all:', Array.from(newSelected))
     setSelectedTools(newSelected)
     saveToolSelections(Array.from(newSelected))
   }
@@ -177,12 +264,21 @@ export const ChatProvider = ({ children }) => {
     setMessages(prev => [...prev, userMessage])
     setIsThinking(true)
 
+    // Debug: Log the tools being sent
+    const selectedToolsArray = Array.from(selectedTools)
+    console.log('🔧 [TOOLS DEBUG] Sending chat message with tools:', {
+      selected_tools: selectedToolsArray,
+      count: selectedToolsArray.length,
+      timestamp: new Date().toLocaleTimeString(),
+      message_preview: content.substring(0, 50) + '...'
+    })
+
     // Prepare payload
     const payload = {
       type: 'chat',
       content,
       model: currentModel,
-      selected_tools: Array.from(selectedTools),
+      selected_tools: selectedToolsArray,
       selected_data_sources: Array.from(selectedDataSources),
       only_rag: onlyRag,
       tool_choice_required: toolChoiceRequired,
@@ -196,10 +292,17 @@ export const ChatProvider = ({ children }) => {
       payload.agent_max_steps = agentMaxSteps
     }
 
+    console.log('🔧 [TOOLS DEBUG] Full payload being sent:', {
+      selected_tools: payload.selected_tools,
+      tool_choice_required: payload.tool_choice_required,
+      model: payload.model
+    })
+
     sendMessage(payload)
   }
 
   const handleWebSocketMessage = (data) => {
+    console.log('🔧 [TOOLS DEBUG] WebSocket message received:', data.type, data)
     try {
       switch (data.type) {
         case 'chat_response':
@@ -319,6 +422,8 @@ export const ChatProvider = ({ children }) => {
     setCurrentModel,
     selectedTools,
     toggleTool,
+    selectAllServerTools,
+    deselectAllServerTools,
     selectedDataSources,
     toggleDataSource,
     onlyRag,

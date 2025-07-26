@@ -96,20 +96,41 @@ async def call_llm(model_name: str, messages: List[Dict[str, str]]) -> str:
 
 def _inject_file_data(function_args: Dict, session) -> Dict:
     """Inject file data into tool arguments if tool expects it and files are available"""
-    if not session or not hasattr(session, 'uploaded_files') or not session.uploaded_files:
+    logger.info(f"_inject_file_data called with args: {list(function_args.keys())}")
+    
+    if not session:
+        logger.warning("No session provided to _inject_file_data")
+        return function_args
+        
+    if not hasattr(session, 'uploaded_files'):
+        logger.warning("Session has no uploaded_files attribute")
+        return function_args
+        
+    if not session.uploaded_files:
+        logger.warning("Session uploaded_files is empty")
         return function_args
     
-    # Check if tool has file_data_base64 parameter and filename parameter
-    if 'file_data_base64' in function_args and 'filename' in function_args:
-        filename = function_args.get('filename')
-        if filename and filename in session.uploaded_files:
-            # Create a copy to avoid modifying the original
-            enhanced_args = function_args.copy()
-            enhanced_args['file_data_base64'] = session.uploaded_files[filename]
-            logger.info(f"Injected file data for '{filename}' into tool call")
-            return enhanced_args
+    logger.info(f"Session has {len(session.uploaded_files)} uploaded files: {list(session.uploaded_files.keys())}")
     
-    return function_args
+    # Create a copy to avoid modifying the original
+    enhanced_args = function_args.copy()
+    
+    # Check if tool has filename parameter - if so, it might need file injection
+    if 'filename' in function_args:
+        filename = function_args.get('filename')
+        logger.info(f"Tool has filename parameter: {filename}")
+        
+        if filename and filename in session.uploaded_files:
+            # Add file_data_base64 parameter even if LLM didn't include it
+            file_data = session.uploaded_files[filename]
+            enhanced_args['file_data_base64'] = file_data
+            logger.info(f"Successfully injected file data for '{filename}' into tool call (data length: {len(file_data) if file_data else 0})")
+        else:
+            logger.warning(f"File '{filename}' not found in uploaded files. Available: {list(session.uploaded_files.keys())}")
+    else:
+        logger.info(f"Tool does not have filename parameter. Args: {list(function_args.keys())}")
+    
+    return enhanced_args
 
 
 def create_agent_completion_tool() -> Dict:
@@ -150,14 +171,41 @@ async def call_llm_with_tools(
     session=None,  # Optional session for UI updates
     agent_mode: bool = False,  # New parameter for agent mode
     tool_choice_required: bool = False,  # New parameter for tool choice preference
+    selected_tools: List[str] = None,  # New parameter for selected tools
 ) -> str:
     """Call LLM with tool-calling support."""
     if not validated_servers:
         return await call_llm(model_name, messages)
 
+    # Get all available tools from validated servers
     tools_data = mcp_manager.get_tools_for_servers(validated_servers)
-    tools_schema = tools_data["tools"]
-    tool_mapping = tools_data["mapping"]
+    all_tools_schema = tools_data["tools"]
+    all_tool_mapping = tools_data["mapping"]
+    
+    # Filter to only include user's selected tools if provided
+    if selected_tools:
+        logger.info(f"Filtering tools to selected ones: {selected_tools}")
+        tools_schema = []
+        tool_mapping = {}
+        
+        # Convert selected tools to a set for faster lookup
+        selected_tools_set = set(selected_tools)
+        
+        # Filter tools schema and mapping to only include selected tools
+        for tool_schema in all_tools_schema:
+            tool_function_name = tool_schema["function"]["name"]
+            if tool_function_name in selected_tools_set:
+                tools_schema.append(tool_schema)
+                if tool_function_name in all_tool_mapping:
+                    tool_mapping[tool_function_name] = all_tool_mapping[tool_function_name]
+                    logger.info(f"Including selected tool: {tool_function_name}")
+        
+        logger.info(f"Filtered tools: {[t['function']['name'] for t in tools_schema]}")
+    else:
+        # Use all available tools if no specific selection
+        logger.info("No tool filtering - using all available tools from validated servers")
+        tools_schema = all_tools_schema
+        tool_mapping = all_tool_mapping
 
     # Add agent completion tool if in agent mode
     if agent_mode:
@@ -247,6 +295,8 @@ async def call_llm_with_tools(
                     server_name = mapping["server"]
                     tool_name = mapping["tool_name"]
                     
+                    logger.info(f"🔧 TOOL MAPPING: {function_name} -> server: {server_name}, tool: {tool_name}")
+                    
                     # Send tool call notification to UI
                     if session:
                         await session.send_update_to_ui("tool_call", {
@@ -264,9 +314,11 @@ async def call_llm_with_tools(
                             server_name,
                             user_email,
                         )
+                        logger.info(f"Original tool arguments: {function_args}")
                         
                         # Inject file data if tool expects it and session has uploaded files
                         enhanced_args = _inject_file_data(function_args, session)
+                        logger.info(f"Enhanced tool arguments: {list(enhanced_args.keys())}")
                         
                         tool_result = await mcp_manager.call_tool(server_name, tool_name, enhanced_args)
                         if hasattr(tool_result, "content"):
@@ -316,6 +368,30 @@ async def call_llm_with_tools(
                                 "content": json.dumps({"error": error_message}),
                             }
                         )
+                else:
+                    # Tool not found in mapping
+                    logger.error(f"🔧 TOOL NOT FOUND: {function_name} not in tool mapping. Available tools: {list(tool_mapping.keys())}")
+                    error_message = f"Unknown tool: {function_name}. Available tools: {', '.join(tool_mapping.keys())}"
+                    
+                    # Send tool error notification to UI
+                    if session:
+                        await session.send_update_to_ui("tool_result", {
+                            "tool_name": function_name,
+                            "server_name": "unknown",
+                            "function_name": function_name,
+                            "tool_call_id": tool_call["id"],
+                            "result": error_message,
+                            "success": False,
+                            "error": f"Tool {function_name} not found"
+                        })
+                    
+                    tool_results.append(
+                        {
+                            "tool_call_id": tool_call["id"],
+                            "role": "tool",
+                            "content": json.dumps({"error": error_message}),
+                        }
+                    )
             if tool_results:
                 follow_up_messages = messages + [message] + tool_results
                 follow_up_payload = {
@@ -344,21 +420,3 @@ async def call_llm_with_tools(
     except KeyError as exc:
         logger.error("Invalid response format from LLM: %s", exc, exc_info=True)
         raise Exception("Invalid response format from LLM")
-
-
-def _inject_file_data(function_args: Dict, session) -> Dict:
-    """Inject file data into tool arguments if tool expects it and files are available"""
-    if not session or not hasattr(session, 'uploaded_files') or not session.uploaded_files:
-        return function_args
-    
-    # Check if tool has file_data_base64 parameter and filename parameter
-    if 'file_data_base64' in function_args and 'filename' in function_args:
-        filename = function_args.get('filename')
-        if filename and filename in session.uploaded_files:
-            # Create a copy to avoid modifying the original
-            enhanced_args = function_args.copy()
-            enhanced_args['file_data_base64'] = session.uploaded_files[filename]
-            logger.info(f"Injected file data for '{filename}' into tool call")
-            return enhanced_args
-    
-    return function_args

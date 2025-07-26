@@ -126,6 +126,8 @@ class MCPToolManager:
                             "parameters": tool.inputSchema or {}
                         }
                     }
+                    # log the server -> function name
+                    logger.info(f"Adding tool {tool.name} for server {server_name} ")
                     tools_schema.append(tool_schema)
                     server_tool_mapping[f"{server_name}_{tool.name}"] = {
                         'server': server_name,
