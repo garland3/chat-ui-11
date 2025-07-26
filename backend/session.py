@@ -79,7 +79,12 @@ class ChatSession:
             await self._trigger_callbacks("session_ended")
         except Exception as exc:  # pragma: no cover - unexpected errors
             logger.error("Error in ChatSession for %s: %s", self.user_email, exc, exc_info=True)
-            await self.send_error("An internal server error occurred.")
+            # Only try to send error if connection is still open
+            try:
+                if self.websocket.client_state.name != "DISCONNECTED":
+                    await self.send_error("An internal server error occurred.")
+            except Exception as send_exc:
+                logger.error("Failed to send error message to user %s: %s", self.user_email, send_exc)
             await self._trigger_callbacks("session_error", error=exc)
 
     async def handle_chat_message(self, message: Dict[str, Any]) -> None:
@@ -96,10 +101,21 @@ class ChatSession:
             await self.message_processor.handle_chat_message(message)
 
     async def send_json(self, data: Dict[str, Any]) -> None:
-        await self.websocket.send_text(json.dumps(data))
+        """Send JSON data to the WebSocket if connection is still open."""
+        try:
+            if self.websocket.client_state.name != "DISCONNECTED":
+                await self.websocket.send_text(json.dumps(data))
+            else:
+                logger.warning("Attempted to send to disconnected WebSocket for user %s", self.user_email)
+        except Exception as exc:
+            logger.error("Error sending JSON to WebSocket for user %s: %s", self.user_email, exc)
 
     async def send_error(self, error_message: str) -> None:
-        await self.send_json({"type": "error", "message": error_message})
+        """Send error message to the WebSocket if connection is still open."""
+        try:
+            await self.send_json({"type": "error", "message": error_message})
+        except Exception as exc:
+            logger.error("Error sending error message to user %s: %s", self.user_email, exc)
     
     async def send_update_to_ui(self, update_type: str, data: Dict[str, Any]) -> None:
         """
@@ -109,14 +125,17 @@ class ChatSession:
             update_type: Type of update (tool_call, tool_result, etc.)
             data: Update data to send to the frontend
         """
-        payload = {
-            "type": "intermediate_update",
-            "update_type": update_type,
-            "data": data,
-            "user": self.user_email
-        }
-        await self.send_json(payload)
-        logger.info(f"Sent {update_type} update to user {self.user_email}")
+        try:
+            payload = {
+                "type": "intermediate_update",
+                "update_type": update_type,
+                "data": data,
+                "user": self.user_email
+            }
+            await self.send_json(payload)
+            logger.info(f"Sent {update_type} update to user {self.user_email}")
+        except Exception as exc:
+            logger.error("Error sending update to UI for user %s: %s", self.user_email, exc)
 
 
 class SessionManager:

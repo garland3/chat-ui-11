@@ -4,6 +4,31 @@ import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { useState, useEffect } from 'react'
 
+// Helper function to process canvas content (strings and structured objects)
+const processCanvasContent = (content) => {
+  if (typeof content === 'string') {
+    return content
+  } else if (content && typeof content === 'object') {
+    // Handle structured content objects that might contain markdown
+    if (content.raw && typeof content.raw === 'string') {
+      // If there's a raw property, use it (likely contains markdown)
+      return content.raw
+    } else if (content.text && typeof content.text === 'string') {
+      // If there's a text property, use it
+      return content.text
+    } else {
+      // Fallback to JSON for other objects
+      try {
+        return JSON.stringify(content, null, 2)
+      } catch (e) {
+        return String(content || '')
+      }
+    }
+  } else {
+    return String(content || '')
+  }
+}
+
 const CanvasPanel = ({ isOpen, onClose }) => {
   const { canvasContent } = useChat()
   const [isMobile, setIsMobile] = useState(false)
@@ -27,17 +52,28 @@ const CanvasPanel = ({ isOpen, onClose }) => {
       )
     }
 
-    // Ensure content is a string before parsing
-    const content = typeof canvasContent === 'string' ? canvasContent : String(canvasContent || '')
-    const markdownHtml = marked.parse(content)
-    const sanitizedHtml = DOMPurify.sanitize(markdownHtml)
+    // Process canvas content to handle both strings and structured objects
+    const content = processCanvasContent(canvasContent)
+    
+    try {
+      const markdownHtml = marked.parse(content)
+      const sanitizedHtml = DOMPurify.sanitize(markdownHtml)
 
-    return (
-      <div 
-        className="prose prose-invert max-w-none p-4"
-        dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
-      />
-    )
+      return (
+        <div 
+          className="prose prose-invert max-w-none p-4"
+          dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
+        />
+      )
+    } catch (error) {
+      console.error('Error parsing canvas markdown content:', error)
+      // Fallback to plain text if markdown parsing fails
+      return (
+        <div className="p-4 text-gray-200">
+          <pre className="whitespace-pre-wrap">{content}</pre>
+        </div>
+      )
+    }
   }
 
   return (

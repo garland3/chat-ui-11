@@ -199,91 +199,103 @@ export const ChatProvider = ({ children }) => {
   }
 
   const handleWebSocketMessage = (data) => {
-    switch (data.type) {
-      case 'chat_response':
-        setIsThinking(false)
-        const assistantMessage = { role: 'assistant', content: data.message }
-        setMessages(prev => [...prev, assistantMessage])
-        break
+    try {
+      switch (data.type) {
+        case 'chat_response':
+          setIsThinking(false)
+          const assistantMessage = { role: 'assistant', content: data.message }
+          setMessages(prev => [...prev, assistantMessage])
+          break
 
-      case 'error':
-        setIsThinking(false)
-        const errorMessage = { role: 'system', content: `Error: ${data.message}` }
-        setMessages(prev => [...prev, errorMessage])
-        break
+        case 'error':
+          setIsThinking(false)
+          const errorMessage = { role: 'system', content: `Error: ${data.message}` }
+          setMessages(prev => [...prev, errorMessage])
+          break
 
-      case 'agent_step_update':
-        setCurrentAgentStep(data.current_step)
-        break
+        case 'agent_step_update':
+          setCurrentAgentStep(data.current_step)
+          break
 
-      case 'agent_final_response':
-        setIsThinking(false)
-        setCurrentAgentStep(0)
-        const agentResponse = { 
-          role: 'assistant', 
-          content: `${data.message}\n\n*Agent completed in ${data.steps_taken} steps*` 
-        }
-        setMessages(prev => [...prev, agentResponse])
-        break
+        case 'agent_final_response':
+          setIsThinking(false)
+          setCurrentAgentStep(0)
+          const agentResponse = { 
+            role: 'assistant', 
+            content: `${data.message}\n\n*Agent completed in ${data.steps_taken} steps*` 
+          }
+          setMessages(prev => [...prev, agentResponse])
+          break
 
-      case 'canvas_content':
-        if (data.content) {
-          setCanvasContent(data.content)
-        }
-        break
+        case 'intermediate_update':
+          handleIntermediateUpdate(data)
+          break
 
-      case 'intermediate_update':
-        handleIntermediateUpdate(data)
-        break
-
-      default:
-        console.warn('Unknown message type:', data.type)
+        default:
+          console.warn('Unknown message type:', data.type)
+      }
+    } catch (error) {
+      console.error('Error handling WebSocket message:', error, data)
     }
   }
 
   const handleIntermediateUpdate = (data) => {
-    const updateType = data.update_type
-    const updateData = data.data
+    try {
+      const updateType = data.update_type
+      const updateData = data.data
 
-    switch (updateType) {
-      case 'tool_call':
-        // Add tool call indicator message
-        const toolCallMessage = {
-          role: 'system',
-          content: `**Tool Call: ${updateData.tool_name}** (${updateData.server_name})`,
-          type: 'tool_call',
-          tool_call_id: updateData.tool_call_id,
-          tool_name: updateData.tool_name,
-          server_name: updateData.server_name,
-          arguments: updateData.arguments || {},
-          status: 'calling'
-        }
-        setMessages(prev => [...prev, toolCallMessage])
-        break
-
-      case 'tool_result':
-        // Update tool call message with result
-        setMessages(prev => prev.map(msg => {
-          if (msg.tool_call_id === updateData.tool_call_id) {
-            return {
-              ...msg,
-              content: `**Tool: ${updateData.tool_name}** - ${updateData.success ? 'Success' : 'Failed'}`,
-              status: updateData.success ? 'completed' : 'failed',
-              result: updateData.result || updateData.error || null
-            }
+      switch (updateType) {
+        case 'tool_call':
+          // Add tool call indicator message
+          const toolCallMessage = {
+            role: 'system',
+            content: `**Tool Call: ${updateData.tool_name}** (${updateData.server_name})`,
+            type: 'tool_call',
+            tool_call_id: updateData.tool_call_id,
+            tool_name: updateData.tool_name,
+            server_name: updateData.server_name,
+            arguments: updateData.arguments || {},
+            status: 'calling'
           }
-          return msg
-        }))
-        break
+          setMessages(prev => [...prev, toolCallMessage])
+          break
 
-      case 'canvas_content':
-        if (updateData.content) {
-          setCanvasContent(updateData.content)
-        }
-        break
+        case 'tool_result':
+          // Update tool call message with result
+          setMessages(prev => prev.map(msg => {
+            if (msg.tool_call_id === updateData.tool_call_id) {
+              return {
+                ...msg,
+                content: `**Tool: ${updateData.tool_name}** - ${updateData.success ? 'Success' : 'Failed'}`,
+                status: updateData.success ? 'completed' : 'failed',
+                result: updateData.result || updateData.error || null
+              }
+            }
+            return msg
+          }))
+          break
 
-      default:
-        console.warn('Unknown intermediate update type:', updateType)
+        case 'canvas_content':
+          try {
+            if (updateData && updateData.content) {
+              // Ensure canvas content is properly typed
+              const content = typeof updateData.content === 'string' 
+                ? updateData.content 
+                : String(updateData.content || '')
+              setCanvasContent(content)
+            }
+          } catch (canvasError) {
+            console.error('Error handling canvas content:', canvasError, updateData)
+            // Set safe fallback content
+            setCanvasContent('Error displaying canvas content')
+          }
+          break
+
+        default:
+          console.warn('Unknown intermediate update type:', updateType)
+      }
+    } catch (error) {
+      console.error('Error handling intermediate update:', error, data)
     }
   }
 

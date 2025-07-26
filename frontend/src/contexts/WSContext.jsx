@@ -50,8 +50,18 @@ export const WSProvider = ({ children }) => {
       }
 
       wsRef.current.onmessage = (event) => {
-        const data = JSON.parse(event.data)
-        messageHandlersRef.current.forEach(handler => handler(data))
+        try {
+          const data = JSON.parse(event.data)
+          messageHandlersRef.current.forEach(handler => {
+            try {
+              handler(data)
+            } catch (error) {
+              console.error('Error in message handler:', error)
+            }
+          })
+        } catch (error) {
+          console.error('Error parsing WebSocket message:', error)
+        }
       }
 
       wsRef.current.onclose = () => {

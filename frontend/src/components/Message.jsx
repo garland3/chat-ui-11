@@ -6,14 +6,53 @@ import { useState, memo } from 'react'
 // Configure marked with custom renderer for code blocks
 const renderer = new marked.Renderer()
 renderer.code = function(code, language) {
-  const escapedCode = code.replace(/&/g, '&amp;')
+  // Handle different code input types
+  let codeString = ''
+  let actualLanguage = language
+  
+  if (typeof code === 'string') {
+    codeString = code
+  } else if (code && typeof code === 'object') {
+    // Check if this is a structured code block object
+    if (code.text && typeof code.text === 'string') {
+      // Use the text property for structured code blocks
+      codeString = code.text
+      // Use the lang property if available
+      if (code.lang && !actualLanguage) {
+        actualLanguage = code.lang
+      }
+    } else if (code.raw && typeof code.raw === 'string') {
+      // Handle raw markdown code blocks - extract the content
+      const rawMatch = code.raw.match(/```(\w*)\n([\s\S]*?)\n```/)
+      if (rawMatch) {
+        codeString = rawMatch[2] || ''
+        if (rawMatch[1] && !actualLanguage) {
+          actualLanguage = rawMatch[1]
+        }
+      } else {
+        codeString = code.raw
+      }
+    } else {
+      // Fallback to JSON for other objects
+      try {
+        codeString = JSON.stringify(code, null, 2)
+        actualLanguage = 'json'
+      } catch (e) {
+        codeString = String(code || '')
+      }
+    }
+  } else {
+    codeString = String(code || '')
+  }
+  
+  const escapedCode = codeString.replace(/&/g, '&amp;')
                         .replace(/</g, '&lt;')
                         .replace(/>/g, '&gt;')
                         .replace(/"/g, '&quot;')
                         .replace(/'/g, '&#39;')
   
   return `<div class="code-block-container relative bg-gray-900 rounded-lg my-4">
-    <pre class="p-4 overflow-x-auto"><code class="language-${language || 'text'} text-sm">${escapedCode}</code></pre>
+    <pre class="p-4 overflow-x-auto"><code class="language-${actualLanguage || 'text'} text-sm">${escapedCode}</code></pre>
     <button class="copy-button absolute top-2 right-2 bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 px-2 py-1 rounded text-xs opacity-0 group-hover:opacity-100 transition-opacity" onclick="copyCodeBlock(this)" title="Copy code">Copy</button>
   </div>`
 }
@@ -42,6 +81,31 @@ window.copyCodeBlock = (button) => {
   }).catch(err => {
     console.error('Failed to copy text: ', err)
   })
+}
+
+// Helper function to process message content (strings and structured objects)
+const processMessageContent = (content) => {
+  if (typeof content === 'string') {
+    return content
+  } else if (content && typeof content === 'object') {
+    // Handle structured content objects that might contain markdown
+    if (content.raw && typeof content.raw === 'string') {
+      // If there's a raw property, use it (likely contains markdown)
+      return content.raw
+    } else if (content.text && typeof content.text === 'string') {
+      // If there's a text property, use it
+      return content.text
+    } else {
+      // Fallback to JSON for other objects
+      try {
+        return JSON.stringify(content, null, 2)
+      } catch (e) {
+        return String(content || '')
+      }
+    }
+  } else {
+    return String(content || '')
+  }
 }
 
 const Message = ({ message }) => {
@@ -118,17 +182,28 @@ const Message = ({ message }) => {
     }
     
     // Render markdown for assistant messages
-    // Ensure content is a string before parsing
-    const content = typeof message.content === 'string' ? message.content : String(message.content || '')
-    const markdownHtml = marked.parse(content)
-    const sanitizedHtml = DOMPurify.sanitize(markdownHtml)
+    // Process content to handle both strings and structured objects
+    const content = processMessageContent(message.content)
     
-    return (
-      <div 
-        className="text-gray-200 prose prose-invert max-w-none group"
-        dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
-      />
-    )
+    try {
+      const markdownHtml = marked.parse(content)
+      const sanitizedHtml = DOMPurify.sanitize(markdownHtml)
+      
+      return (
+        <div 
+          className="text-gray-200 prose prose-invert max-w-none group"
+          dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
+        />
+      )
+    } catch (error) {
+      console.error('Error parsing markdown content:', error)
+      // Fallback to plain text if markdown parsing fails
+      return (
+        <div className="text-gray-200">
+          <pre className="whitespace-pre-wrap">{content}</pre>
+        </div>
+      )
+    }
   }
 
   return (

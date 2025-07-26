@@ -108,7 +108,10 @@ class MessageProcessor:
         except Exception as exc:
             logger.error("Error in agent mode for %s: %s", self.session.user_email, exc, exc_info=True)
             await self.session._trigger_callbacks("message_error", error=exc)
-            await self.session.send_error(f"Error in agent mode: {exc}")
+            try:
+                await self.session.send_error(f"Error in agent mode: {exc}")
+            except Exception as send_exc:
+                logger.error("Failed to send error message for agent mode to user %s: %s", self.session.user_email, send_exc)
 
     def _agent_used_completion_tool(self, response: str) -> bool:
         """Check if agent used the all_work_is_done tool."""
@@ -275,7 +278,12 @@ class MessageProcessor:
         except Exception as exc:  # pragma: no cover - unexpected errors
             logger.error("Error handling chat message for %s: %s", self.session.user_email, exc, exc_info=True)
             await self.session._trigger_callbacks("message_error", error=exc)
-            await self.session.send_error(f"Error processing message: {exc}")
+            # Only try to send error if we're not in agent mode and connection is still open
+            if not agent_mode:
+                try:
+                    await self.session.send_error(f"Error processing message: {exc}")
+                except Exception as send_exc:
+                    logger.error("Failed to send error message for chat processing to user %s: %s", self.session.user_email, send_exc)
 
     async def _handle_rag_only_query(self) -> str:
         """Handle RAG-only queries by querying the first selected data source."""
