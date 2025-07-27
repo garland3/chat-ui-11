@@ -12,12 +12,12 @@ Future enhancements and feature ideas for the Chat UI application.
 - Currently MCP servers need to be in the mcp folder with same folder name as the MCP folder
 - **TODO**: Make it properly use the "command" in mcp.json, so path to MCP server can be whatever
 - **TODO**: Enable HTTP MCP servers for connecting to remote MCP servers
+- Track different MCP services: Tools, Resources, Templates, Prompts
 
 ### Custom Prompting via MCP
 - Design pattern for fastmcp: MCPs expose special system prompts in marketplace
 - Examples: "Think like a financial tech wizard", "You are an expert dog trainer"
 - Probably in `handle_chat_message` in message-processor, override system prompt for first message
-- Track different MCP services: Tools, Resources, Templates, Prompts
 
 Example MCP prompt implementation:
 ```python
@@ -42,12 +42,7 @@ def generate_code_request(language: str, task_description: str) -> PromptMessage
 - Implement user elicitation mechanism for MCP clients
 - Reference: https://gofastmcp.com/clients/elicitation
 
-## UI Enhancements
 
-When showing the tool use on the UI. 
-* show the input to the tool
-* show the output  (done)
-* for both input and output/ start collapsed (or rmemeber the users' preference. )
 
 ### Naming Convention Fix
 - **Issue**: For MCP server names, don't use underscore in folder or file

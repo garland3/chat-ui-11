@@ -187,6 +187,7 @@ async def get_config(current_user: str = Depends(get_current_user)):
     
     # Only build tool information for servers the user is authorized to access
     tools_info = []
+    prompts_info = []
     for server_name in authorized_servers:
         # Handle canvas pseudo-tool
         if server_name == "canvas":
@@ -210,6 +211,17 @@ async def get_config(current_user: str = Depends(get_current_user)):
                     'description': server_config.get('description', f'{server_name} tools'),
                     'is_exclusive': server_config.get('is_exclusive', False)
                 })
+        
+        # Collect prompts from this server if available
+        if server_name in mcp_manager.available_prompts:
+            server_prompts = mcp_manager.available_prompts[server_name]['prompts']
+            if server_prompts:  # Only show servers with actual prompts
+                prompts_info.append({
+                    'server': server_name,
+                    'prompts': [{'name': prompt.name, 'description': prompt.description} for prompt in server_prompts],
+                    'prompt_count': len(server_prompts),
+                    'description': f'{server_name} custom prompts'
+                })
     
     # Log what the user can see for debugging
     logger.info(f"User {current_user} has access to {len(authorized_servers)} servers: {authorized_servers}")
@@ -219,6 +231,7 @@ async def get_config(current_user: str = Depends(get_current_user)):
         "app_name": app_settings.app_name,
         "models": list(llm_config.models.keys()),
         "tools": tools_info,  # Only authorized servers are included
+        "prompts": prompts_info,  # Available prompts from authorized servers
         "data_sources": rag_data_sources,  # RAG data sources for the user
         "user": current_user,
         "active_sessions": session_manager.get_session_count() if session_manager else 0,

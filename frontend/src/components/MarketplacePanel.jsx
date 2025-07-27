@@ -5,7 +5,7 @@ import { useMarketplace } from '../contexts/MarketplaceContext'
 
 const MarketplacePanel = () => {
   const navigate = useNavigate()
-  const { tools } = useChat()
+  const { tools, prompts } = useChat()
   const {
     selectedServers,
     toggleServer,
@@ -14,8 +14,45 @@ const MarketplacePanel = () => {
     deselectAllServers
   } = useMarketplace()
 
+  // Combine tools and prompts into a unified server list
+  const allServers = {}
+  
+  // Add tools to the unified list
+  tools.forEach(toolServer => {
+    if (!allServers[toolServer.server]) {
+      allServers[toolServer.server] = {
+        server: toolServer.server,
+        description: toolServer.description,
+        is_exclusive: toolServer.is_exclusive,
+        tools: toolServer.tools || [],
+        tool_count: toolServer.tool_count || 0,
+        prompts: [],
+        prompt_count: 0
+      }
+    }
+  })
+  
+  // Add prompts to the unified list
+  prompts.forEach(promptServer => {
+    if (!allServers[promptServer.server]) {
+      allServers[promptServer.server] = {
+        server: promptServer.server,
+        description: promptServer.description,
+        is_exclusive: false,
+        tools: [],
+        tool_count: 0,
+        prompts: promptServer.prompts || [],
+        prompt_count: promptServer.prompt_count || 0
+      }
+    } else {
+      allServers[promptServer.server].prompts = promptServer.prompts || []
+      allServers[promptServer.server].prompt_count = promptServer.prompt_count || 0
+    }
+  })
+  
+  const serverList = Object.values(allServers)
   const selectedCount = selectedServers.size
-  const totalCount = tools.length
+  const totalCount = serverList.length
 
   return (
     <div className="min-h-screen bg-gray-900 text-gray-200">
@@ -63,12 +100,12 @@ const MarketplacePanel = () => {
 
         {/* Server Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {tools.map((toolServer) => {
-            const isSelected = isServerSelected(toolServer.server)
+          {serverList.map((server) => {
+            const isSelected = isServerSelected(server.server)
             
             return (
               <div
-                key={toolServer.server}
+                key={server.server}
                 className={`
                   relative p-6 rounded-lg border-2 transition-all cursor-pointer
                   ${isSelected 
@@ -76,7 +113,7 @@ const MarketplacePanel = () => {
                     : 'border-gray-600 bg-gray-800 hover:border-gray-500'
                   }
                 `}
-                onClick={() => toggleServer(toolServer.server)}
+                onClick={() => toggleServer(server.server)}
               >
                 {/* Selection Indicator */}
                 <div className={`
@@ -92,16 +129,17 @@ const MarketplacePanel = () => {
                 {/* Server Info */}
                 <div className="mb-4">
                   <h3 className="text-lg font-semibold text-white capitalize mb-2">
-                    {toolServer.server}
+                    {server.server}
                   </h3>
                   <p className="text-sm text-gray-400 mb-3">
-                    {toolServer.description}
+                    {server.description}
                   </p>
                   
                   {/* Server Stats */}
                   <div className="flex items-center gap-4 text-xs text-gray-400">
-                    <span>{toolServer.tool_count} tools</span>
-                    {toolServer.is_exclusive && (
+                    {server.tool_count > 0 && <span>{server.tool_count} tools</span>}
+                    {server.prompt_count > 0 && <span>{server.prompt_count} prompts</span>}
+                    {server.is_exclusive && (
                       <span className="px-2 py-1 bg-orange-600 text-white rounded">
                         Exclusive
                       </span>
@@ -109,9 +147,10 @@ const MarketplacePanel = () => {
                   </div>
                 </div>
 
-                {/* Tools Preview */}
+                {/* Tools and Prompts Preview */}
                 <div className="flex flex-wrap gap-1">
-                  {toolServer.tools.slice(0, 6).map((tool) => (
+                  {/* Tools */}
+                  {server.tools.slice(0, 4).map((tool) => (
                     <span
                       key={tool}
                       className="px-2 py-1 bg-gray-700 text-xs rounded text-gray-300"
@@ -119,9 +158,22 @@ const MarketplacePanel = () => {
                       {tool}
                     </span>
                   ))}
-                  {toolServer.tools.length > 6 && (
+                  
+                  {/* Prompts */}
+                  {server.prompts.slice(0, 4).map((prompt) => (
+                    <span
+                      key={prompt.name}
+                      className="px-2 py-1 bg-purple-700 text-xs rounded text-gray-300"
+                      title={prompt.description}
+                    >
+                      {prompt.name}
+                    </span>
+                  ))}
+                  
+                  {/* Show "more" indicator */}
+                  {(server.tools.length + server.prompts.length) > 4 && (
                     <span className="px-2 py-1 bg-gray-700 text-xs rounded text-gray-300">
-                      +{toolServer.tools.length - 6} more
+                      +{(server.tools.length + server.prompts.length) - 4} more
                     </span>
                   )}
                 </div>
@@ -130,7 +182,7 @@ const MarketplacePanel = () => {
           })}
         </div>
 
-        {tools.length === 0 && (
+        {serverList.length === 0 && (
           <div className="text-center py-12">
             <X className="w-16 h-16 text-gray-500 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-gray-300 mb-2">
@@ -148,6 +200,7 @@ const MarketplacePanel = () => {
           <ul className="text-sm text-gray-400 space-y-1">
             <li>• Select the MCP servers you want to use in your chat interface</li>
             <li>• Only selected servers will appear in the Tools & Integrations panel</li>
+            <li>• <span className="text-purple-400">Purple tags</span> indicate custom prompts, <span className="text-gray-300">gray tags</span> indicate tools</li>
             <li>• Your selections are saved in your browser</li>
             <li>• You can change your selection anytime by returning to this marketplace</li>
           </ul>

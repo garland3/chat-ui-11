@@ -4,7 +4,7 @@ import { useChat } from './ChatContext'
 const MarketplaceContext = createContext()
 
 export const MarketplaceProvider = ({ children }) => {
-  const { tools } = useChat()
+  const { tools, prompts } = useChat()
   const [selectedServers, setSelectedServers] = useState(new Set())
 
   // Load selected servers from localStorage on mount
@@ -19,11 +19,13 @@ export const MarketplaceProvider = ({ children }) => {
       }
     } else {
       // Initialize with all available servers by default
-      const allServers = tools.map(t => t.server)
+      const toolServers = tools.map(t => t.server)
+      const promptServers = prompts.map(p => p.server)
+      const allServers = [...new Set([...toolServers, ...promptServers])]
       setSelectedServers(new Set(allServers))
       localStorage.setItem('mcp-selected-servers', JSON.stringify(allServers))
     }
-  }, [tools])
+  }, [tools, prompts])
 
   // Save to localStorage whenever selectedServers changes
   useEffect(() => {
@@ -47,7 +49,9 @@ export const MarketplaceProvider = ({ children }) => {
   }
 
   const selectAllServers = () => {
-    const allServers = tools.map(t => t.server)
+    const toolServers = tools.map(t => t.server)
+    const promptServers = prompts.map(p => p.server)
+    const allServers = [...new Set([...toolServers, ...promptServers])]
     setSelectedServers(new Set(allServers))
   }
 
@@ -59,13 +63,18 @@ export const MarketplaceProvider = ({ children }) => {
     return tools.filter(tool => selectedServers.has(tool.server))
   }
 
+  const getFilteredPrompts = () => {
+    return prompts.filter(prompt => selectedServers.has(prompt.server))
+  }
+
   const value = {
     selectedServers,
     toggleServer,
     isServerSelected,
     selectAllServers,
     deselectAllServers,
-    getFilteredTools
+    getFilteredTools,
+    getFilteredPrompts
   }
 
   return (

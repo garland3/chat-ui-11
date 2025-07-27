@@ -8,68 +8,135 @@ const ToolsPanel = ({ isOpen, onClose }) => {
   const { 
     selectedTools, 
     toggleTool, 
+    selectedPrompts,
+    togglePrompt,
     toolChoiceRequired, 
     setToolChoiceRequired 
   } = useChat()
-  const { getFilteredTools } = useMarketplace()
+  const { getFilteredTools, getFilteredPrompts } = useMarketplace()
   
-  // Use filtered tools instead of all tools
+  // Use filtered tools and prompts instead of all tools
   const tools = getFilteredTools()
+  const prompts = getFilteredPrompts()
 
-  const toggleServerTools = (serverName) => {
-    console.log('🔧 [TOOLS DEBUG] toggleServerTools called for server:', serverName)
+  // Combine tools and prompts into a unified server list
+  const allServers = {}
+  
+  // Add tools to the unified list
+  tools.forEach(toolServer => {
+    if (!allServers[toolServer.server]) {
+      allServers[toolServer.server] = {
+        server: toolServer.server,
+        description: toolServer.description,
+        is_exclusive: toolServer.is_exclusive,
+        tools: toolServer.tools || [],
+        tool_count: toolServer.tool_count || 0,
+        prompts: [],
+        prompt_count: 0
+      }
+    }
+  })
+  
+  // Add prompts to the unified list
+  prompts.forEach(promptServer => {
+    if (!allServers[promptServer.server]) {
+      allServers[promptServer.server] = {
+        server: promptServer.server,
+        description: promptServer.description,
+        is_exclusive: false,
+        tools: [],
+        tool_count: 0,
+        prompts: promptServer.prompts || [],
+        prompt_count: promptServer.prompt_count || 0
+      }
+    } else {
+      allServers[promptServer.server].prompts = promptServer.prompts || []
+      allServers[promptServer.server].prompt_count = promptServer.prompt_count || 0
+    }
+  })
+  
+  const serverList = Object.values(allServers)
+
+  const toggleServerItems = (serverName) => {
+    console.log('🔧 [TOOLS DEBUG] toggleServerItems called for server:', serverName)
     
-    const serverTools = tools.find(t => t.server === serverName)
-    if (!serverTools) return
+    const server = serverList.find(s => s.server === serverName)
+    if (!server) return
 
-    const serverToolKeys = serverTools.tools.map(tool => `${serverName}_${tool}`)
-    const allSelected = serverToolKeys.every(key => selectedTools.has(key))
+    // Get all tools and prompts for this server
+    const serverToolKeys = server.tools.map(tool => `${serverName}_${tool}`)
+    const serverPromptKeys = server.prompts.map(prompt => `${serverName}_${prompt.name}`)
+    
+    // Check if all items are selected
+    const allToolsSelected = serverToolKeys.every(key => selectedTools.has(key))
+    const allPromptsSelected = serverPromptKeys.every(key => selectedPrompts.has(key))
+    const allSelected = allToolsSelected && allPromptsSelected
     
     console.log('🔧 [TOOLS DEBUG] Server tools:', serverToolKeys)
-    console.log('🔧 [TOOLS DEBUG] All selected before toggle:', allSelected)
-    console.log('🔧 [TOOLS DEBUG] Currently selected tools:', Array.from(selectedTools))
+    console.log('🔧 [PROMPTS DEBUG] Server prompts:', serverPromptKeys)
+    console.log('🔧 [DEBUG] All selected before toggle:', allSelected)
 
     if (allSelected) {
-      // Deselect All: Remove all tools from this server
-      console.log('🔧 [TOOLS DEBUG] Deselecting all tools from server:', serverName)
+      // Deselect All: Remove all tools and prompts from this server
+      console.log('🔧 [DEBUG] Deselecting all items from server:', serverName)
       serverToolKeys.forEach(key => {
-        console.log('🔧 [TOOLS DEBUG] Deselecting tool:', key)
-        toggleTool(key) // This will remove if selected
+        if (selectedTools.has(key)) {
+          toggleTool(key)
+        }
+      })
+      serverPromptKeys.forEach(key => {
+        if (selectedPrompts.has(key)) {
+          togglePrompt(key)
+        }
       })
     } else {
-      // Select All: Add all tools from this server
-      console.log('🔧 [TOOLS DEBUG] Selecting all tools from server:', serverName)
+      // Select All: Add all tools and prompts from this server
+      console.log('🔧 [DEBUG] Selecting all items from server:', serverName)
       serverToolKeys.forEach(key => {
-        console.log('🔧 [TOOLS DEBUG] Selecting tool:', key)
         if (!selectedTools.has(key)) {
-          toggleTool(key) // Only toggle if not already selected
+          toggleTool(key)
+        }
+      })
+      serverPromptKeys.forEach(key => {
+        if (!selectedPrompts.has(key)) {
+          togglePrompt(key)
         }
       })
     }
   }
 
   const getServerButtonText = (serverName) => {
-    const serverTools = tools.find(t => t.server === serverName)
-    if (!serverTools) return 'Select All'
+    const server = serverList.find(s => s.server === serverName)
+    if (!server) return 'Select All'
 
-    const serverToolKeys = serverTools.tools.map(tool => `${serverName}_${tool}`)
-    const selectedCount = serverToolKeys.filter(key => selectedTools.has(key)).length
+    const serverToolKeys = server.tools.map(tool => `${serverName}_${tool}`)
+    const serverPromptKeys = server.prompts.map(prompt => `${serverName}_${prompt.name}`)
+    const allKeys = [...serverToolKeys, ...serverPromptKeys]
+    
+    const selectedToolCount = serverToolKeys.filter(key => selectedTools.has(key)).length
+    const selectedPromptCount = serverPromptKeys.filter(key => selectedPrompts.has(key)).length
+    const selectedCount = selectedToolCount + selectedPromptCount
 
     if (selectedCount === 0) {
       return 'Select All'
-    } else if (selectedCount === serverToolKeys.length) {
+    } else if (selectedCount === allKeys.length) {
       return 'Deselect All'
     } else {
-      return `Select All (${selectedCount}/${serverToolKeys.length})`
+      return `Select All (${selectedCount}/${allKeys.length})`
     }
   }
 
   const isServerSelected = (serverName) => {
-    const serverTools = tools.find(t => t.server === serverName)
-    if (!serverTools) return false
+    const server = serverList.find(s => s.server === serverName)
+    if (!server) return false
 
-    const serverToolKeys = serverTools.tools.map(tool => `${serverName}_${tool}`)
-    return serverToolKeys.every(key => selectedTools.has(key))
+    const serverToolKeys = server.tools.map(tool => `${serverName}_${tool}`)
+    const serverPromptKeys = server.prompts.map(prompt => `${serverName}_${prompt.name}`)
+    
+    const allToolsSelected = serverToolKeys.every(key => selectedTools.has(key))
+    const allPromptsSelected = serverPromptKeys.every(key => selectedPrompts.has(key))
+    
+    return allToolsSelected && allPromptsSelected && (serverToolKeys.length > 0 || serverPromptKeys.length > 0)
   }
 
   return (
@@ -122,9 +189,9 @@ const ToolsPanel = ({ isOpen, onClose }) => {
           </div>
         </div>
 
-        {/* Tools List */}
+        {/* Tools & Prompts List */}
         <div className="flex-1 overflow-y-auto custom-scrollbar p-4 min-h-0">
-          {tools.length === 0 ? (
+          {serverList.length === 0 ? (
             <div className="text-gray-400 text-center py-8">
               <div className="mb-4">No servers selected</div>
               <button
@@ -136,19 +203,26 @@ const ToolsPanel = ({ isOpen, onClose }) => {
             </div>
           ) : (
             <div className="space-y-6">
-              {tools.map(toolServer => (
-                <div key={toolServer.server} className="space-y-3">
+              {serverList.map(server => (
+                <div key={server.server} className="space-y-3">
                   {/* Server Header */}
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <h3 className="text-white font-medium capitalize">
-                        {toolServer.server}
+                        {server.server}
                       </h3>
                       <div className="flex items-center gap-2">
-                        <span className="text-xs text-gray-400">
-                          {toolServer.tool_count} tools
-                        </span>
-                        {toolServer.is_exclusive && (
+                        {server.tool_count > 0 && (
+                          <span className="text-xs text-gray-400">
+                            {server.tool_count} tools
+                          </span>
+                        )}
+                        {server.prompt_count > 0 && (
+                          <span className="text-xs text-purple-400">
+                            {server.prompt_count} prompts
+                          </span>
+                        )}
+                        {server.is_exclusive && (
                           <span className="px-2 py-1 bg-orange-600 text-xs rounded text-white">
                             Exclusive
                           </span>
@@ -157,23 +231,24 @@ const ToolsPanel = ({ isOpen, onClose }) => {
                     </div>
                     
                     <button
-                      onClick={() => toggleServerTools(toolServer.server)}
+                      onClick={() => toggleServerItems(server.server)}
                       className={`w-full px-3 py-2 rounded text-sm font-medium transition-colors ${
-                        isServerSelected(toolServer.server)
+                        isServerSelected(server.server)
                           ? 'bg-blue-600 hover:bg-blue-700 text-white'
                           : 'bg-gray-700 hover:bg-gray-600 text-gray-200'
                       }`}
                     >
-                      {getServerButtonText(toolServer.server)}
+                      {getServerButtonText(server.server)}
                     </button>
                     
-                    <p className="text-sm text-gray-400">{toolServer.description}</p>
+                    <p className="text-sm text-gray-400">{server.description}</p>
                   </div>
 
-                  {/* Tools */}
+                  {/* Tools and Prompts */}
                   <div className="flex flex-wrap gap-2">
-                    {toolServer.tools.map(tool => {
-                      const toolKey = `${toolServer.server}_${tool}`
+                    {/* Tools */}
+                    {server.tools.map(tool => {
+                      const toolKey = `${server.server}_${tool}`
                       const isSelected = selectedTools.has(toolKey)
                       
                       return (
@@ -187,6 +262,27 @@ const ToolsPanel = ({ isOpen, onClose }) => {
                           }`}
                         >
                           {tool}
+                        </button>
+                      )
+                    })}
+                    
+                    {/* Prompts */}
+                    {server.prompts.map(prompt => {
+                      const promptKey = `${server.server}_${prompt.name}`
+                      const isSelected = selectedPrompts.has(promptKey)
+                      
+                      return (
+                        <button
+                          key={promptKey}
+                          onClick={() => togglePrompt(promptKey)}
+                          className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                            isSelected
+                              ? 'bg-purple-600 text-white'
+                              : 'bg-purple-700 hover:bg-purple-600 text-gray-300'
+                          }`}
+                          title={prompt.description}
+                        >
+                          {prompt.name}
                         </button>
                       )
                     })}

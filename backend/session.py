@@ -38,6 +38,7 @@ class ChatSession:
         ]
         self.model_name: Optional[str] = None
         self.selected_tools: List[str] = []
+        self.selected_prompts: List[str] = []
         self.validated_servers: List[str] = []
         self.selected_data_sources: List[str] = []
         self.only_rag: bool = True  # Default to true as per instructions
@@ -108,7 +109,7 @@ class ChatSession:
         # Update uploaded files if provided
         if "files" in message:
             # logging the files for debugging
-            logger.debug("Received files for session %s: %s", self.session_id, message["files"])
+            logger.info("Received files for session %s: %s", self.session_id, message["files"])
             # Update the session's file mapping
             self.update_files(message["files"])
         

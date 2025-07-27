@@ -19,11 +19,13 @@ export const ChatProvider = ({ children }) => {
   const [user, setUser] = useState('Unknown')
   const [models, setModels] = useState([])
   const [tools, setTools] = useState([])
+  const [prompts, setPrompts] = useState([])
   const [dataSources, setDataSources] = useState([])
   
   // Current selections
   const [currentModel, setCurrentModel] = useState('')
   const [selectedTools, setSelectedTools] = useState(new Set())
+  const [selectedPrompts, setSelectedPrompts] = useState(new Set())
   const [selectedDataSources, setSelectedDataSources] = useState(new Set())
   const [onlyRag, setOnlyRag] = useState(true)
   const [toolChoiceRequired, setToolChoiceRequired] = useState(false)
@@ -55,6 +57,7 @@ export const ChatProvider = ({ children }) => {
   // Load tool selections from localStorage
   useEffect(() => {
     loadToolSelections()
+    loadPromptSelections()
     loadToolChoiceRequired()
   }, [])
 
@@ -107,6 +110,8 @@ export const ChatProvider = ({ children }) => {
       })
       setTools(uniqueTools)
       console.log('🔧 [TOOLS DEBUG] Loaded unique tools:', uniqueTools)
+      setPrompts(config.prompts || [])
+      console.log('🔧 [PROMPTS DEBUG] Loaded prompts:', config.prompts || [])
       setDataSources(config.data_sources || [])
       setUser(config.user || 'Unknown')
       setAgentModeAvailable(config.agent_mode_available !== false)
@@ -162,6 +167,34 @@ export const ChatProvider = ({ children }) => {
       localStorage.setItem('chatui-selected-tools', JSON.stringify(selectionsArray))
     } catch (error) {
       console.warn('Failed to save tool selections:', error)
+    }
+  }
+
+  const loadPromptSelections = () => {
+    console.log('🔧 [PROMPTS DEBUG] loadPromptSelections called')
+    try {
+      const savedSelections = localStorage.getItem('chatui-selected-prompts')
+      if (savedSelections) {
+        const selections = JSON.parse(savedSelections)
+        console.log('🔧 [PROMPTS DEBUG] Loading saved selections from localStorage:', selections)
+        setSelectedPrompts(new Set(selections))
+      } else {
+        console.log('🔧 [PROMPTS DEBUG] No saved selections, starting with empty set')
+        setSelectedPrompts(new Set())
+      }
+    } catch (error) {
+      console.warn('Failed to load prompt selections:', error)
+      console.log('🔧 [PROMPTS DEBUG] Error loading selections, clearing selectedPrompts')
+      setSelectedPrompts(new Set())
+    }
+  }
+
+  const savePromptSelections = (selections = null) => {
+    try {
+      const selectionsArray = selections || Array.from(selectedPrompts)
+      localStorage.setItem('chatui-selected-prompts', JSON.stringify(selectionsArray))
+    } catch (error) {
+      console.warn('Failed to save prompt selections:', error)
     }
   }
 
@@ -244,6 +277,64 @@ export const ChatProvider = ({ children }) => {
     saveToolSelections(Array.from(newSelected))
   }
 
+  const togglePrompt = (promptKey) => {
+    console.log('🔧 [PROMPTS DEBUG] togglePrompt called with:', promptKey)
+    console.log('🔧 [PROMPTS DEBUG] Current selectedPrompts before toggle:', Array.from(selectedPrompts))
+    
+    const newSelected = new Set(selectedPrompts)
+    const wasSelected = newSelected.has(promptKey)
+    
+    if (wasSelected) {
+      newSelected.delete(promptKey)
+      console.log('🔧 [PROMPTS DEBUG] Removed prompt:', promptKey)
+    } else {
+      newSelected.add(promptKey)
+      console.log('🔧 [PROMPTS DEBUG] Added prompt:', promptKey)
+    }
+    
+    console.log('🔧 [PROMPTS DEBUG] New selectedPrompts after toggle:', Array.from(newSelected))
+    setSelectedPrompts(newSelected)
+    savePromptSelections(Array.from(newSelected))
+  }
+
+  const selectAllServerPrompts = (serverName) => {
+    console.log('🔧 [PROMPTS DEBUG] selectAllServerPrompts called for server:', serverName)
+    
+    const serverPrompts = prompts.find(p => p.server === serverName)
+    if (!serverPrompts) return
+    const serverPromptKeys = serverPrompts.prompts.map(prompt => `${serverName}_${prompt.name}`)
+    const newSelected = new Set(selectedPrompts)
+    
+    // Add all prompts from this server
+    serverPromptKeys.forEach(key => {
+      newSelected.add(key)
+      console.log('🔧 [PROMPTS DEBUG] Adding prompt to selection:', key)
+    })
+    
+    console.log('🔧 [PROMPTS DEBUG] New selectedPrompts after selecting all:', Array.from(newSelected))
+    setSelectedPrompts(newSelected)
+    savePromptSelections(Array.from(newSelected))
+  }
+
+  const deselectAllServerPrompts = (serverName) => {
+    console.log('🔧 [PROMPTS DEBUG] deselectAllServerPrompts called for server:', serverName)
+    
+    const serverPrompts = prompts.find(p => p.server === serverName)
+    if (!serverPrompts) return
+    const serverPromptKeys = serverPrompts.prompts.map(prompt => `${serverName}_${prompt.name}`)
+    const newSelected = new Set(selectedPrompts)
+    
+    // Remove all prompts from this server
+    serverPromptKeys.forEach(key => {
+      newSelected.delete(key)
+      console.log('🔧 [PROMPTS DEBUG] Removing prompt from selection:', key)
+    })
+    
+    console.log('🔧 [PROMPTS DEBUG] New selectedPrompts after deselecting all:', Array.from(newSelected))
+    setSelectedPrompts(newSelected)
+    savePromptSelections(Array.from(newSelected))
+  }
+
   const toggleDataSource = (dataSource) => {
     const newSelected = new Set(selectedDataSources)
     if (newSelected.has(dataSource)) {
@@ -281,11 +372,13 @@ export const ChatProvider = ({ children }) => {
     })
 
     // Prepare payload
+    const selectedPromptsArray = Array.from(selectedPrompts)
     const payload = {
       type: 'chat',
       content,
       model: currentModel,
       selected_tools: selectedToolsArray,
+      selected_prompts: selectedPromptsArray,
       selected_data_sources: Array.from(selectedDataSources),
       only_rag: onlyRag,
       tool_choice_required: toolChoiceRequired,
@@ -301,6 +394,7 @@ export const ChatProvider = ({ children }) => {
 
     console.log('🔧 [TOOLS DEBUG] Full payload being sent:', {
       selected_tools: payload.selected_tools,
+      selected_prompts: payload.selected_prompts,
       tool_choice_required: payload.tool_choice_required,
       model: payload.model
     })
@@ -592,6 +686,7 @@ export const ChatProvider = ({ children }) => {
     user,
     models,
     tools,
+    prompts,
     dataSources,
     
     // Current selections
@@ -601,6 +696,10 @@ export const ChatProvider = ({ children }) => {
     toggleTool,
     selectAllServerTools,
     deselectAllServerTools,
+    selectedPrompts,
+    togglePrompt,
+    selectAllServerPrompts,
+    deselectAllServerPrompts,
     selectedDataSources,
     toggleDataSource,
     onlyRag,

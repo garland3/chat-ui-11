@@ -193,16 +193,20 @@ class MessageProcessor:
             content = message.get("content", "")
             self.session.model_name = message.get("model", "")
             self.session.selected_tools = message.get("selected_tools", [])
+            self.session.selected_prompts = message.get("selected_prompts", [])
             self.session.selected_data_sources = message.get("selected_data_sources", [])
             self.session.only_rag = message.get("only_rag", True)
             self.session.tool_choice_required = message.get("tool_choice_required", False)
             self.session.uploaded_files = message.get("files", {})
 
             logger.info(
-                f"Received chat message from {self.session.user_email}: "
-                f"content='{content[:50]}...', model='{self.session.model_name}', "
-                f"tools={self.session.selected_tools}, data_sources={self.session.selected_data_sources}, "
-                f"only_rag={self.session.only_rag}, uploaded_files={list(self.session.uploaded_files.keys())}"
+                "------------\n"
+                f"Received chat message from {self.session.user_email}: \n"
+                f"\tcontent='{content[:50]}...', model='{self.session.model_name}', \n"
+                f"\ttools={self.session.selected_tools}, \n"
+                f"\tprompts={self.session.selected_prompts}, \n"
+                f"\tdata_sources={self.session.selected_data_sources}, \n"
+                f"\tonly_rag={self.session.only_rag}, uploaded_files={list(self.session.uploaded_files.keys())}\n"
             )
             
             # Log file upload details for debugging
@@ -239,13 +243,24 @@ class MessageProcessor:
             
             user_message = {"role": "user", "content": enhanced_content}
             
-            # Check if this is the first message and if we should apply custom system prompts
+            # Check if this is the first user message and if we should apply custom system prompts
             custom_system_prompt = await self._get_custom_system_prompt()
-            if custom_system_prompt and len(self.session.messages) == 0:
-                # Add custom system prompt as the first message
-                system_message = {"role": "system", "content": custom_system_prompt}
-                self.session.messages.append(system_message)
-                logger.info(f"Applied custom system prompt for user {self.session.user_email}")
+            user_messages_count = len([msg for msg in self.session.messages if msg["role"] == "user"])
+            
+            if custom_system_prompt and user_messages_count == 0:
+                # Replace the default system message with custom system prompt
+                if self.session.messages and self.session.messages[0]["role"] == "system":
+                    self.session.messages[0]["content"] = custom_system_prompt
+                    logger.info(f"Replaced default system prompt with custom prompt for user {self.session.user_email}")
+                else:
+                    # Add custom system prompt as the first message
+                    system_message = {"role": "system", "content": custom_system_prompt}
+                    self.session.messages.insert(0, system_message)
+                    logger.info(f"Added custom system prompt for user {self.session.user_email}")
+                
+                # Extract prompt names from selected prompts for detailed logging
+                active_prompts = [prompt.replace("prompts_", "") for prompt in self.session.selected_prompts if prompt.startswith("prompts_")]
+                logger.info(f"Applied custom system prompt for user {self.session.user_email} - Active prompts: {active_prompts}")
             
             self.session.messages.append(user_message)
 
@@ -433,52 +448,68 @@ class MessageProcessor:
     
     async def _get_custom_system_prompt(self) -> str:
         """Get custom system prompt from selected MCP servers that provide prompts."""
-        if not self.session.selected_tools:
+        if not self.session.selected_prompts:
+            logger.debug(f"No custom prompts selected for user {self.session.user_email}")
             return None
             
-        # Check if any of the selected tools belong to servers that provide system prompts
+        # Parse the selected prompts (format: "server_promptname")
         prompt_servers = []
-        for tool_name in self.session.selected_tools:
-            if tool_name.startswith("prompts_"):
+        selected_prompt_tools = []
+        for prompt_name in self.session.selected_prompts:
+            logger.debug(f"Checking prompt '{prompt_name}' for user {self.session.user_email}")
+            if prompt_name.startswith("prompts_"):
                 prompt_servers.append("prompts")
-                break
+                selected_prompt_tools.append(prompt_name)
+                logger.info(f"Found custom prompt: {prompt_name} for user {self.session.user_email}")
         
         if not prompt_servers:
+            logger.debug(f"No prompts server prompts found for user {self.session.user_email}")
             return None
+        
+        logger.info(f"Custom prompts detected for user {self.session.user_email}: {selected_prompt_tools}")
         
         try:
             # Get available prompts from the prompts server
             available_prompts = self.session.mcp_manager.get_available_prompts_for_servers(prompt_servers)
             
-            # Look for system prompts that match common patterns
+            # Only apply the specifically selected prompts
             system_prompts = []
-            for prompt_key, prompt_info in available_prompts.items():
-                # Check if this is a system prompt (not a user message generator)
-                if any(keyword in prompt_info['name'].lower() for keyword in ['wizard', 'trainer', 'writer', 'expert']):
-                    try:
-                        # Get the actual prompt content
-                        prompt_result = await self.session.mcp_manager.get_prompt(
-                            prompt_info['server'], 
-                            prompt_info['name']
-                        )
-                        if prompt_result and hasattr(prompt_result, 'messages') and prompt_result.messages:
-                            # Extract the system message content from user messages
-                            for message in prompt_result.messages:
-                                if message.role == "user" and "System:" in message.content.text:
-                                    # Extract the system prompt part
-                                    content = message.content.text
-                                    if "System:" in content and "User:" in content:
-                                        system_part = content.split("System:")[1].split("User:")[0].strip()
-                                        system_prompts.append(system_part)
-                                        break
-                    except Exception as e:
-                        logger.warning(f"Could not retrieve prompt {prompt_info['name']}: {e}")
-                        continue
+            applied_prompts = []
+            
+            for selected_prompt in selected_prompt_tools:
+                # Extract the prompt name (remove "prompts_" prefix)
+                prompt_name = selected_prompt.replace("prompts_", "")
+                
+                # Check if this prompt is available
+                for prompt_info in available_prompts.values():
+                    if prompt_info['name'] == prompt_name:
+                        try:
+                            logger.info(f"Applying selected custom prompt '{prompt_info['name']}' for user {self.session.user_email}")
+                            # Get the actual prompt content
+                            prompt_result = await self.session.mcp_manager.get_prompt(
+                                prompt_info['server'], 
+                                prompt_info['name']
+                            )
+                            if prompt_result and hasattr(prompt_result, 'messages') and prompt_result.messages:
+                                # Extract the system message content from user messages
+                                for message in prompt_result.messages:
+                                    if message.role == "user" and "System:" in message.content.text:
+                                        # Extract the system prompt part
+                                        content = message.content.text
+                                        if "System:" in content and "User:" in content:
+                                            system_part = content.split("System:")[1].split("User:")[0].strip()
+                                            system_prompts.append(system_part)
+                                            applied_prompts.append(prompt_info['name'])
+                                            logger.info(f"Successfully loaded custom prompt '{prompt_info['name']}' ({len(system_part)} chars)")
+                                            break
+                        except Exception as e:
+                            logger.warning(f"Could not retrieve prompt {prompt_info['name']}: {e}")
+                        break  # Found the prompt, no need to continue looking
             
             if system_prompts:
                 # Combine multiple system prompts if present
                 combined_prompt = "\n\n".join(system_prompts)
-                logger.info(f"Using custom system prompt from {len(system_prompts)} prompt(s)")
+                logger.info(f"Using custom system prompt from {len(system_prompts)} prompt(s): {applied_prompts}")
                 return combined_prompt
                 
         except Exception as e:
