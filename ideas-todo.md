@@ -1,22 +1,23 @@
-how to let the mcp server have session managemnt?
--- so if a special session_start function exists, then invoke it when a user first starts interacting with the srever?
--- or can I just inject some notion of session and user name in the tool callng , ... simialr to the file setup. 
+# MCP Server Session Management
+- If a special `session_start` function exists, invoke it when a user first starts interacting with the server.
+- Alternatively, inject some notion of session and user name in the tool calling, similar to the file setup.
 
-if a file returned type is a image, or has field 'custom_html' then render in addition to allow download?
+# [X] File Return Handling
+- If a file returned type is an image, or has field `custom_html`, then render in addition to allowing download. [X]
 
-A differnet route /marketplace
--- show different possible mcps, allow selecting, then on the main ui, only show the use selected. 
---- would need to setup a db to keep track of stuff. 
+# MCP Marketplace & Selection
+- Create a different route `/marketplace`.
+  - Show different possible MCPs, allow selecting, then on the main UI, only show the user-selected MCP.
+  - Would need to set up a DB to keep track of selections.
 
-how to let a mcp modify the ui?
-- maybe the canvas are?
-- if mcp returns json with a speccial custom_html field, then inject ths ?
-- - inject as a custom elemet or iframe?
-  - could a mcp
- 
-- Could a mcp modify the calll backs.
-- -- inject a custom prompt?
+# UI Modification by MCP
+- Allow an MCP to modify the UI.
+  - Maybe the canvas area?
+  - If MCP returns JSON with a special `custom_html` field, then inject this. [X]
+    - Inject as a custom element or iframe? [X]
+  - Could an MCP modify the callbacks?
+    - Inject a custom prompt?
 
-
-for the canvas tool, elt the user adjust the width so it can take more or less of the screen compared ot the chat ui. 
+# Canvas Tool
+- For the canvas tool, let the user adjust the width so it can take more or less of the screen compared to the chat UI.
 
