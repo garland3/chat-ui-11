@@ -1,14 +1,20 @@
-import { X } from 'lucide-react'
+import { X, Settings } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useChat } from '../contexts/ChatContext'
+import { useMarketplace } from '../contexts/MarketplaceContext'
 
 const ToolsPanel = ({ isOpen, onClose }) => {
+  const navigate = useNavigate()
   const { 
-    tools, 
     selectedTools, 
     toggleTool, 
     toolChoiceRequired, 
     setToolChoiceRequired 
   } = useChat()
+  const { getFilteredTools } = useMarketplace()
+  
+  // Use filtered tools instead of all tools
+  const tools = getFilteredTools()
 
   const toggleServerTools = (serverName) => {
     console.log('🔧 [TOOLS DEBUG] toggleServerTools called for server:', serverName)
@@ -86,12 +92,21 @@ const ToolsPanel = ({ isOpen, onClose }) => {
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-700 flex-shrink-0">
           <h2 className="text-lg font-semibold text-gray-100">Tools & Integrations</h2>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => navigate('/marketplace')}
+              className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
+              title="MCP Marketplace"
+            >
+              <Settings className="w-5 h-5" />
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Tool Choice Controls */}
@@ -111,7 +126,15 @@ const ToolsPanel = ({ isOpen, onClose }) => {
         {/* Tools List */}
         <div className="flex-1 overflow-y-auto custom-scrollbar p-4 min-h-0">
           {tools.length === 0 ? (
-            <div className="text-gray-400 text-center py-8">No tools available</div>
+            <div className="text-gray-400 text-center py-8">
+              <div className="mb-4">No servers selected</div>
+              <button
+                onClick={() => navigate('/marketplace')}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+              >
+                Go to Marketplace
+              </button>
+            </div>
           ) : (
             <div className="space-y-6">
               {tools.map(toolServer => (
