@@ -374,7 +374,7 @@ export const ChatProvider = ({ children }) => {
             tool_call_id: updateData.tool_call_id,
             tool_name: updateData.tool_name,
             server_name: updateData.server_name,
-            arguments: updateData.arguments || {},
+            arguments: updateData.parameters || updateData.arguments || {},
             status: 'calling',
             timestamp: new Date().toISOString()
           }

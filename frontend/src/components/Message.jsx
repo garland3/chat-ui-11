@@ -387,6 +387,26 @@ const downloadReturnedFile = (filename, base64Data) => {
 const Message = ({ message }) => {
   const { appName } = useChat()
   
+  // State for collapsible sections with localStorage persistence
+  const [toolInputCollapsed, setToolInputCollapsed] = useState(() => {
+    const saved = localStorage.getItem('toolInputCollapsed')
+    return saved !== null ? JSON.parse(saved) : true // Start collapsed by default
+  })
+  
+  const [toolOutputCollapsed, setToolOutputCollapsed] = useState(() => {
+    const saved = localStorage.getItem('toolOutputCollapsed')
+    return saved !== null ? JSON.parse(saved) : true // Start collapsed by default
+  })
+  
+  // Save preferences to localStorage when they change
+  useEffect(() => {
+    localStorage.setItem('toolInputCollapsed', JSON.stringify(toolInputCollapsed))
+  }, [toolInputCollapsed])
+  
+  useEffect(() => {
+    localStorage.setItem('toolOutputCollapsed', JSON.stringify(toolOutputCollapsed))
+  }, [toolOutputCollapsed])
+  
   const isUser = message.role === 'user'
   const isSystem = message.role === 'system'
 
@@ -430,14 +450,22 @@ const Message = ({ message }) => {
           {message.arguments && Object.keys(message.arguments).length > 0 && (
             <div className="mb-4">
               <div className="border-l-4 border-blue-500 pl-4">
-                <h4 className="text-sm font-semibold text-blue-400 mb-2 flex items-center gap-2">
-                  <span className="text-blue-400">▶</span> Input Arguments
-                </h4>
-                <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 max-h-64 overflow-y-auto">
-                  <pre className="text-xs text-gray-300 overflow-x-auto whitespace-pre-wrap">
-                    {JSON.stringify(filterArgumentsForDisplay(message.arguments), null, 2)}
-                  </pre>
-                </div>
+                <button 
+                  onClick={() => setToolInputCollapsed(!toolInputCollapsed)}
+                  className="w-full text-left text-sm font-semibold text-blue-400 mb-2 flex items-center gap-2 hover:text-blue-300 transition-colors"
+                >
+                  <span className={`transform transition-transform duration-200 ${toolInputCollapsed ? 'rotate-0' : 'rotate-90'}`}>
+                    ▶
+                  </span> 
+                  Input Arguments {toolInputCollapsed ? `(${Object.keys(message.arguments).length} params)` : ''}
+                </button>
+                {!toolInputCollapsed && (
+                  <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 max-h-64 overflow-y-auto">
+                    <pre className="text-xs text-gray-300 overflow-x-auto whitespace-pre-wrap">
+                      {JSON.stringify(filterArgumentsForDisplay(message.arguments), null, 2)}
+                    </pre>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -453,12 +481,20 @@ const Message = ({ message }) => {
           {message.result && (
             <div className="mb-2">
               <div className="border-l-4 border-green-500 pl-4">
-                <h4 className="text-sm font-semibold text-green-400 mb-2 flex items-center gap-2">
-                  <span className="text-green-400">◀</span> Output Result
-                </h4>
+                <button 
+                  onClick={() => setToolOutputCollapsed(!toolOutputCollapsed)}
+                  className="w-full text-left text-sm font-semibold text-green-400 mb-2 flex items-center gap-2 hover:text-green-300 transition-colors"
+                >
+                  <span className={`transform transition-transform duration-200 ${toolOutputCollapsed ? 'rotate-0' : 'rotate-90'}`}>
+                    ▶
+                  </span> 
+                  Output Result {toolOutputCollapsed ? '(click to expand)' : ''}
+                </button>
                 
-                {/* Check for returned file and show download button */}
-                {(() => {
+                {!toolOutputCollapsed && (
+                  <>
+                    {/* Check for returned file and show download button */}
+                    {(() => {
                   let parsedResult = message.result
                   if (typeof message.result === 'string') {
                     try {
@@ -531,6 +567,8 @@ const Message = ({ message }) => {
                     })()}
                   </pre>
                 </div>
+                  </>
+                )}
               </div>
             </div>
           )}

@@ -8,13 +8,6 @@ Future enhancements and feature ideas for the Chat UI application.
 - If a special `session_start` function exists, invoke it when a user first starts interacting with the server
 - Inject session and user name in tool calling, similar to the file setup
 
-### MCP Marketplace & Selection ✅
-- ✅ Create `/marketplace` route showing different possible MCPs
-- ✅ Allow selecting MCPs, only show user-selected MCPs on main UI
-- ✅ Save selections to browser memory
-- Future: Get more info about each MCP (ratings, downloads)
-- Future: Persistent storage in database instead of browser memory
-
 ### MCP Server Configuration Fix
 - Currently MCP servers need to be in the mcp folder with same folder name as the MCP folder
 - **TODO**: Make it properly use the "command" in mcp.json, so path to MCP server can be whatever
