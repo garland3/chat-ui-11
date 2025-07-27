@@ -65,6 +65,8 @@ from callbacks import (
 )
 import rag_client
 from rag_client import initialize_rag_client
+import banner_client
+from banner_client import initialize_banner_client
 
 mcp_manager: Optional[MCPToolManager] = None
 session_manager: Optional[SessionManager] = None
@@ -74,6 +76,9 @@ load_dotenv(dotenv_path="../.env")
 
 # Initialize RAG client after environment variables are loaded
 initialize_rag_client()
+
+# Initialize Banner client after environment variables are loaded
+initialize_banner_client()
 
 # Setup logging
 os.makedirs("logs", exist_ok=True)
@@ -149,6 +154,20 @@ async def auth_endpoint():
     return {"message": "Please authenticate through reverse proxy"}
 
 
+@app.get("/api/banners")
+async def get_banners(current_user: str = Depends(get_current_user)):
+    """Get banner messages for display at the top of the UI."""
+    if not banner_client.banner_client:
+        return {"messages": []}
+    
+    try:
+        messages = await banner_client.banner_client.get_banner_messages()
+        return {"messages": messages}
+    except Exception as e:
+        logger.error(f"Error fetching banner messages: {e}", exc_info=True)
+        return {"messages": []}
+
+
 @app.get("/api/config")
 async def get_config(current_user: str = Depends(get_current_user)):
     """Get available models, tools, and data sources for the user.
@@ -203,7 +222,8 @@ async def get_config(current_user: str = Depends(get_current_user)):
         "user": current_user,
         "active_sessions": session_manager.get_session_count() if session_manager else 0,
         "authorized_servers": authorized_servers,  # Optional: expose for debugging
-        "agent_mode_available": app_settings.agent_mode_available  # Whether agent mode UI should be shown
+        "agent_mode_available": app_settings.agent_mode_available,  # Whether agent mode UI should be shown
+        "banner_enabled": app_settings.banner_enabled  # Whether banner system is enabled
     }
 
 

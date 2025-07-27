@@ -11,6 +11,7 @@ import RagPanel from './components/RagPanel'
 import CanvasPanel from './components/CanvasPanel'
 import AgentModal from './components/AgentModal'
 import MarketplacePanel from './components/MarketplacePanel'
+import BannerPanel from './components/BannerPanel'
 
 function ChatInterface() {
   const [toolsPanelOpen, setToolsPanelOpen] = useState(false)
@@ -44,6 +45,9 @@ function ChatInterface() {
 
       {/* Main Content Area */}
       <div className="flex flex-col flex-1 relative">
+        {/* Banner Panel - positioned at the very top */}
+        <BannerPanel />
+        
         {/* Canvas Panel */}
         <CanvasPanel 
           isOpen={canvasPanelOpen}
