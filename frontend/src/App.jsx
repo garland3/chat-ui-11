@@ -14,6 +14,7 @@ function AppContent() {
   const [ragPanelOpen, setRagPanelOpen] = useState(false)
   const [canvasPanelOpen, setCanvasPanelOpen] = useState(false)
   const [agentModalOpen, setAgentModalOpen] = useState(false)
+  const [canvasPanelWidth, setCanvasPanelWidth] = useState(0)
   const { canvasContent, customUIContent } = useChat()
 
   // Auto-open canvas panel when content is received
@@ -44,6 +45,7 @@ function AppContent() {
         <CanvasPanel 
           isOpen={canvasPanelOpen}
           onClose={() => setCanvasPanelOpen(false)}
+          onWidthChange={setCanvasPanelWidth}
         />
 
         {/* Header */}
@@ -54,7 +56,10 @@ function AppContent() {
         />
 
         {/* Chat Area */}
-        <ChatArea canvasPanelOpen={canvasPanelOpen} />
+        <ChatArea 
+          canvasPanelOpen={canvasPanelOpen} 
+          canvasPanelWidth={canvasPanelWidth}
+        />
       </div>
 
       {/* Tools Panel */}

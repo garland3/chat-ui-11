@@ -5,7 +5,7 @@ import { Send, Paperclip, X } from 'lucide-react'
 import Message from './Message'
 import WelcomeScreen from './WelcomeScreen'
 
-const ChatArea = ({ canvasPanelOpen }) => {
+const ChatArea = ({ canvasPanelOpen, canvasPanelWidth }) => {
   const [inputValue, setInputValue] = useState('')
   const [isMobile, setIsMobile] = useState(false)
   const [uploadedFiles, setUploadedFiles] = useState({})
@@ -126,8 +126,8 @@ const ChatArea = ({ canvasPanelOpen }) => {
         ref={messagesRef}
         className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4 min-h-0"
         style={{ 
-          paddingRight: canvasPanelOpen && !isMobile ? 'calc(50vw + 1rem)' : '1rem',
-          transition: 'padding-right 300ms ease-in-out'
+          paddingRight: canvasPanelOpen && !isMobile ? `${canvasPanelWidth + 16}px` : '1rem',
+          transition: 'padding-right 150ms ease-out'
         }}
       >
         {messages.map((message, index) => (
@@ -160,8 +160,8 @@ const ChatArea = ({ canvasPanelOpen }) => {
       <footer 
         className="p-4 border-t border-gray-700 flex-shrink-0"
         style={{ 
-          paddingRight: canvasPanelOpen && !isMobile ? 'calc(50vw + 1rem)' : '1rem',
-          transition: 'padding-right 300ms ease-in-out'
+          paddingRight: canvasPanelOpen && !isMobile ? `${canvasPanelWidth + 16}px` : '1rem',
+          transition: 'padding-right 150ms ease-out'
         }}
       >
         <div className="max-w-4xl mx-auto">

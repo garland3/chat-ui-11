@@ -29,19 +29,57 @@ const processCanvasContent = (content) => {
   }
 }
 
-const CanvasPanel = ({ isOpen, onClose }) => {
-  const { canvasContent, customUIContent } = useChat()
-  const [isMobile, setIsMobile] = useState(false)
+
+const MIN_WIDTH = 300;
+const MAX_WIDTH = window.innerWidth * 0.9;
+
+const CanvasPanel = ({ isOpen, onClose, onWidthChange }) => {
+  const { canvasContent, customUIContent } = useChat();
+  const [isMobile, setIsMobile] = useState(false);
+  const [width, setWidth] = useState(() => {
+    if (window.innerWidth < 768) return window.innerWidth;
+    return Math.max(400, Math.min(window.innerWidth * 0.5, window.innerWidth * 0.9));
+  });
+  const [isResizing, setIsResizing] = useState(false);
 
   useEffect(() => {
     const checkMobile = () => {
-      setIsMobile(window.innerWidth < 768)
+      setIsMobile(window.innerWidth < 768);
+      if (window.innerWidth < 768) {
+        setWidth(window.innerWidth);
+      } else {
+        setWidth(Math.max(400, Math.min(window.innerWidth * 0.5, window.innerWidth * 0.9)));
+      }
+    };
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
+  // Notify parent component when width changes
+  useEffect(() => {
+    if (onWidthChange) {
+      onWidthChange(isOpen ? width : 0);
     }
-    
-    checkMobile()
-    window.addEventListener('resize', checkMobile)
-    return () => window.removeEventListener('resize', checkMobile)
-  }, [])
+  }, [width, isOpen, onWidthChange]);
+
+  useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (!isResizing) return;
+      let newWidth = window.innerWidth - e.clientX;
+      newWidth = Math.max(MIN_WIDTH, Math.min(newWidth, window.innerWidth * 0.9));
+      setWidth(newWidth);
+    };
+    const handleMouseUp = () => setIsResizing(false);
+    if (isResizing) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing]);
 
   const renderContent = () => {
     // Priority: Custom UI content > Canvas content > Empty state
@@ -102,11 +140,42 @@ const CanvasPanel = ({ isOpen, onClose }) => {
   }
 
   return (
-    <aside className={`
-      fixed right-0 top-0 h-full bg-gray-800 border-l border-gray-700 z-30 transform transition-transform duration-300 ease-in-out
-      ${isOpen ? 'translate-x-0' : 'translate-x-full'}
-      ${isMobile ? 'w-full' : 'w-1/2 min-w-[400px] max-w-[50vw]'}
-    `}>
+    <aside
+      className={`fixed right-0 top-0 h-full bg-gray-800 border-l border-gray-700 z-30 transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
+      style={{
+        width: isMobile ? '100vw' : `${width}px`,
+        minWidth: isMobile ? '100vw' : `${MIN_WIDTH}px`,
+        maxWidth: isMobile ? '100vw' : `${window.innerWidth * 0.9}px`,
+        boxSizing: 'border-box',
+      }}
+    >
+      {/* Draggable Divider */}
+      {!isMobile && (
+        <div
+          style={{
+            position: 'absolute',
+            left: '-6px',
+            top: 0,
+            width: '12px',
+            height: '100%',
+            cursor: 'ew-resize',
+            zIndex: 40,
+          }}
+          onMouseDown={() => setIsResizing(true)}
+        >
+          <div
+            style={{
+              width: '4px',
+              height: '100%',
+              margin: '0 auto',
+              background: '#444',
+              borderRadius: '2px',
+              opacity: isResizing ? 0.8 : 0.5,
+              transition: 'opacity 0.2s',
+            }}
+          />
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-700 bg-gray-900">
         <h2 className="text-lg font-semibold text-gray-100">Canvas</h2>
@@ -117,13 +186,12 @@ const CanvasPanel = ({ isOpen, onClose }) => {
           <X className="w-5 h-5" />
         </button>
       </div>
-
       {/* Content */}
       <div className="flex-1 overflow-y-auto custom-scrollbar" style={{ height: 'calc(100vh - 73px)' }}>
         {renderContent()}
       </div>
     </aside>
-  )
-}
+  );
+};
 
-export default CanvasPanel
+export default CanvasPanel;
