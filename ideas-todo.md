@@ -26,3 +26,8 @@
 # [X] Canvas Tool
 - For the canvas tool, let the user adjust the width so it can take more or less of the screen compared to the chat UI. [X]
 
+
+# MCP server fix. 
+* currently for mcp serves, they need to be in the mcp folder with the same fodler name as the mcp folder. 
+* the todo, is to make it properly use the "command" in the mcp.json, so the path to the mcp server can be whatever. 
+* enable http mcp servers, ... for connect to a remote mcp server. 
