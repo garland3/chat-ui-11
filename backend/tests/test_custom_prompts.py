@@ -1,0 +1,197 @@
+"""Tests for custom prompting functionality via MCP."""
+
+import pytest
+from unittest.mock import Mock, AsyncMock, MagicMock
+import asyncio
+
+from mcp_client import MCPToolManager
+from message_processor import MessageProcessor
+
+
+class TestCustomPromptsDiscovery:
+    """Test MCP prompt discovery functionality."""
+    
+    def test_mcp_manager_has_prompts_attribute(self):
+        """Test that MCPToolManager has prompts tracking."""
+        manager = MCPToolManager()
+        assert hasattr(manager, 'available_prompts')
+        assert isinstance(manager.available_prompts, dict)
+    
+    def test_discover_prompts_method_exists(self):
+        """Test that discover_prompts method exists."""
+        manager = MCPToolManager()
+        assert hasattr(manager, 'discover_prompts')
+        assert callable(manager.discover_prompts)
+    
+    def test_get_prompt_method_exists(self):
+        """Test that get_prompt method exists."""
+        manager = MCPToolManager()
+        assert hasattr(manager, 'get_prompt')
+        assert callable(manager.get_prompt)
+    
+    def test_get_available_prompts_for_servers_method_exists(self):
+        """Test that get_available_prompts_for_servers method exists."""
+        manager = MCPToolManager()
+        assert hasattr(manager, 'get_available_prompts_for_servers')
+        assert callable(manager.get_available_prompts_for_servers)
+
+
+class TestMessageProcessorPrompts:
+    """Test message processor prompt integration."""
+    
+    @pytest.fixture
+    def mock_session(self):
+        """Create a mock session for testing."""
+        session = Mock()
+        session.user_email = "test@example.com"
+        session.messages = []
+        session.selected_tools = []
+        session.mcp_manager = Mock()
+        session._trigger_callbacks = AsyncMock()
+        return session
+    
+    def test_message_processor_has_custom_prompt_method(self, mock_session):
+        """Test that MessageProcessor has custom prompt method."""
+        processor = MessageProcessor(mock_session)
+        assert hasattr(processor, '_get_custom_system_prompt')
+        assert callable(processor._get_custom_system_prompt)
+    
+    @pytest.mark.asyncio
+    async def test_get_custom_system_prompt_no_tools(self, mock_session):
+        """Test custom prompt with no selected tools."""
+        processor = MessageProcessor(mock_session)
+        result = await processor._get_custom_system_prompt()
+        assert result is None
+    
+    @pytest.mark.asyncio
+    async def test_get_custom_system_prompt_no_prompt_tools(self, mock_session):
+        """Test custom prompt with tools but no prompt tools."""
+        mock_session.selected_tools = ["calculator_add", "thinking_think"]
+        processor = MessageProcessor(mock_session)
+        result = await processor._get_custom_system_prompt()
+        assert result is None
+    
+    @pytest.mark.asyncio
+    async def test_get_custom_system_prompt_with_prompt_tools(self, mock_session):
+        """Test custom prompt with prompt tools selected."""
+        mock_session.selected_tools = ["prompts_financial_tech_wizard"]
+        
+        # Mock the prompts manager
+        mock_session.mcp_manager.get_available_prompts_for_servers.return_value = {
+            "prompts_financial_tech_wizard": {
+                "server": "prompts",
+                "name": "financial_tech_wizard",
+                "description": "Financial tech expert",
+                "arguments": {}
+            }
+        }
+        
+        # Mock the prompt result
+        mock_prompt_message = Mock()
+        mock_prompt_message.role = "user"
+        mock_prompt_message.content.text = "System: You are a financial tech wizard\n\nUser: Please adopt this personality and expertise for our conversation."
+        
+        mock_prompt_result = Mock()
+        mock_prompt_result.messages = [mock_prompt_message]
+        
+        mock_session.mcp_manager.get_prompt = AsyncMock(return_value=mock_prompt_result)
+        
+        processor = MessageProcessor(mock_session)
+        result = await processor._get_custom_system_prompt()
+        
+        assert result is not None
+        assert "financial tech wizard" in result
+
+
+class TestPromptsIntegration:
+    """Test integration of prompts with message processing."""
+    
+    @pytest.fixture
+    def mock_session(self):
+        """Create a mock session for testing."""
+        session = Mock()
+        session.user_email = "test@example.com"
+        session.messages = []
+        session.selected_tools = ["prompts_expert_dog_trainer"]
+        session.selected_data_sources = []
+        session.only_rag = False
+        session.tool_choice_required = False
+        session.uploaded_files = {}
+        session.model_name = "test-model"
+        session.websocket = Mock()
+        session.mcp_manager = Mock()
+        session.validated_servers = []
+        session._trigger_callbacks = AsyncMock()
+        session.send_json = AsyncMock()
+        session.send_error = AsyncMock()
+        return session
+    
+    @pytest.mark.asyncio
+    async def test_system_prompt_added_on_first_message(self, mock_session):
+        """Test that system prompt is added for the first message."""
+        # Mock the custom prompt method to return a system prompt
+        processor = MessageProcessor(mock_session)
+        processor._get_custom_system_prompt = AsyncMock(return_value="You are an expert dog trainer")
+        
+        # Mock other required methods
+        from unittest.mock import patch
+        
+        with patch('message_processor.validate_selected_tools', new_callable=AsyncMock) as mock_validate:
+            with patch('message_processor.call_llm_with_tools', new_callable=AsyncMock) as mock_llm:
+                mock_validate.return_value = []
+                mock_llm.return_value = "Test response"
+                
+                message = {
+                    "content": "Hello",
+                    "model": "test-model",
+                    "selected_tools": ["prompts_expert_dog_trainer"],
+                    "selected_data_sources": [],
+                    "only_rag": False
+                }
+                
+                await processor.handle_chat_message(message)
+                
+                # Check that system message was added first
+                assert len(mock_session.messages) == 3  # system + user + assistant
+                assert mock_session.messages[0]["role"] == "system"
+                assert "expert dog trainer" in mock_session.messages[0]["content"]
+                assert mock_session.messages[1]["role"] == "user"
+                assert mock_session.messages[2]["role"] == "assistant"
+    
+    @pytest.mark.asyncio
+    async def test_no_system_prompt_on_subsequent_messages(self, mock_session):
+        """Test that system prompt is not added on subsequent messages."""
+        # Add existing messages to simulate ongoing conversation
+        mock_session.messages = [
+            {"role": "system", "content": "You are an expert dog trainer"},
+            {"role": "user", "content": "Previous message"},
+            {"role": "assistant", "content": "Previous response"}
+        ]
+        
+        processor = MessageProcessor(mock_session)
+        processor._get_custom_system_prompt = AsyncMock(return_value="You are an expert dog trainer")
+        
+        # Mock other required methods
+        from unittest.mock import patch
+        
+        with patch('message_processor.validate_selected_tools', new_callable=AsyncMock) as mock_validate:
+            with patch('message_processor.call_llm_with_tools', new_callable=AsyncMock) as mock_llm:
+                mock_validate.return_value = []
+                mock_llm.return_value = "Test response"
+                
+                message = {
+                    "content": "Follow up question",
+                    "model": "test-model",
+                    "selected_tools": ["prompts_expert_dog_trainer"],
+                    "selected_data_sources": [],
+                    "only_rag": False
+                }
+                
+                initial_count = len(mock_session.messages)
+                await processor.handle_chat_message(message)
+                
+                # Check that only user and assistant messages were added (no new system message)
+                assert len(mock_session.messages) == initial_count + 2
+                # The new messages should be user and assistant
+                assert mock_session.messages[-2]["role"] == "user"
+                assert mock_session.messages[-1]["role"] == "assistant"

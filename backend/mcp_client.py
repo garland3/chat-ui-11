@@ -20,6 +20,7 @@ class MCPToolManager:
         self.servers_config = {name: server.model_dump() for name, server in mcp_config.servers.items()}
         self.clients = {}
         self.available_tools = {}
+        self.available_prompts = {}
         
     
     async def initialize_clients(self):
@@ -67,6 +68,40 @@ class MCPToolManager:
                     'config': self.servers_config[server_name]
                 }
                 logger.debug(f"Set empty tools list for failed server {server_name}")
+    
+    async def discover_prompts(self):
+        """Discover prompts from all MCP servers."""
+        self.available_prompts = {}
+        
+        for server_name, client in self.clients.items():
+            logger.debug(f"Attempting to discover prompts from {server_name}")
+            try:
+                logger.debug(f"Opening client connection for {server_name}")
+                async with client:
+                    logger.debug(f"Client connected for {server_name}, listing prompts...")
+                    try:
+                        prompts = await client.list_prompts()
+                        logger.debug(f"Got {len(prompts)} prompts from {server_name}: {[prompt.name for prompt in prompts]}")
+                        self.available_prompts[server_name] = {
+                            'prompts': prompts,
+                            'config': self.servers_config[server_name]
+                        }
+                        logger.info(f"Discovered {len(prompts)} prompts from {server_name}")
+                        logger.debug(f"Successfully stored prompts for {server_name}")
+                    except AttributeError:
+                        # Server doesn't support prompts
+                        logger.debug(f"Server {server_name} does not support prompts")
+                        self.available_prompts[server_name] = {
+                            'prompts': [],
+                            'config': self.servers_config[server_name]
+                        }
+            except Exception as e:
+                logger.error(f"Error discovering prompts from {server_name}: {e}", exc_info=True)
+                self.available_prompts[server_name] = {
+                    'prompts': [],
+                    'config': self.servers_config[server_name]
+                }
+                logger.debug(f"Set empty prompts list for failed server {server_name}")
     
     def get_server_groups(self, server_name: str) -> List[str]:
         """Get required groups for a server."""
@@ -153,6 +188,42 @@ class MCPToolManager:
         except Exception as e:
             logger.error(f"Error calling {tool_name} on {server_name}: {e}")
             raise
+    
+    async def get_prompt(self, server_name: str, prompt_name: str, arguments: Dict[str, Any] = None) -> Any:
+        """Get a specific prompt from an MCP server."""
+        if server_name not in self.clients:
+            raise ValueError(f"No client available for server: {server_name}")
+        
+        client = self.clients[server_name]
+        try:
+            async with client:
+                if arguments:
+                    result = await client.get_prompt(prompt_name, arguments)
+                else:
+                    result = await client.get_prompt(prompt_name)
+                logger.info(f"Successfully retrieved prompt {prompt_name} from {server_name}")
+                return result
+        except Exception as e:
+            logger.error(f"Error getting prompt {prompt_name} from {server_name}: {e}")
+            raise
+    
+    def get_available_prompts_for_servers(self, server_names: List[str]) -> Dict[str, Any]:
+        """Get available prompts for selected servers."""
+        available_prompts = {}
+        
+        for server_name in server_names:
+            if server_name in self.available_prompts:
+                server_prompts = self.available_prompts[server_name]['prompts']
+                for prompt in server_prompts:
+                    prompt_key = f"{server_name}_{prompt.name}"
+                    available_prompts[prompt_key] = {
+                        'server': server_name,
+                        'name': prompt.name,
+                        'description': prompt.description or '',
+                        'arguments': prompt.arguments or {}
+                    }
+        
+        return available_prompts
     
     def get_authorized_servers(self, user_email: str, auth_check_func) -> List[str]:
         """Get list of servers the user is authorized to use."""

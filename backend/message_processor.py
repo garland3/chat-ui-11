@@ -238,6 +238,15 @@ class MessageProcessor:
             enhanced_content = self._build_content_with_files(content)
             
             user_message = {"role": "user", "content": enhanced_content}
+            
+            # Check if this is the first message and if we should apply custom system prompts
+            custom_system_prompt = await self._get_custom_system_prompt()
+            if custom_system_prompt and len(self.session.messages) == 0:
+                # Add custom system prompt as the first message
+                system_message = {"role": "system", "content": custom_system_prompt}
+                self.session.messages.append(system_message)
+                logger.info(f"Applied custom system prompt for user {self.session.user_email}")
+            
             self.session.messages.append(user_message)
 
             await self.session._trigger_callbacks("after_user_message_added", user_message=user_message)
@@ -421,3 +430,58 @@ class MessageProcessor:
             
         file_list = "\n".join(f"- {filename}" for filename in self.session.uploaded_files.keys())
         return f"{content}\n\nFiles available:\n\n{file_list}"
+    
+    async def _get_custom_system_prompt(self) -> str:
+        """Get custom system prompt from selected MCP servers that provide prompts."""
+        if not self.session.selected_tools:
+            return None
+            
+        # Check if any of the selected tools belong to servers that provide system prompts
+        prompt_servers = []
+        for tool_name in self.session.selected_tools:
+            if tool_name.startswith("prompts_"):
+                prompt_servers.append("prompts")
+                break
+        
+        if not prompt_servers:
+            return None
+        
+        try:
+            # Get available prompts from the prompts server
+            available_prompts = self.session.mcp_manager.get_available_prompts_for_servers(prompt_servers)
+            
+            # Look for system prompts that match common patterns
+            system_prompts = []
+            for prompt_key, prompt_info in available_prompts.items():
+                # Check if this is a system prompt (not a user message generator)
+                if any(keyword in prompt_info['name'].lower() for keyword in ['wizard', 'trainer', 'writer', 'expert']):
+                    try:
+                        # Get the actual prompt content
+                        prompt_result = await self.session.mcp_manager.get_prompt(
+                            prompt_info['server'], 
+                            prompt_info['name']
+                        )
+                        if prompt_result and hasattr(prompt_result, 'messages') and prompt_result.messages:
+                            # Extract the system message content from user messages
+                            for message in prompt_result.messages:
+                                if message.role == "user" and "System:" in message.content.text:
+                                    # Extract the system prompt part
+                                    content = message.content.text
+                                    if "System:" in content and "User:" in content:
+                                        system_part = content.split("System:")[1].split("User:")[0].strip()
+                                        system_prompts.append(system_part)
+                                        break
+                    except Exception as e:
+                        logger.warning(f"Could not retrieve prompt {prompt_info['name']}: {e}")
+                        continue
+            
+            if system_prompts:
+                # Combine multiple system prompts if present
+                combined_prompt = "\n\n".join(system_prompts)
+                logger.info(f"Using custom system prompt from {len(system_prompts)} prompt(s)")
+                return combined_prompt
+                
+        except Exception as e:
+            logger.error(f"Error retrieving custom system prompt: {e}")
+            
+        return None

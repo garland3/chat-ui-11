@@ -109,6 +109,7 @@ async def lifespan(app: FastAPI):
     mcp_manager = MCPToolManager()
     await mcp_manager.initialize_clients()
     await mcp_manager.discover_tools()
+    await mcp_manager.discover_prompts()
     
     session_manager = SessionManager(mcp_manager)
     

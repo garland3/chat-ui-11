@@ -36,5 +36,12 @@
     "groups": ["users"],
     "is_exclusive": false,
     "description": "Secure code execution environment"
+  },
+  "prompts": {
+    "command": ["python", "mcp/prompts/main.py"],
+    "cwd": "backend",
+    "groups": ["users"],
+    "is_exclusive": false,
+    "description": "Specialized system prompts for AI behavior modification"
   }
 }
