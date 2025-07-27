@@ -10,14 +10,14 @@
   - Show different possible MCPs, allow selecting, then on the main UI, only show the user-selected MCP.
   - Would need to set up a DB to keep track of selections.
 
-# UI Modification by MCP
-- Allow an MCP to modify the UI.
-  - Maybe the canvas area?
+# [X] UI Modification by MCP
+- Allow an MCP to modify the UI. [X]
+  - Maybe the canvas area? [X]
   - If MCP returns JSON with a special `custom_html` field, then inject this. [X]
     - Inject as a custom element or iframe? [X]
   - Could an MCP modify the callbacks?
     - Inject a custom prompt?
 
-# Canvas Tool
-- For the canvas tool, let the user adjust the width so it can take more or less of the screen compared to the chat UI.
+# [X] Canvas Tool
+- For the canvas tool, let the user adjust the width so it can take more or less of the screen compared to the chat UI. [X]
 
