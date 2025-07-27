@@ -90,6 +90,15 @@ class ChatSession:
 
     async def handle_chat_message(self, message: Dict[str, Any]) -> None:
         """
+        ********************************************************************
+        ====================================================================
+
+        IMPORTANT: This method is the core of the ChatSession logic.
+        It processes incoming chat messages, handles tool calls, and manages
+        the interaction with the LLM and MCP tools.
+
+        ====================================================================
+        ********************************************************************
         Process a chat message with LLM integration and tool calls.
         
         Routes to agent mode or normal processing based on message parameters.

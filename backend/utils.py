@@ -206,6 +206,9 @@ async def call_llm_with_tools(
         logger.info("No tool filtering - using all available tools from validated servers")
         tools_schema = all_tools_schema
         tool_mapping = all_tool_mapping
+    # LOG IF REQUIRED is on. tool_choice_required
+    logger.info(f"Tool choice required: {tool_choice_required}, Agent mode: {agent_mode}")
+
 
     # Add agent completion tool if in agent mode
     if agent_mode:

@@ -419,3 +419,12 @@ I think a user couuld spoof another user's email.
 -- some pipeline, where you force the backend to use a tool, ... skip the invocation of the llm tool and just call it. 
 
 -- how do custom promtps?
+
+
+
+
+# quirks
+ for mcp server names. dont'use underscore in teh fodler or file. 
+ -- so no mycool_sever, but myCoolServer
+ -- the folder fodler needs tomatch the server name. 
+ -- the 

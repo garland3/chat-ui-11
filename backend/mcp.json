@@ -23,8 +23,8 @@
     "is_exclusive": false,
     "description": "PDF analysis tool"
   },
-  "ui_demo": {
-    "command": ["python", "mcp/ui_demo/main.py"],
+  "ui-demo": {
+    "command": ["python", "mcp/ui-demo/main.py"],
     "cwd": "backend",
     "groups": ["users"],
     "is_exclusive": false,

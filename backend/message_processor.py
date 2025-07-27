@@ -166,6 +166,18 @@ class MessageProcessor:
 
     async def handle_chat_message(self, message: Dict[str, Any], agent_mode: bool = False) -> Optional[str]:
         """
+        ********************************************************************
+        ====================================================================
+        IMPORTANT: This is the most critical function in the entire codebase.
+        It processes incoming chat messages through the complete pipeline:
+        - RAG integration (if applicable)
+        - Tool validation
+        - LLM calls with tools
+        - Callback coordination
+        ====================================================================
+        ********************************************************************
+
+
         Process a chat message with LLM integration and tool calls.
         
         This is the most critical function in the entire codebase. It orchestrates
