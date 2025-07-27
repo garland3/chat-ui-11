@@ -31,3 +31,13 @@
 * currently for mcp serves, they need to be in the mcp folder with the same fodler name as the mcp folder. 
 * the todo, is to make it properly use the "command" in the mcp.json, so the path to the mcp server can be whatever. 
 * enable http mcp servers, ... for connect to a remote mcp server. 
+
+# Single line banners at the top
+* this feature can be on or off via a .env file setting
+* hit a url with custom api key that is form the .env file. also read the host name. 
+* the route is {endpoint host}/banner 
+* adn returns a json with a list of N banner messages. 
+* The idea is taht the sys admin can quickly add a message at the top to show to users, ... like "Known outage on RAG server 5. ETA = 20 minutes"
+* Similar to the RAG external url. Add a new folder called sys-admin-mock with a simple fastapi app that lets returns the needed json. 
+* Each message should be on a new line, full width, 
+* Do not cover any existing features, just stack below. 
