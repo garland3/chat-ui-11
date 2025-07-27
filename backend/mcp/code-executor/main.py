@@ -23,12 +23,13 @@ from typing import Any, Dict, List, Set, Annotated
 
 from fastmcp import FastMCP
 
-# Configure logging
+# Configure logging to use main app log with prefix
+main_log_path = '/workspaces/chat-ui-11/backend/logs/app.log'
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    format='%(asctime)s - CODE_EXECUTOR - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('code_executor.log'),
+        logging.FileHandler(main_log_path),
         logging.StreamHandler()
     ]
 )
