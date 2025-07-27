@@ -92,35 +92,34 @@ const ToolsPanel = ({ isOpen, onClose }) => {
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-700 flex-shrink-0">
           <h2 className="text-lg font-semibold text-gray-100">Tools & Integrations</h2>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => navigate('/marketplace')}
-              className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
-              title="MCP Marketplace"
-            >
-              <Settings className="w-5 h-5" />
-            </button>
-            <button
-              onClick={onClose}
-              className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          </div>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Tool Choice Controls */}
         <div className="p-4 border-b border-gray-700 flex-shrink-0">
-          <button
-            onClick={() => setToolChoiceRequired(!toolChoiceRequired)}
-            className={`w-full px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
-              toolChoiceRequired
-                ? 'bg-blue-600 border-blue-500 text-white'
-                : 'bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600'
-            }`}
-          >
-            {toolChoiceRequired ? 'Required (Active)' : 'Required'}
-          </button>
+          <div className="space-y-2">
+            <button
+              onClick={() => navigate('/marketplace')}
+              className="w-full px-4 py-2 rounded-lg border bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600 text-sm font-medium transition-colors"
+            >
+              Marketplace
+            </button>
+            <button
+              onClick={() => setToolChoiceRequired(!toolChoiceRequired)}
+              className={`w-full px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                toolChoiceRequired
+                  ? 'bg-blue-600 border-blue-500 text-white'
+                  : 'bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600'
+              }`}
+            >
+              {toolChoiceRequired ? 'Required (Active)' : 'Required'}
+            </button>
+          </div>
         </div>
 
         {/* Tools List */}

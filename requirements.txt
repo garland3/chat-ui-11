@@ -14,6 +14,7 @@ PyPDF2
 pandas
 matplotlib
 numpy
+seaborn
 scikit-learn
 scipy
 beautifulsoup4

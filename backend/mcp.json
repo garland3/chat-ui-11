@@ -29,5 +29,12 @@
     "groups": ["users"],
     "is_exclusive": false,
     "description": "Demo server showcasing custom UI modification capabilities"
+  }, 
+  "code-executor": {
+    "command": ["python", "mcp/code-executor/main.py"],
+    "cwd": "backend",
+    "groups": ["users"],
+    "is_exclusive": false,
+    "description": "Secure code execution environment"
   }
 }
