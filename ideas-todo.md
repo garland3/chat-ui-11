@@ -32,7 +32,7 @@
 * the todo, is to make it properly use the "command" in the mcp.json, so the path to the mcp server can be whatever. 
 * enable http mcp servers, ... for connect to a remote mcp server. 
 
-# Single line banners at the top
+# [X ]Single line banners at the top
 * this feature can be on or off via a .env file setting
 * hit a url with custom api key that is form the .env file. also read the host name. 
 * the route is {endpoint host}/banner 
@@ -78,12 +78,6 @@ def generate_code_request(language: str, task_description: str) -> PromptMessage
 """
 
 
-# Get user info, in a mcp server.
-* The elicitation mechanism is intersting. 
-* here for clients, ... this chat ui. 
-https://gofastmcp.com/clients/elicitation
-and for mcp servers. 
-* https://gofastmcp.com/clients/elicitation
 
 
 # Update docs. 
@@ -104,5 +98,13 @@ and for mcp servers.
 - not integration test. 
 - 10 for the backend
 - 10 for the frontned. 
+
+
+# Get user info, in a mcp server.
+* The elicitation mechanism is intersting. 
+* here for clients, ... this chat ui. 
+https://gofastmcp.com/clients/elicitation
+and for mcp servers. 
+* https://gofastmcp.com/clients/elicitation
 
 
