@@ -5,7 +5,7 @@
 # [X] File Return Handling
 - If a file returned type is an image, or has field `custom_html`, then render in addition to allowing download. [X]
 
-# MCP Marketplace & Selection
+# [X]  MCP Marketplace & Selection
 - Create a different route `/marketplace`.
   - Show different possible MCPs, allow selecting, then on the main UI, only show the user-selected MCP.
   - Would need to set up a DB to keep track of selections.
@@ -37,7 +37,50 @@
 * hit a url with custom api key that is form the .env file. also read the host name. 
 * the route is {endpoint host}/banner 
 * adn returns a json with a list of N banner messages. 
-* The idea is taht the sys admin can quickly add a message at the top to show to users, ... like "Known outage on RAG server 5. ETA = 20 minutes"
+* The idea is taht the sys admin can quickly add a message at the top to show to users, ... like "Known outage on RAG server 5 detected at 1:36 pm Mountain Time. . ETA till restoration = 20 minutes"
 * Similar to the RAG external url. Add a new folder called sys-admin-mock with a simple fastapi app that lets returns the needed json. 
 * Each message should be on a new line, full width, 
 * Do not cover any existing features, just stack below. 
+
+mocking. 
+* For the mocking, read a messages.txt in the same fodler as the mock folder. EAch line isa mesage. 
+* use the fastapi Testclient similar to the RAG setup for now. 
+
+
+
+# MCP for custom prompting. 
+
+the design patter for the fastmcp is. The idea is that in the marketplace, you might mcps to expose some system prompt that is special, like "think like a finacial tech wizard. Identify market trends as you main objective" or "You are a expert dog trainer, try to explain each concept to dog user and dogs". 
+
+probably in the handle_chat_message in the message-processor, if this is the first mesasge, then override the system prompt. 
+
+Need to track different mcp services, like Tools, Resources, Templates, Prompts. 
+
+
+"""
+from fastmcp import FastMCP
+from fastmcp.prompts.prompt import Message, PromptMessage, TextContent
+
+mcp = FastMCP(name="PromptServer")
+
+- Basic prompt returning a string (converted to user message automatically)
+@mcp.prompt
+def ask_about_topic(topic: str) -> str:
+    """Generates a user message asking for an explanation of a topic."""
+    return f"Can you please explain the concept of '{topic}'?"
+
+- Prompt returning a specific message type
+@mcp.prompt
+def generate_code_request(language: str, task_description: str) -> PromptMessage:
+    """Generates a user message requesting code generation."""
+    content = f"Write a {language} function that performs the following task: {task_description}"
+    return PromptMessage(role="user", content=TextContent(type="text", text=content))
+"""
+
+
+# Get user info, in a mcp server.
+* The elicitation mechanism is intersting. 
+* here for clients, ... this chat ui. 
+https://gofastmcp.com/clients/elicitation
+and for mcp servers. 
+* https://gofastmcp.com/clients/elicitation
