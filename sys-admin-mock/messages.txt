@@ -1,5 +1,2 @@
-Known outage on RAG server 5 detected at 1:36 pm Mountain Time. ETA till restoration = 20 minutes
-Scheduled maintenance will begin at 3:00 PM EST today for approximately 30 minutes
-New chat model GPT-4 Turbo is now available in the model selection dropdown
-Performance improvements deployed - expect faster response times
-Security update completed successfully - no action required from users
+URGENT: Database maintenance window extended until 6:00 PM EST
+All systems operational - recent performance improvements showing positive results
