@@ -79,6 +79,12 @@ class AppSettings(BaseSettings):
     mock_rag: bool = False
     rag_mock_url: str = "http://localhost:8001"
     
+    # Banner settings
+    banner_enabled: bool = False
+    mock_banner: bool = False
+    banner_mock_url: str = "http://localhost:8002"
+    banner_api_key: str = ""
+    
     # Agent settings
     agent_mode_available: bool = True
     agent_max_steps: int = 10
