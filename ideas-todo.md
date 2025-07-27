@@ -16,3 +16,7 @@ how to let a mcp modify the ui?
  
 - Could a mcp modify the calll backs.
 - -- inject a custom prompt?
+
+
+for the canvas tool, elt the user adjust the width so it can take more or less of the screen compared ot the chat ui. 
+
