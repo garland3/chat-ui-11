@@ -142,8 +142,8 @@ app.add_middleware(AuthMiddleware, debug_mode=DEBUG_MODE)
 
 # Serve static files
 app.mount("/static", StaticFiles(directory="../frontend/dist"), name="static")
-app.mount("/vendor", StaticFiles(directory="../old_frontend/vendor"), name="vendor")
-app.mount("/fonts", StaticFiles(directory="../old_frontend/fonts"), name="fonts")
+app.mount("/vendor", StaticFiles(directory="../_old_frontend/vendor"), name="vendor")
+app.mount("/fonts", StaticFiles(directory="../_old_frontend/fonts"), name="fonts")
 
 # --- API Endpoints ---
 
