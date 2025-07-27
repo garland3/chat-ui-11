@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { ChatProvider, useChat } from './contexts/ChatContext'
 import { WSProvider } from './contexts/WSContext'
+import { MarketplaceProvider } from './contexts/MarketplaceContext'
 import Header from './components/Header'
 import Sidebar from './components/Sidebar'
 import ChatArea from './components/ChatArea'
@@ -8,8 +10,9 @@ import ToolsPanel from './components/ToolsPanel'
 import RagPanel from './components/RagPanel'
 import CanvasPanel from './components/CanvasPanel'
 import AgentModal from './components/AgentModal'
+import MarketplacePanel from './components/MarketplacePanel'
 
-function AppContent() {
+function ChatInterface() {
   const [toolsPanelOpen, setToolsPanelOpen] = useState(false)
   const [ragPanelOpen, setRagPanelOpen] = useState(false)
   const [canvasPanelOpen, setCanvasPanelOpen] = useState(false)
@@ -79,11 +82,18 @@ function AppContent() {
 
 function App() {
   return (
-    <WSProvider>
-      <ChatProvider>
-        <AppContent />
-      </ChatProvider>
-    </WSProvider>
+    <Router>
+      <WSProvider>
+        <ChatProvider>
+          <MarketplaceProvider>
+            <Routes>
+              <Route path="/" element={<ChatInterface />} />
+              <Route path="/marketplace" element={<MarketplacePanel />} />
+            </Routes>
+          </MarketplaceProvider>
+        </ChatProvider>
+      </WSProvider>
+    </Router>
   )
 }
 
