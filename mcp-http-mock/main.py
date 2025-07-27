@@ -438,17 +438,17 @@ if __name__ == "__main__":
         print("\n🚀 Starting STDIO server...")
         mcp.run()  # Default STDIO transport
     elif args.sse:
-        print("\n🚀 Starting SSE server on http://127.0.0.1:8000/sse")
+        print("\n🚀 Starting SSE server on http://127.0.0.1:8005/sse")
         mcp.run(
             transport="sse",
             host="127.0.0.1",
-            port=8000
+            port=8005,
         )
     else:
-        print("\n🚀 Starting HTTP server on http://127.0.0.1:8000/mcp")
+        print("\n🚀 Starting HTTP server on http://127.0.0.1:8005/mcp")
         mcp.run(
             transport="http",
             host="127.0.0.1",
-            port=8000,
+            port=8005,
             path="/mcp"
         )

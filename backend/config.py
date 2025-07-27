@@ -51,6 +51,10 @@ class MCPServerConfig(BaseModel):
     groups: List[str] = Field(default_factory=list)
     is_exclusive: bool = False
     enabled: bool = True
+    command: Optional[List[str]] = None  # Command to run server (for stdio servers)
+    cwd: Optional[str] = None            # Working directory for command
+    url: Optional[str] = None            # URL for HTTP servers
+    type: str = "stdio"                  # Server type: "stdio" or "http"
 
 
 class MCPConfig(BaseModel):

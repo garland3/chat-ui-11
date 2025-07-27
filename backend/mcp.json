@@ -43,5 +43,11 @@
     "groups": ["users"],
     "is_exclusive": false,
     "description": "Specialized system prompts for AI behavior modification"
+  },
+  "http-demo": {
+    "url": "http://localhost:8005/mcp",
+    "groups": ["users"],
+    "is_exclusive": false,
+    "description": "HTTP MCP demo server (database simulator)"
   }
 }

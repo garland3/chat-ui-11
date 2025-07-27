@@ -27,18 +27,58 @@ class MCPToolManager:
         """Initialize FastMCP clients for all configured servers."""
         for server_name, config in self.servers_config.items():
             try:
-                # TODO: allow different mcp types. 
-                # Create client based on server type
+                # Check for HTTP URL first
+                url = config.get("url")
+                if url:
+                    # HTTP/SSE MCP server - Client auto-detects transport from URL
+                    logger.debug(f"Creating HTTP/SSE client for {server_name} at {url}")
+                    client = Client(url)
+                    self.clients[server_name] = client
+                    logger.info(f"Created HTTP/SSE MCP client for {server_name}")
+                    continue
+                
+                # Check for custom command
+                command = config.get("command")
+                if command:
+                    # STDIO MCP server with custom command - Client auto-detects STDIO transport
+                    cwd = config.get("cwd")
+                    if cwd:
+                        # Convert relative path to absolute path from project root
+                        if not os.path.isabs(cwd):
+                            # Assume relative to project root (parent of backend)
+                            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                            cwd = os.path.join(project_root, cwd)
+                        
+                        if os.path.exists(cwd):
+                            logger.debug(f"Creating STDIO client for {server_name} with command: {command} in cwd: {cwd}")
+                            # FastMCP Client can handle cwd parameter in StdioTransport
+                            from fastmcp.client.transports import StdioTransport
+                            transport = StdioTransport(command=command[0], args=command[1:], cwd=cwd)
+                            client = Client(transport)
+                            self.clients[server_name] = client
+                            logger.info(f"Created STDIO MCP client for {server_name} with custom command and cwd")
+                        else:
+                            logger.error(f"Working directory does not exist: {cwd}")
+                            continue
+                    else:
+                        logger.debug(f"Creating STDIO client for {server_name} with command: {command}")
+                        client = Client(command)
+                        self.clients[server_name] = client
+                        logger.info(f"Created STDIO MCP client for {server_name} with custom command")
+                    continue
+                
+                # Fallback to old behavior for backward compatibility
                 server_path = f"mcp/{server_name}/main.py"
                 logger.debug(f"Attempting to initialize {server_name} at path: {server_path}")
                 if os.path.exists(server_path):
                     logger.debug(f"Server script exists for {server_name}, creating client...")
-                    client = Client(server_path)
+                    client = Client(server_path)  # Client auto-detects STDIO transport from .py file
                     self.clients[server_name] = client
                     logger.info(f"Created MCP client for {server_name}")
                     logger.debug(f"Successfully created client for {server_name}")
                 else:
                     logger.error(f"MCP server script not found: {server_path}", exc_info=True)
+                            
             except Exception as e:
                 logger.error(f"Error creating client for {server_name}: {e}", exc_info=True)
     
