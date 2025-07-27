@@ -51,32 +51,10 @@ def generate_code_request(language: str, task_description: str) -> PromptMessage
 
 ## UI Enhancements
 
-### Single Line Banners ✅
-- ✅ Feature can be on/off via .env file setting
-- ✅ Hit a URL with custom API key from .env, reads host name
-- ✅ Route: `{endpoint host}/banner` returns JSON with list of banner messages
-- ✅ Sys admin can quickly add messages like "Known outage on RAG server 5 detected"
-- ✅ Each message on new line, full width, stacks below existing features
-- ✅ Mock implementation in sys-admin-mock folder
-
-### Canvas Tool Enhancement ✅
-- ✅ Let user adjust canvas width to take more or less screen compared to chat UI
-
-### UI Modification by MCP ✅
-- ✅ Allow MCP to modify the UI
-- ✅ Canvas area modification
-- ✅ If MCP returns JSON with special `custom_html` field, inject this
-- ✅ Inject as custom element
-
-## Architecture Improvements
-
-### Authentication & Authorization
-- **Security Issue**: User could spoof another user's email in WebSocket
-- **TODO**: Set up JWT to match to their email, check JWT to get real user name
-- **TODO**: Use FastAPI 'depends' for this authentication
-
-### Tool Pipeline
-- **TODO**: Pipeline where you force backend to use a tool, skip LLM tool invocation and just call it directly
+When showing the tool use on the UI. 
+* show the input to the tool
+* show the output  (done)
+* for both input and output/ start collapsed (or rmemeber the users' preference. )
 
 ### Naming Convention Fix
 - **Issue**: For MCP server names, don't use underscore in folder or file
@@ -96,32 +74,14 @@ def generate_code_request(language: str, task_description: str) -> PromptMessage
 - ✅ **Completed**: Separation of concerns: frontend, backend, MCP dev, quick dev, quick start, todo
 - ✅ **Completed**: Emphasize use of 'uv' as Python package manager
 
-## Advanced Features
-
-### File Return Handling ✅
-- ✅ If file returned type is image or has `custom_html` field, render in addition to allowing download
-
-### Agent Mode Enhancements
-- Improve multi-step reasoning interface
-- Better progress tracking
-- Save agent reasoning chains
-
-### RAG Improvements
-- Better document indexing
-- Support for more file types
-- Improved search relevance
-
-## Configuration Enhancements
+#
 
 ### Dynamic Configuration
 - Hot reload of configuration without restart
 - Per-user configuration overrides
 - Configuration validation UI
 
-### Model Management
-- Model performance monitoring
-- Cost tracking per model/user
-- Model fallback on failures
+
 
 ## Performance & Scalability
 
@@ -140,103 +100,8 @@ def generate_code_request(language: str, task_description: str) -> PromptMessage
 - Session affinity
 - Health check endpoints
 
-## Security Enhancements
-
-### Enhanced Authentication
-- Multi-factor authentication
-- SAML/OIDC integration
-- Session management
 
 ### Authorization Improvements
-- Fine-grained permissions
-- Role-based access control
+
 - Audit logging
 
-### Input Validation
-- Content filtering
-- Rate limiting per user
-- Request sanitization
-
-## Developer Experience
-
-### Development Tools
-- Better debugging tools
-- Development dashboard
-- Live configuration editing
-
-### API Documentation
-- Interactive API documentation
-- SDK for custom integrations
-- Webhook support
-
-### Monitoring
-- Application metrics
-- User analytics
-- Error tracking
-
-## Deployment Improvements
-
-### Container Orchestration
-- Kubernetes deployment manifests
-- Helm charts
-- Auto-scaling configuration
-
-### CI/CD Pipeline
-- Automated testing
-- Deployment pipelines
-- Environment promotion
-
-### Monitoring & Logging
-- Centralized logging
-- Application metrics
-- Health monitoring
-
-## Integration Ideas
-
-### External Services
-- GitHub integration for code-related queries
-- Slack/Teams integration
-- Email notifications
-
-### Third-party Tools
-- Jupyter notebook integration
-- VS Code extension
-- Browser extension
-
-## Research Areas
-
-### AI/ML Improvements
-- Fine-tuning for specific use cases
-- Multi-modal support (images, audio)
-- Retrieval-augmented generation improvements
-
-### Performance Research
-- Model optimization
-- Response time improvements
-- Resource usage optimization
-
----
-
-## Implementation Priorities
-
-### High Priority
-1. ✅ Documentation reorganization
-2. ✅ Unit testing infrastructure
-3. JWT authentication for WebSocket security
-4. MCP server path configuration fix
-
-### Medium Priority
-1. HTTP MCP server support
-2. Enhanced agent mode
-3. Better error handling and recovery
-4. Performance monitoring
-
-### Low Priority
-1. Advanced integrations
-2. Multi-modal support
-3. Advanced analytics
-4. Third-party tool integrations
-
----
-
-**Note**: Items marked with ✅ have been completed or are in progress.

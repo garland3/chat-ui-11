@@ -289,11 +289,26 @@ const processToolResult = (result) => {
   if (typeof result === 'object') {
     const processed = { ...result }
     
-    // Handle returned files
-    if (processed.returned_file_base64 && processed.returned_file_name) {
+    // Handle returned files (multiple files support)
+    if (processed.returned_files && Array.isArray(processed.returned_files)) {
+      // Multiple files case
+      processed.returned_files = processed.returned_files.map(file => ({
+        filename: file.filename,
+        content_base64: `[File data: ${file.content_base64.length} characters - hidden for display]`
+      }))
+      processed._multiple_files_download_available = true
+    } else if (processed.returned_file_base64 && processed.returned_file_name) {
+      // Single file case (backward compatibility)
       const dataSize = processed.returned_file_base64.length
       processed.returned_file_base64 = `[File data: ${dataSize} characters - hidden for display]`
       processed._file_download_available = true
+    }
+    
+    // Handle returned_file_contents for backward compatibility
+    if (processed.returned_file_contents && Array.isArray(processed.returned_file_contents)) {
+      processed.returned_file_contents = processed.returned_file_contents.map(content => 
+        `[File data: ${content.length} characters - hidden for display]`
+      )
     }
     
     // Hide any other base64 fields
@@ -337,7 +352,12 @@ const downloadReturnedFile = (filename, base64Data) => {
       'gif': 'image/gif',
       'doc': 'application/msword',
       'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'py': 'text/x-python',
+      'js': 'text/javascript',
+      'html': 'text/html',
+      'css': 'text/css',
+      'xml': 'application/xml'
     }
     
     if (extension && mimeTypes[extension]) {
@@ -448,24 +468,59 @@ const Message = ({ message }) => {
                     }
                   }
                   
-                  const hasReturnedFile = parsedResult && 
+                  // Check for multiple files first
+                  const hasMultipleFiles = parsedResult && 
+                    typeof parsedResult === 'object' && 
+                    parsedResult.returned_files && 
+                    Array.isArray(parsedResult.returned_files) &&
+                    parsedResult.returned_file_names &&
+                    parsedResult.returned_file_contents
+                  
+                  // Check for single file (backward compatibility)
+                  const hasSingleFile = parsedResult && 
                     typeof parsedResult === 'object' && 
                     parsedResult.returned_file_name && 
                     parsedResult.returned_file_base64
                   
-                  return hasReturnedFile ? (
-                    <div className="mb-3">
-                      <button
-                        onClick={() => downloadReturnedFile(parsedResult.returned_file_name, parsedResult.returned_file_base64)}
-                        className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                        Download {parsedResult.returned_file_name}
-                      </button>
-                    </div>
-                  ) : null
+                  if (hasMultipleFiles) {
+                    return (
+                      <div className="mb-3">
+                        <div className="text-sm text-gray-300 mb-2">
+                          {parsedResult.returned_files.length} file(s) available for download:
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {parsedResult.returned_file_names.map((filename, index) => (
+                            <button
+                              key={index}
+                              onClick={() => downloadReturnedFile(filename, parsedResult.returned_file_contents[index])}
+                              className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              {filename}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  } else if (hasSingleFile) {
+                    return (
+                      <div className="mb-3">
+                        <button
+                          onClick={() => downloadReturnedFile(parsedResult.returned_file_name, parsedResult.returned_file_base64)}
+                          className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                          Download {parsedResult.returned_file_name}
+                        </button>
+                      </div>
+                    )
+                  }
+                  
+                  return null
                 })()}
                 
                 <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 max-h-64 overflow-y-auto">

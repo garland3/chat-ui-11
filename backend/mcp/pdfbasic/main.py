@@ -199,9 +199,21 @@ def generate_report_about_pdf(
         report_filename = f"analysis_report_{filename.replace('.pdf', '.txt')}.pdf"
 
         # --- 4. Return the new file data ---
+        # Create file list for multiple file support
+        returned_files = [{
+            'filename': report_filename,
+            'content_base64': report_base64
+        }]
+        returned_file_names = [report_filename]
+        returned_file_contents = [report_base64]
+        
         return {
             "operation": "pdf_analysis_report",
             "original_filename": filename,
+            "returned_files": returned_files,
+            "returned_file_names": returned_file_names,
+            "returned_file_contents": returned_file_contents,
+            # Backward compatibility
             "returned_file_name": report_filename,
             "returned_file_base64": report_base64,
             "message": f"Successfully generated analysis report for {filename}."

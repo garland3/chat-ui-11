@@ -511,6 +511,43 @@ def list_generated_files(exec_dir: Path) -> List[str]:
         return []
 
 
+def encode_generated_files(exec_dir: Path) -> List[Dict[str, str]]:
+    """
+    Encode generated files to base64 for download.
+    
+    Args:
+        exec_dir: Execution directory
+        
+    Returns:
+        List of dictionaries with 'filename' and 'content_base64' keys
+    """
+    try:
+        encoded_files = []
+        for file_path in exec_dir.iterdir():
+            if file_path.is_file() and file_path.name != "exec_script.py":
+                try:
+                    with open(file_path, 'rb') as f:
+                        file_content = f.read()
+                    
+                    content_base64 = base64.b64encode(file_content).decode('utf-8')
+                    encoded_files.append({
+                        'filename': file_path.name,
+                        'content_base64': content_base64
+                    })
+                    logger.info(f"Encoded file: {file_path.name} ({len(file_content)} bytes)")
+                except Exception as e:
+                    logger.warning(f"Failed to encode file {file_path.name}: {str(e)}")
+                    continue
+        
+        logger.info(f"Encoded {len(encoded_files)} generated files")
+        return encoded_files
+    
+    except Exception as e:
+        logger.error(f"Error encoding generated files: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        return []
+
+
 def cleanup_execution_environment(exec_dir: Path):
     """Clean up the execution environment."""
     try:
@@ -658,6 +695,7 @@ def execute_python_code_with_file(
         if execution_result["success"]:
             # Check for generated files and plots
             generated_files = list_generated_files(exec_dir)
+            encoded_generated_files = encode_generated_files(exec_dir)
             plots = detect_matplotlib_plots(exec_dir)
             
             # Create custom HTML if there are plots or significant output
@@ -688,6 +726,17 @@ def execute_python_code_with_file(
             
             script_base64 = base64.b64encode(script_content.encode('utf-8')).decode('utf-8')
             
+            # Combine script and generated files for download
+            returned_files = [{
+                'filename': script_filename,
+                'content_base64': script_base64
+            }]
+            returned_files.extend(encoded_generated_files)
+            
+            # Extract filenames and content for backward compatibility
+            returned_file_names = [f['filename'] for f in returned_files]
+            returned_file_contents = [f['content_base64'] for f in returned_files]
+            
             logger.info(f"Code execution completed successfully in {execution_time:.2f}s")
             return {
                 "success": True,
@@ -698,8 +747,12 @@ def execute_python_code_with_file(
                 "uploaded_file": saved_filename,
                 "custom_html": custom_html,
                 "execution_time": execution_time,
-                "returned_file_name": script_filename,
-                "returned_file_base64": script_base64
+                "returned_files": returned_files,
+                "returned_file_names": returned_file_names,
+                "returned_file_contents": returned_file_contents,
+                # Backward compatibility - return first file
+                "returned_file_name": returned_file_names[0] if returned_file_names else script_filename,
+                "returned_file_base64": returned_file_contents[0] if returned_file_contents else script_base64
             }
         else:
             # Create downloadable script file even on failure so user can debug
@@ -721,6 +774,14 @@ def execute_python_code_with_file(
             
             script_base64 = base64.b64encode(script_content.encode('utf-8')).decode('utf-8')
             
+            # Return script file only (no generated files on failure)
+            returned_files = [{
+                'filename': script_filename,
+                'content_base64': script_base64
+            }]
+            returned_file_names = [script_filename]
+            returned_file_contents = [script_base64]
+            
             logger.error(f"Code execution failed: {execution_result.get('error', 'Unknown error')}")
             return {
                 "success": False,
@@ -731,6 +792,10 @@ def execute_python_code_with_file(
                 "uploaded_file": saved_filename if 'saved_filename' in locals() else None,
                 "custom_html": "",
                 "execution_time": execution_time,
+                "returned_files": returned_files,
+                "returned_file_names": returned_file_names,
+                "returned_file_contents": returned_file_contents,
+                # Backward compatibility
                 "returned_file_name": script_filename,
                 "returned_file_base64": script_base64
             }
@@ -759,6 +824,14 @@ def execute_python_code_with_file(
         
         script_base64 = base64.b64encode(script_content.encode('utf-8')).decode('utf-8')
         
+        # Return script file only (no generated files on exception)
+        returned_files = [{
+            'filename': script_filename,
+            'content_base64': script_base64
+        }]
+        returned_file_names = [script_filename]
+        returned_file_contents = [script_base64]
+        
         return {
             "success": False,
             "error": f"Code execution error: {str(e)}",
@@ -767,6 +840,10 @@ def execute_python_code_with_file(
             "files": [],
             "custom_html": "",
             "execution_time": execution_time,
+            "returned_files": returned_files,
+            "returned_file_names": returned_file_names,
+            "returned_file_contents": returned_file_contents,
+            # Backward compatibility
             "returned_file_name": script_filename,
             "returned_file_base64": script_base64
         }
@@ -794,6 +871,14 @@ def execute_python_code_with_file(
         
         script_base64 = base64.b64encode(script_content.encode('utf-8')).decode('utf-8')
         
+        # Return script file only (no generated files on exception)
+        returned_files = [{
+            'filename': script_filename,
+            'content_base64': script_base64
+        }]
+        returned_file_names = [script_filename]
+        returned_file_contents = [script_base64]
+        
         return {
             "success": False,
             "error": f"Server error: {str(e)}",
@@ -802,6 +887,10 @@ def execute_python_code_with_file(
             "files": [],
             "custom_html": "",
             "execution_time": execution_time,
+            "returned_files": returned_files,
+            "returned_file_names": returned_file_names,
+            "returned_file_contents": returned_file_contents,
+            # Backward compatibility
             "returned_file_name": script_filename,
             "returned_file_base64": script_base64
         }
