@@ -22,5 +22,12 @@
     "groups": ["users"],
     "is_exclusive": false,
     "description": "PDF analysis tool"
+  },
+  "ui_demo": {
+    "command": ["python", "mcp/ui_demo/main.py"],
+    "cwd": "backend",
+    "groups": ["users"],
+    "is_exclusive": false,
+    "description": "Demo server showcasing custom UI modification capabilities"
   }
 }

@@ -30,7 +30,7 @@ const processCanvasContent = (content) => {
 }
 
 const CanvasPanel = ({ isOpen, onClose }) => {
-  const { canvasContent } = useChat()
+  const { canvasContent, customUIContent } = useChat()
   const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
@@ -44,10 +44,35 @@ const CanvasPanel = ({ isOpen, onClose }) => {
   }, [])
 
   const renderContent = () => {
+    // Priority: Custom UI content > Canvas content > Empty state
+    if (customUIContent && customUIContent.type === 'html_injection') {
+      return (
+        <div className="p-4">
+          <div className="mb-4 text-sm text-gray-400 border-b border-gray-700 pb-2">
+            Custom UI from {customUIContent.serverName} - {customUIContent.toolName}
+          </div>
+          <div 
+            className="prose prose-invert max-w-none"
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(customUIContent.content) }}
+          />
+        </div>
+      )
+    }
+    
+    if (customUIContent && customUIContent.type === 'error') {
+      return (
+        <div className="p-4">
+          <div className="text-red-400 text-center">
+            {customUIContent.content}
+          </div>
+        </div>
+      )
+    }
+
     if (!canvasContent) {
       return (
         <div className="flex items-center justify-center h-full text-gray-400">
-          <p>Canvas content will appear here when the AI uses the canvas tool.</p>
+          <p>Canvas content will appear here when the AI uses the canvas tool or when MCP servers provide custom UI content.</p>
         </div>
       )
     }

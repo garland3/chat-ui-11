@@ -14,7 +14,7 @@ function AppContent() {
   const [ragPanelOpen, setRagPanelOpen] = useState(false)
   const [canvasPanelOpen, setCanvasPanelOpen] = useState(false)
   const [agentModalOpen, setAgentModalOpen] = useState(false)
-  const { canvasContent } = useChat()
+  const { canvasContent, customUIContent } = useChat()
 
   // Auto-open canvas panel when content is received
   useEffect(() => {
@@ -22,6 +22,13 @@ function AppContent() {
       setCanvasPanelOpen(true)
     }
   }, [canvasContent])
+
+  // Auto-open canvas panel when custom UI content is received
+  useEffect(() => {
+    if (customUIContent) {
+      setCanvasPanelOpen(true)
+    }
+  }, [customUIContent])
 
   return (
     <div className="flex h-screen w-full bg-gray-900 text-gray-200">

@@ -321,6 +321,31 @@ async def call_llm_with_tools(
                         logger.info(f"Enhanced tool arguments: {list(enhanced_args.keys())}")
                         
                         tool_result = await mcp_manager.call_tool(server_name, tool_name, enhanced_args)
+                        
+                        # Parse the tool result to extract custom_html if present
+                        custom_html_content = None
+                        parsed_result = None
+                        
+                        # Extract text content from CallToolResult
+                        if hasattr(tool_result, "content") and tool_result.content:
+                            # Get the first text content item
+                            text_content_item = tool_result.content[0]
+                            if hasattr(text_content_item, "text"):
+                                try:
+                                    # Try to parse as JSON to see if it contains custom_html
+                                    parsed_result = json.loads(text_content_item.text)
+                                    if isinstance(parsed_result, dict) and "custom_html" in parsed_result:
+                                        custom_html_content = parsed_result["custom_html"]
+                                        logger.info(f"Tool {tool_name} returned custom HTML content for UI modification")
+                                except json.JSONDecodeError:
+                                    # Not JSON, treat as regular text
+                                    pass
+                        
+                        # Check if tool_result is a dict with custom_html field (fallback)
+                        if custom_html_content is None and isinstance(tool_result, dict) and "custom_html" in tool_result:
+                            custom_html_content = tool_result["custom_html"]
+                            logger.info(f"Tool {tool_name} returned custom HTML content for UI modification")
+                        
                         if hasattr(tool_result, "content"):
                             if hasattr(tool_result.content, "__iter__") and not isinstance(tool_result.content, str):
                                 content_text = "\n".join(
@@ -330,6 +355,16 @@ async def call_llm_with_tools(
                                 content_text = str(tool_result.content)
                         else:
                             content_text = str(tool_result)
+                        
+                        # Send custom UI update if custom_html is present
+                        if session and custom_html_content:
+                            await session.send_update_to_ui("custom_ui", {
+                                "type": "html_injection",
+                                "content": custom_html_content,
+                                "tool_name": tool_name,
+                                "server_name": server_name,
+                                "tool_call_id": tool_call["id"]
+                            })
                         
                         # Send tool result notification to UI
                         if session:

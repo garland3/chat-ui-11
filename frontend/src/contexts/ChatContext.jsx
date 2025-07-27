@@ -42,6 +42,9 @@ export const ChatProvider = ({ children }) => {
   // Canvas state
   const [canvasContent, setCanvasContent] = useState('')
   
+  // Custom UI state
+  const [customUIContent, setCustomUIContent] = useState(null)
+  
   const { sendMessage, addMessageHandler } = useWS()
 
   // Load configuration on mount
@@ -409,6 +412,28 @@ export const ChatProvider = ({ children }) => {
           }
           break
 
+        case 'custom_ui':
+          try {
+            if (updateData && updateData.type === 'html_injection' && updateData.content) {
+              console.log('Received custom UI content from MCP server:', updateData.server_name, updateData.tool_name)
+              setCustomUIContent({
+                type: 'html_injection',
+                content: updateData.content,
+                toolName: updateData.tool_name,
+                serverName: updateData.server_name,
+                timestamp: Date.now()
+              })
+            }
+          } catch (customUIError) {
+            console.error('Error handling custom UI content:', customUIError, updateData)
+            setCustomUIContent({
+              type: 'error',
+              content: 'Error processing custom UI content',
+              timestamp: Date.now()
+            })
+          }
+          break
+
         default:
           console.warn('Unknown intermediate update type:', updateType)
       }
@@ -421,6 +446,7 @@ export const ChatProvider = ({ children }) => {
     setMessages([])
     setIsWelcomeVisible(true)
     setCanvasContent('')
+    setCustomUIContent(null)
   }
 
   const downloadChat = () => {
@@ -604,7 +630,11 @@ export const ChatProvider = ({ children }) => {
     
     // Canvas
     canvasContent,
-    setCanvasContent
+    setCanvasContent,
+    
+    // Custom UI
+    customUIContent,
+    setCustomUIContent
   }
 
   return (
