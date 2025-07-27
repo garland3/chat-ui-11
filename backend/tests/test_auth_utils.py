@@ -1,0 +1,105 @@
+"""
+Unit tests for authorization utilities.
+"""
+import os
+import pytest
+from unittest.mock import Mock, patch
+
+# Import the auth_utils module
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
+from auth_utils import AuthorizationManager, create_authorization_manager
+
+
+class TestAuthorizationManager:
+    """Test AuthorizationManager class."""
+    
+    def setup_method(self):
+        """Set up test fixtures."""
+        self.mock_is_user_in_group = Mock()
+        self.auth_manager = AuthorizationManager(self.mock_is_user_in_group)
+        
+    def test_initialization(self):
+        """Test AuthorizationManager initialization."""
+        assert self.auth_manager.is_user_in_group_func == self.mock_is_user_in_group
+        
+    def test_validate_tool_access_empty_tools(self):
+        """Test validating access with empty tools list."""
+        def mock_get_authorized_servers():
+            return ["filesystem", "calculator"]
+            
+        result, warnings = self.auth_manager.validate_tool_access(
+            "test@example.com", [], mock_get_authorized_servers
+        )
+        
+        assert result == []
+        assert warnings == []
+        
+    def test_validate_tool_access_authorized_tools(self):
+        """Test validating access with authorized tools."""
+        def mock_get_authorized_servers():
+            return ["filesystem", "calculator"]
+            
+        result, warnings = self.auth_manager.validate_tool_access(
+            "test@example.com", ["filesystem", "calculator"], mock_get_authorized_servers
+        )
+        
+        assert set(result) == {"filesystem", "calculator"}
+        assert warnings == []
+        
+    def test_validate_tool_access_unauthorized_tools(self):
+        """Test validating access with some unauthorized tools."""
+        def mock_get_authorized_servers():
+            return ["filesystem"]
+            
+        result, warnings = self.auth_manager.validate_tool_access(
+            "test@example.com", ["filesystem", "unauthorized"], mock_get_authorized_servers
+        )
+        
+        assert result == ["filesystem"]
+        assert len(warnings) == 1
+        assert "unauthorized" in warnings[0]
+        
+    def test_handle_exclusive_servers_no_exclusive(self):
+        """Test handling servers when none are exclusive."""
+        def mock_is_server_exclusive(server):
+            return False
+            
+        servers = ["filesystem", "calculator"]
+        result = self.auth_manager.handle_exclusive_servers(servers, mock_is_server_exclusive)
+        
+        assert result == servers
+        
+    def test_handle_exclusive_servers_with_exclusive(self):
+        """Test handling servers when one is exclusive."""
+        def mock_is_server_exclusive(server):
+            return server == "secure"
+            
+        servers = ["filesystem", "secure", "calculator"]
+        result = self.auth_manager.handle_exclusive_servers(servers, mock_is_server_exclusive)
+        
+        assert result == ["secure"]
+        
+    def test_handle_exclusive_servers_multiple_exclusive(self):
+        """Test handling multiple exclusive servers (should return first)."""
+        def mock_is_server_exclusive(server):
+            return server in ["secure1", "secure2"]
+            
+        servers = ["secure1", "secure2", "filesystem"]
+        result = self.auth_manager.handle_exclusive_servers(servers, mock_is_server_exclusive)
+        
+        assert result == ["secure1"]
+
+
+class TestCreateAuthorizationManager:
+    """Test create_authorization_manager function."""
+    
+    def test_create_authorization_manager(self):
+        """Test creating authorization manager."""
+        mock_is_user_in_group = Mock()
+        
+        manager = create_authorization_manager(mock_is_user_in_group)
+        
+        assert isinstance(manager, AuthorizationManager)
+        assert manager.is_user_in_group_func == mock_is_user_in_group

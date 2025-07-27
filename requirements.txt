@@ -17,3 +17,7 @@ numpy
 scikit-learn
 scipy
 beautifulsoup4
+pytest
+pytest-asyncio
+pytest-mock
+httpx
