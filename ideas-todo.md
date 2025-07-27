@@ -9,6 +9,11 @@
 - Create a different route `/marketplace`.
   - Show different possible MCPs, allow selecting, then on the main UI, only show the user-selected MCP.
   - Would need to set up a DB to keep track of selections.
+  --- proably not for now. we can just save to browswer memory similar to now. 
+  - a future todo woudl be to get more info about each mcp, like ratings, or downlaods
+  - again only show the authorized mcps, this is alrady done and is good. 
+  - the markpalce shows the servers you could use. then youc an select a server witih a checkbox. 
+  - on the / route for the Tools and Integratiosn panel. only show the selected servers. 
 
 # [X] UI Modification by MCP
 - Allow an MCP to modify the UI. [X]
