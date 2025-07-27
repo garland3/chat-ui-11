@@ -84,3 +84,25 @@ def generate_code_request(language: str, task_description: str) -> PromptMessage
 https://gofastmcp.com/clients/elicitation
 and for mcp servers. 
 * https://gofastmcp.com/clients/elicitation
+
+
+# Update docs. 
+* look at the project setup. 
+* find all the .md files
+* make a new folder called docs
+* reoganize the docs into this folder. 
+* the readme.md in the root shoudl be minimal and point to the docs 
+* this app is getting complicated, so make sure there are multiple .md files in the docs folder. 
+* try to use seperation of concerns, ... like a doc for the frontend, backend, mcp dev, quick developer dev, quick start, todo
+---- this is not a hard rule, use your judgment. 
+* an important considertion is when someone clones the code and wants to add new features, it takes a bit of time to see how things work. 
+* be sure to note that we are using 'uv' as the python package manager. I've seen people ge this wrong a few tims. 
+
+
+# write 10 unit tests
+- these can be basic. 
+- not integration test. 
+- 10 for the backend
+- 10 for the frontned. 
+
+
