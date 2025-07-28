@@ -37,6 +37,8 @@ export const MarketplaceProvider = ({ children }) => {
       const newSet = new Set(prev)
       if (newSet.has(serverName)) {
         newSet.delete(serverName)
+        // Clear tool and prompt selections for deselected server
+        clearServerMemory(serverName)
       } else {
         newSet.add(serverName)
       }
@@ -56,7 +58,35 @@ export const MarketplaceProvider = ({ children }) => {
   }
 
   const deselectAllServers = () => {
+    // Clear memory for all servers before deselecting
+    selectedServers.forEach(serverName => clearServerMemory(serverName))
     setSelectedServers(new Set())
+  }
+
+  const clearServerMemory = (serverName) => {
+    // Clear tool selections for this server from localStorage
+    try {
+      const savedTools = localStorage.getItem('chatui-selected-tools')
+      if (savedTools) {
+        const toolSelections = JSON.parse(savedTools)
+        const filteredTools = toolSelections.filter(toolKey => !toolKey.startsWith(`${serverName}_`))
+        localStorage.setItem('chatui-selected-tools', JSON.stringify(filteredTools))
+      }
+    } catch (error) {
+      console.warn('Failed to clear tool selections for server:', serverName, error)
+    }
+
+    // Clear prompt selections for this server from localStorage
+    try {
+      const savedPrompts = localStorage.getItem('chatui-selected-prompts')
+      if (savedPrompts) {
+        const promptSelections = JSON.parse(savedPrompts)
+        const filteredPrompts = promptSelections.filter(promptKey => !promptKey.startsWith(`${serverName}_`))
+        localStorage.setItem('chatui-selected-prompts', JSON.stringify(filteredPrompts))
+      }
+    } catch (error) {
+      console.warn('Failed to clear prompt selections for server:', serverName, error)
+    }
   }
 
   const getFilteredTools = () => {

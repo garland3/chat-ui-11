@@ -1,4 +1,4 @@
-import { X, Settings } from 'lucide-react'
+import { X, Settings, Trash2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useChat } from '../contexts/ChatContext'
 import { useMarketplace } from '../contexts/MarketplaceContext'
@@ -11,13 +11,19 @@ const ToolsPanel = ({ isOpen, onClose }) => {
     selectedPrompts,
     togglePrompt,
     toolChoiceRequired, 
-    setToolChoiceRequired 
+    setToolChoiceRequired,
+    clearToolsAndPrompts
   } = useChat()
   const { getFilteredTools, getFilteredPrompts } = useMarketplace()
   
   // Use filtered tools and prompts instead of all tools
   const tools = getFilteredTools()
   const prompts = getFilteredPrompts()
+  
+  const navigateToMarketplace = () => {
+    clearToolsAndPrompts()
+    navigate('/marketplace')
+  }
 
   // Combine tools and prompts into a unified server list
   const allServers = {}
@@ -171,7 +177,7 @@ const ToolsPanel = ({ isOpen, onClose }) => {
         <div className="p-4 border-b border-gray-700 flex-shrink-0">
           <div className="space-y-2">
             <button
-              onClick={() => navigate('/marketplace')}
+              onClick={navigateToMarketplace}
               className="w-full px-4 py-2 rounded-lg border bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600 text-sm font-medium transition-colors"
             >
               Marketplace
@@ -195,7 +201,7 @@ const ToolsPanel = ({ isOpen, onClose }) => {
             <div className="text-gray-400 text-center py-8">
               <div className="mb-4">No servers selected</div>
               <button
-                onClick={() => navigate('/marketplace')}
+                onClick={navigateToMarketplace}
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
               >
                 Go to Marketplace
@@ -289,6 +295,20 @@ const ToolsPanel = ({ isOpen, onClose }) => {
                   </div>
                 </div>
               ))}
+              
+              {/* Clear Browser Memory Button */}
+              <div className="mt-8 pt-4 border-t border-gray-700">
+                <button
+                  onClick={clearToolsAndPrompts}
+                  className="w-full px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Clear Browser Memory
+                </button>
+                <p className="text-xs text-gray-400 mt-2 text-center">
+                  Clears all saved tool and prompt selections
+                </p>
+              </div>
             </div>
           )}
         </div>

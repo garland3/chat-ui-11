@@ -24,7 +24,7 @@ from typing import Any, Dict, List, Set, Annotated
 from fastmcp import FastMCP
 
 # Configure logging to use main app log with prefix
-main_log_path = '/workspaces/chat-ui-11/backend/logs/app.log'
+main_log_path = 'logs/app.log'
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - CODE_EXECUTOR - %(name)s - %(levelname)s - %(message)s',
@@ -216,20 +216,72 @@ from pathlib import Path
 # Change to execution directory
 os.chdir(r"{exec_dir}")
 
+# Configure matplotlib for safe plotting
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend that saves to files
+matplotlib.rcParams['savefig.directory'] = r"{exec_dir}"  # Default save directory
+
 # Restrict file operations to current directory only
 original_open = open
 
 def safe_open(file, mode='r', **kwargs):
-    """Override open to restrict file access to execution directory."""
+    """Override open to restrict file access to execution directory, with exceptions for safe plotting libraries."""
     file_path = Path(file).resolve()
     exec_path = Path(r"{exec_dir}").resolve()
     
     try:
         file_path.relative_to(exec_path)
+        # File is in execution directory - always allow
+        return original_open(file, mode, **kwargs)
     except ValueError:
-        raise PermissionError(f"File access outside execution directory not allowed: {{file}}")
-    
-    return original_open(file, mode, **kwargs)
+        # File is outside execution directory - check if it's an allowed library file
+        file_str = str(file_path)
+        
+        # Allow matplotlib and seaborn configuration and data files (read-only)
+        allowed_paths = [
+            '/matplotlib/',
+            '/seaborn/', 
+            '/site-packages/matplotlib/',
+            '/site-packages/seaborn/',
+            'matplotlib/mpl-data/',
+            'matplotlib/backends/',
+            'matplotlib/font_manager.py',
+            'seaborn/data/',
+            'seaborn/_core/',
+            'numpy/core/',
+            'pandas/io/',
+            '/usr/share/fonts/',
+            '/usr/local/share/fonts/',
+            'fontconfig/',
+            '.cache/matplotlib/',
+            '/tmp/matplotlib-',
+            '/home/.matplotlib/',
+            '/.matplotlib/',
+        ]
+        
+        # Check if file path contains any allowed library paths  
+        is_allowed_path = any(allowed_path in file_str for allowed_path in allowed_paths)
+        
+        if not is_allowed_path:
+            raise PermissionError(f"File access outside execution directory not allowed: {{file}}")
+            
+        # Allow read access to all allowed paths
+        if 'r' in mode and 'w' not in mode and 'a' not in mode and '+' not in mode:
+            return original_open(file, mode, **kwargs)
+        
+        # Allow write access only to matplotlib cache directories
+        if ('.cache/matplotlib/' in file_str or 
+            'matplotlib/fontList.cache' in file_str or
+            'matplotlib/tex.cache' in file_str or
+            '/tmp/matplotlib-' in file_str or
+            '/.matplotlib/' in file_str):
+            return original_open(file, mode, **kwargs)
+            
+        # Deny write access to other external files
+        if 'w' in mode or 'a' in mode or '+' in mode:
+            raise PermissionError(f"Write access outside execution directory not allowed: {{file}}")
+            
+        return original_open(file, mode, **kwargs)
 
 # Override built-in open
 if isinstance(__builtins__, dict):
@@ -254,7 +306,7 @@ execution_error = None
 error_traceback = None
 
 try:
-    # User code starts here
+    # User code starts here (matplotlib/seaborn should now work with plotting)
 {indented_code}
     # User code ends here
     
@@ -618,18 +670,28 @@ def execute_python_code_with_file(
         - Only a limited set of safe modules are allowed (e.g., numpy, pandas, matplotlib, seaborn, json, csv, math, etc.).
         - Imports of dangerous or unauthorized modules (e.g., os, sys, subprocess, socket, requests, pickle, threading, etc.) are blocked.
         - Dangerous built-in functions (e.g., eval, exec, compile, __import__, getattr, setattr, input, exit, quit, etc.) are forbidden.
-        - File I/O is restricted to the execution directory only; attempts to access files outside are blocked.
+        - File I/O is restricted to the execution directory, with read-only access to matplotlib/seaborn config files for plotting.
+        - Matplotlib and seaborn plotting is fully supported - you MUST use plt.savefig() to create plot files (plt.show() will not work).
         - Attribute access to __builtins__ and double-underscore attributes is forbidden.
         - Code is executed in a temporary, isolated directory that is cleaned up after execution.
         - Execution is time-limited (default: 30 seconds).
-        - Only basic Python operations and safe data analysis/visualization are supported.
+        - Supports data analysis, visualization, and basic Python operations in a secure sandbox.
 
     Example usage:
         If you upload a file named "data.csv", you can access it in your code like:
         ```python
         import pandas as pd
+        import matplotlib.pyplot as plt
+        
         df = pd.read_csv('data.csv')
         print(df.head())
+        
+        # Create plots - MUST use plt.savefig() to generate plot files
+        plt.figure(figsize=(10, 6))
+        plt.plot(df['column_name'])
+        plt.title('My Plot')
+        plt.savefig('my_plot.png')  # REQUIRED - plt.show() won't work in this environment
+        plt.close()  # Good practice to close figures
         ```
 
     Args:

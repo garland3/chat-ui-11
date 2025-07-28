@@ -543,6 +543,18 @@ export const ChatProvider = ({ children }) => {
     setCustomUIContent(null)
   }
 
+  const clearToolsAndPrompts = () => {
+    // Clear selected tools and prompts
+    setSelectedTools(new Set())
+    setSelectedPrompts(new Set())
+    
+    // Clear from localStorage
+    localStorage.removeItem('chatui-selected-tools')
+    localStorage.removeItem('chatui-selected-prompts')
+    
+    console.log('🔧 [TOOLS DEBUG] Cleared all tool and prompt selections from memory')
+  }
+
   const downloadChat = () => {
     if (messages.length === 0) {
       alert('No chat history to download')
@@ -724,6 +736,7 @@ export const ChatProvider = ({ children }) => {
     isThinking,
     sendChatMessage,
     clearChat,
+    clearToolsAndPrompts,
     downloadChat,
     downloadChatAsText,
     

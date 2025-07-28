@@ -2,24 +2,16 @@
 
 Future enhancements and feature ideas for the Chat UI application.
 
-## MCP Server Enhancements
+In the markplace. 
+* always refresh the memory/ clear it. 
+* so if someone slected a tool, then went to the marketplace and deselcted taht server, then the selected tool is still in memory. which is worng .
+
+---------
+If a tool returns a file, then safe this into the session ... in addition tothe current bevhior of showing it to the user for download. 
+-- so for example if one tool makes a .csv then in teh same session we want the csv avaible for another tool to analyze it. 
 
 
-### MCP Server Configuration Fix
-- Currently MCP servers need to be in the mcp folder with same folder name as the MCP folder
-- **TODO**: Make it properly use the "command" in mcp.json, so path to MCP server can be whatever
-- **TODO**: Enable HTTP MCP servers for connecting to remote MCP servers
-- Track different MCP services: Tools, Resources, Templates, Prompts
-
-
-
-
-### Naming Convention Fix
-- **Issue**: For MCP server names, don't use underscore in folder or file
-- **Fix**: Use camelCase instead (e.g., `myCoolServer` not `mycool_server`)
-- **Requirement**: Folder name needs to match server name
-
-
+For the code execution tool logging the log file shoudl be just main_log_path = 'logs/app.log' since it will be run from the backend. 
 
 -------------
 

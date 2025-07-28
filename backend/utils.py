@@ -2,7 +2,7 @@ import asyncio
 import json
 import logging
 import os
-from typing import Dict, List
+from typing import Any, Dict, List
 
 import requests
 from fastapi import Request, WebSocket
@@ -94,6 +94,44 @@ async def call_llm(model_name: str, messages: List[Dict[str, str]]) -> str:
         raise Exception("Invalid response format from LLM")
 
 
+async def _save_tool_files_to_session(tool_result: Dict[str, Any], session, tool_name: str) -> None:
+    """
+    Extract files from tool result and save them to the session for use by other tools.
+    
+    Args:
+        tool_result: Parsed tool result containing file data
+        session: ChatSession instance to save files to
+        tool_name: Name of the tool that generated the files
+    """
+    files_saved = 0
+    
+    # Check for returned_files array (preferred format)
+    if "returned_files" in tool_result and isinstance(tool_result["returned_files"], list):
+        for file_info in tool_result["returned_files"]:
+            if isinstance(file_info, dict) and "filename" in file_info and "content_base64" in file_info:
+                # Don't add tool prefix for CSV/data files - keep original name for reuse
+                if file_info['filename'].endswith(('.csv', '.json', '.txt', '.xlsx')):
+                    filename = file_info['filename']
+                else:
+                    filename = f"{tool_name}_{file_info['filename']}"
+                session.uploaded_files[filename] = file_info["content_base64"]
+                files_saved += 1
+                logger.info(f"Saved file {filename} from tool {tool_name} to session {session.session_id}")
+    
+    # Check for legacy single file format
+    elif "returned_file_name" in tool_result and "returned_file_base64" in tool_result:
+        if tool_result['returned_file_name'].endswith(('.csv', '.json', '.txt', '.xlsx')):
+            filename = tool_result['returned_file_name']
+        else:
+            filename = f"{tool_name}_{tool_result['returned_file_name']}"
+        session.uploaded_files[filename] = tool_result["returned_file_base64"]
+        files_saved += 1
+        logger.info(f"Saved file {filename} from tool {tool_name} to session {session.session_id}")
+    
+    if files_saved > 0:
+        logger.info(f"Tool {tool_name} generated {files_saved} files now available for other tools in session")
+
+
 def _inject_file_data(function_args: Dict, session) -> Dict:
     """Inject file data into tool arguments if tool expects it and files are available"""
     logger.info(f"_inject_file_data called with args: {list(function_args.keys())}")
@@ -110,7 +148,7 @@ def _inject_file_data(function_args: Dict, session) -> Dict:
         logger.warning("Session uploaded_files is empty")
         return function_args
     
-    logger.info(f"Session has {len(session.uploaded_files)} uploaded files: {list(session.uploaded_files.keys())}")
+    logger.info(f"Session has {len(session.uploaded_files)} files: {list(session.uploaded_files.keys())}")
     
     # Create a copy to avoid modifying the original
     enhanced_args = function_args.copy()
@@ -325,6 +363,7 @@ async def call_llm_with_tools(
                         
                         tool_result = await mcp_manager.call_tool(server_name, tool_name, enhanced_args)
                         
+                        
                         # Parse the tool result to extract custom_html if present
                         custom_html_content = None
                         parsed_result = None
@@ -368,6 +407,17 @@ async def call_llm_with_tools(
                                 "server_name": server_name,
                                 "tool_call_id": tool_call["id"]
                             })
+                        
+                        # Extract and save files from tool result to session
+                        # Try to get the result as a dict from various sources
+                        result_dict = None
+                        if parsed_result and isinstance(parsed_result, dict):
+                            result_dict = parsed_result
+                        elif isinstance(tool_result, dict):
+                            result_dict = tool_result
+                        
+                        if session and result_dict:
+                            await _save_tool_files_to_session(result_dict, session, tool_name)
                         
                         # Send tool result notification to UI
                         if session:

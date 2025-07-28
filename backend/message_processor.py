@@ -197,7 +197,10 @@ class MessageProcessor:
             self.session.selected_data_sources = message.get("selected_data_sources", [])
             self.session.only_rag = message.get("only_rag", True)
             self.session.tool_choice_required = message.get("tool_choice_required", False)
-            self.session.uploaded_files = message.get("files", {})
+            # Update uploaded files instead of replacing them (preserve tool-generated files)
+            new_files = message.get("files", {})
+            if new_files:
+                self.session.uploaded_files.update(new_files)
 
             logger.info(
                 "------------\n"
