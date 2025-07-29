@@ -68,6 +68,7 @@ All documentation has been organized in the `docs/` folder:
 - **Don't use `uvicorn --reload`** - causes problems in development
 - **Use `npm run build`** instead of `npm run dev` for frontend development
 - **File limit**: Maximum 400 lines per file for maintainability
+- **Container Environment**: Only use Fedora latest for deployment and CI/CD
 
 ## License
 
