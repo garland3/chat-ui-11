@@ -196,7 +196,10 @@ async def get_config(current_user: str = Depends(get_current_user)):
                 'tools': ['canvas'],
                 'tool_count': 1,
                 'description': 'Canvas for showing final rendered content: complete code, reports, and polished documents. Use this to finalize your work. Most code and reports will be shown here.',
-                'is_exclusive': False
+                'is_exclusive': False,
+                'author': 'Chat UI Team',
+                'short_description': 'Visual content display',
+                'help_email': 'support@chatui.example.com'
             })
         elif server_name in mcp_manager.available_tools:
             server_tools = mcp_manager.available_tools[server_name]['tools']
@@ -209,18 +212,25 @@ async def get_config(current_user: str = Depends(get_current_user)):
                     'tools': [tool.name for tool in server_tools],
                     'tool_count': len(server_tools),
                     'description': server_config.get('description', f'{server_name} tools'),
-                    'is_exclusive': server_config.get('is_exclusive', False)
+                    'is_exclusive': server_config.get('is_exclusive', False),
+                    'author': server_config.get('author', 'Unknown'),
+                    'short_description': server_config.get('short_description', server_config.get('description', f'{server_name} tools')),
+                    'help_email': server_config.get('help_email', '')
                 })
         
         # Collect prompts from this server if available
         if server_name in mcp_manager.available_prompts:
             server_prompts = mcp_manager.available_prompts[server_name]['prompts']
+            server_config = mcp_manager.available_prompts[server_name]['config']
             if server_prompts:  # Only show servers with actual prompts
                 prompts_info.append({
                     'server': server_name,
                     'prompts': [{'name': prompt.name, 'description': prompt.description} for prompt in server_prompts],
                     'prompt_count': len(server_prompts),
-                    'description': f'{server_name} custom prompts'
+                    'description': f'{server_name} custom prompts',
+                    'author': server_config.get('author', 'Unknown'),
+                    'short_description': server_config.get('short_description', f'{server_name} custom prompts'),
+                    'help_email': server_config.get('help_email', '')
                 })
     
     # Log what the user can see for debugging

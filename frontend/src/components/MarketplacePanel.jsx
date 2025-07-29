@@ -131,9 +131,35 @@ const MarketplacePanel = () => {
                   <h3 className="text-lg font-semibold text-white capitalize mb-2">
                     {server.server}
                   </h3>
+                  
+                  {/* Short Description */}
+                  {server.short_description && (
+                    <p className="text-sm text-blue-300 mb-2 font-medium">
+                      {server.short_description}
+                    </p>
+                  )}
+                  
                   <p className="text-sm text-gray-400 mb-3">
                     {server.description}
                   </p>
+                  
+                  {/* Author and Help Email */}
+                  <div className="flex flex-wrap items-center gap-4 mb-3 text-xs">
+                    {server.author && (
+                      <span className="text-gray-300">
+                        <span className="text-gray-500">By:</span> {server.author}
+                      </span>
+                    )}
+                    {server.help_email && (
+                      <a 
+                        href={`mailto:${server.help_email}`}
+                        className="text-blue-400 hover:text-blue-300 underline"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        Get Help
+                      </a>
+                    )}
+                  </div>
                   
                   {/* Server Stats */}
                   <div className="flex items-center gap-4 text-xs text-gray-400">

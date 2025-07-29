@@ -48,6 +48,9 @@ class LLMConfig(BaseModel):
 class MCPServerConfig(BaseModel):
     """Configuration for a single MCP server."""
     description: Optional[str] = None
+    author: Optional[str] = None         # Author of the MCP server
+    short_description: Optional[str] = None  # Short description for marketplace display
+    help_email: Optional[str] = None     # Contact email for help/support
     groups: List[str] = Field(default_factory=list)
     is_exclusive: bool = False
     enabled: bool = True

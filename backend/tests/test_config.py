@@ -88,6 +88,35 @@ class TestMCPServerConfig:
         assert config.groups == ["users", "admin"]
         assert config.is_exclusive is True
         assert config.enabled is False
+        
+    def test_mcp_server_config_with_new_fields(self):
+        """Test MCP server config with new author, short_description, and help_email fields."""
+        config = MCPServerConfig(
+            description="Test server",
+            author="Test Author",
+            short_description="Short test description", 
+            help_email="test@example.com",
+            groups=["users"],
+            is_exclusive=False,
+            enabled=True
+        )
+        assert config.description == "Test server"
+        assert config.author == "Test Author"
+        assert config.short_description == "Short test description"
+        assert config.help_email == "test@example.com"
+        assert config.groups == ["users"]
+        assert config.is_exclusive is False
+        assert config.enabled is True
+        
+    def test_mcp_server_config_new_fields_optional(self):
+        """Test that new fields are optional and have proper defaults."""
+        config = MCPServerConfig(
+            description="Test server"
+        )
+        assert config.description == "Test server"
+        assert config.author is None
+        assert config.short_description is None
+        assert config.help_email is None
 
 
 class TestConfigManager:
