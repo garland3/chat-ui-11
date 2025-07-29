@@ -302,7 +302,7 @@ async def get_server_debug_info(current_user: str = Depends(get_current_user)):
 async def websocket_endpoint(websocket: WebSocket):
     """WebSocket endpoint now delegates connection handling to the SessionManager."""
     check_header = not DEBUG_MODE
-    user_email = websocket.headers.get("x-email-header")
+    user_email = websocket.headers.get("X-User-Email")
     
     if check_header and not user_email:
         await websocket.close(code=1008, reason="Authentication required")

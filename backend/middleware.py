@@ -43,11 +43,11 @@ class AuthMiddleware(BaseHTTPMiddleware):
             user_email = "test@test.com"
             logger.info("Debug mode: using test user")
         else:
-            x_email_header = request.headers.get('x-email-header')
+            x_email_header = request.headers.get('X-User-Email')
             user_email = get_user_from_header(x_email_header)
             
             if not user_email:
-                logger.warning("Missing x-email-header, redirecting to auth")
+                logger.warning("Missing X-User-Email, redirecting to auth")
                 return RedirectResponse(url="/auth", status_code=302)
         
         # Add user to request state

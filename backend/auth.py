@@ -26,7 +26,7 @@ def is_user_in_group(user_id: str, group_id: str) -> bool:
 
 
 def get_user_from_header(x_email_header: Optional[str]) -> Optional[str]:
-    """Extract user email from x-email-header."""
+    """Extract user email from X-User-Email header."""
     if not x_email_header:
         return None
     return x_email_header.strip()
