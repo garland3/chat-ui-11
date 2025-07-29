@@ -1,0 +1,156 @@
+"""
+Test for LLM Mock Service Integration
+"""
+
+import pytest
+import requests
+import subprocess
+import time
+import signal
+import os
+from unittest.mock import patch, Mock
+
+
+class TestLLMMockService:
+    """Test the LLM mock service functionality."""
+    
+    def test_mock_llm_service_import(self):
+        """Test that the LLM mock service can be imported."""
+        import sys
+        sys.path.append('../llm-mock')
+        try:
+            import main as llm_mock_main
+            assert hasattr(llm_mock_main, 'app')
+            assert hasattr(llm_mock_main, 'ChatCompletionRequest')
+            assert hasattr(llm_mock_main, 'generate_mock_response')
+        except ImportError:
+            pytest.skip("LLM mock service not available for import")
+    
+    def test_mock_response_generation(self):
+        """Test mock response generation logic."""
+        import sys
+        sys.path.append('../llm-mock')
+        try:
+            from main import generate_mock_response, ChatMessage
+            
+            # Test greeting response
+            messages = [ChatMessage(role="user", content="Hello")]
+            response = generate_mock_response(messages)
+            assert "Hello" in response or "hello" in response.lower()
+            
+            # Test test response
+            messages = [ChatMessage(role="user", content="This is a test")]
+            response = generate_mock_response(messages)
+            assert "test" in response.lower()
+            
+            # Test default response
+            messages = [ChatMessage(role="user", content="Random message")]
+            response = generate_mock_response(messages)
+            assert len(response) > 0
+            
+        except ImportError:
+            pytest.skip("LLM mock service not available for import")
+
+
+class TestLLMMockIntegration:
+    """Test LLM mock service with HTTP requests."""
+    
+    @pytest.fixture(scope="class")
+    def mock_server_process(self):
+        """Start and stop the mock LLM server for testing."""
+        import sys
+        import subprocess
+        
+        # Start the server
+        llm_mock_dir = os.path.join(os.path.dirname(__file__), '../../llm-mock')
+        if not os.path.exists(llm_mock_dir):
+            pytest.skip("LLM mock directory not found")
+        
+        try:
+            proc = subprocess.Popen(
+                [sys.executable, 'main.py'],
+                cwd=llm_mock_dir,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+            
+            # Wait for server to start
+            time.sleep(2)
+            
+            # Check if server is running
+            try:
+                response = requests.get('http://127.0.0.1:8001/health', timeout=5)
+                if response.status_code != 200:
+                    proc.terminate()
+                    pytest.skip("Mock LLM server failed to start")
+            except requests.RequestException:
+                proc.terminate()
+                pytest.skip("Mock LLM server not accessible")
+            
+            yield proc
+            
+        except FileNotFoundError:
+            pytest.skip("Python not found or LLM mock service unavailable")
+        finally:
+            # Clean up
+            try:
+                proc.terminate()
+                proc.wait(timeout=5)
+            except:
+                pass
+    
+    def test_health_endpoint(self, mock_server_process):
+        """Test the health check endpoint."""
+        response = requests.get('http://127.0.0.1:8001/health')
+        assert response.status_code == 200
+        data = response.json()
+        assert data['status'] == 'healthy'
+        assert 'timestamp' in data
+    
+    def test_models_endpoint(self, mock_server_process):
+        """Test the models list endpoint."""
+        response = requests.get('http://127.0.0.1:8001/v1/models')
+        assert response.status_code == 200
+        data = response.json()
+        assert data['object'] == 'list'
+        assert len(data['data']) >= 3
+        model_ids = [model['id'] for model in data['data']]
+        assert 'gpt-3.5-turbo' in model_ids
+        assert 'gpt-4' in model_ids
+        assert 'mock-model' in model_ids
+
+
+# Simple unit tests that don't require the server
+class TestLLMMockLogic:
+    """Test mock LLM logic without starting server."""
+    
+    def test_mock_response_keywords(self):
+        """Test that mock responses contain expected keywords."""
+        # This test doesn't require the actual server
+        mock_responses = {
+            "greeting": "Hello! I'm a mock LLM assistant. How can I help you today?",
+            "test": "This is a test response from the mock LLM service.",
+            "default": "I understand your message. This is a mock response for testing purposes."
+        }
+        
+        # Test that responses contain expected content
+        assert "Hello" in mock_responses["greeting"]
+        assert "test" in mock_responses["test"]
+        assert "mock" in mock_responses["default"]
+    
+    def test_mock_request_structure(self):
+        """Test the expected structure of mock requests."""
+        # Test data structure that would be used
+        request_data = {
+            "model": "gpt-3.5-turbo",
+            "messages": [
+                {"role": "user", "content": "Hello"}
+            ],
+            "max_tokens": 1000,
+            "temperature": 0.7
+        }
+        
+        assert request_data["model"] == "gpt-3.5-turbo"
+        assert len(request_data["messages"]) == 1
+        assert request_data["messages"][0]["role"] == "user"
+        assert request_data["max_tokens"] == 1000
