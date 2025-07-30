@@ -55,3 +55,7 @@ backend/logs/
 
 # E2E Test Screenshots (local testing only)
 test_e2e/screenshots/
+
+# E2E Test Results (local testing only)
+test_e2e/test-results/
+test_e2e/playwright-report/
