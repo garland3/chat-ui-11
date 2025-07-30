@@ -1,0 +1,11 @@
+{
+  "mcp-http-mock": {
+    "url": "http://127.0.0.1:8005/mcp",
+    "groups": ["users"],
+    "is_exclusive": false,
+    "description": "Database simulation MCP server providing SQL-like query capabilities over HTTP/SSE transport",
+    "author": "Chat UI Team",
+    "short_description": "Database simulation server",
+    "help_email": "support@chatui.example.com"
+  }
+}

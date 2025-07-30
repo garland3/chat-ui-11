@@ -60,9 +60,9 @@ const MarketplacePanel = () => {
   const totalCount = serverList.length
 
   return (
-    <div className="min-h-screen bg-gray-900 text-gray-200">
+    <div className="h-screen bg-gray-900 text-gray-200 flex flex-col">
       {/* Header */}
-      <div className="bg-gray-800 border-b border-gray-700 p-4">
+      <div className="bg-gray-800 border-b border-gray-700 p-4 flex-shrink-0">
         <div className="w-full px-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
@@ -86,7 +86,8 @@ const MarketplacePanel = () => {
       </div>
 
       {/* Content */}
-      <div className="w-full px-6 py-6">
+      <div className="flex-1 overflow-y-auto">
+        <div className="w-full px-6 py-6">
         {/* Controls */}
         <div className="flex gap-4 mb-6">
           <button
@@ -98,7 +99,7 @@ const MarketplacePanel = () => {
         </div>
 
         {/* Server Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {serverList.map((server) => {
             const isSelected = isServerSelected(server.server)
             
@@ -106,7 +107,7 @@ const MarketplacePanel = () => {
               <div
                 key={server.server}
                 className={`
-                  relative p-6 rounded-lg border-2 transition-all cursor-pointer
+                  relative p-4 rounded-lg border-2 transition-all cursor-pointer
                   ${isSelected 
                     ? 'border-blue-500 bg-blue-500/10' 
                     : 'border-gray-600 bg-gray-800 hover:border-gray-500'
@@ -116,34 +117,34 @@ const MarketplacePanel = () => {
               >
                 {/* Selection Indicator */}
                 <div className={`
-                  absolute top-4 right-4 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-colors
+                  absolute top-3 right-3 w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors
                   ${isSelected 
                     ? 'border-blue-500 bg-blue-500' 
                     : 'border-gray-500'
                   }
                 `}>
-                  {isSelected && <Check className="w-4 h-4 text-white" />}
+                  {isSelected && <Check className="w-3 h-3 text-white" />}
                 </div>
 
                 {/* Server Info */}
-                <div className="mb-4">
-                  <h3 className="text-lg font-semibold text-white capitalize mb-2">
+                <div className="mb-3">
+                  <h3 className="text-base font-semibold text-white capitalize mb-1">
                     {server.server}
                   </h3>
                   
                   {/* Short Description */}
                   {server.short_description && (
-                    <p className="text-sm text-blue-300 mb-2 font-medium">
+                    <p className="text-xs text-blue-300 mb-1 font-medium">
                       {server.short_description}
                     </p>
                   )}
                   
-                  <p className="text-sm text-gray-400 mb-3">
+                  <p className="text-xs text-gray-400 mb-2 line-clamp-2">
                     {server.description}
                   </p>
                   
                   {/* Author and Help Email */}
-                  <div className="flex flex-wrap items-center gap-4 mb-3 text-xs">
+                  <div className="flex flex-wrap items-center gap-2 mb-2 text-xs">
                     {server.author && (
                       <span className="text-gray-300">
                         <span className="text-gray-500">By:</span> {server.author}
@@ -155,17 +156,17 @@ const MarketplacePanel = () => {
                         className="text-blue-400 hover:text-blue-300 underline"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        Get Help
+                        Help
                       </a>
                     )}
                   </div>
                   
                   {/* Server Stats */}
-                  <div className="flex items-center gap-4 text-xs text-gray-400">
+                  <div className="flex items-center gap-2 text-xs text-gray-400">
                     {server.tool_count > 0 && <span>{server.tool_count} tools</span>}
                     {server.prompt_count > 0 && <span>{server.prompt_count} prompts</span>}
                     {server.is_exclusive && (
-                      <span className="px-2 py-1 bg-orange-600 text-white rounded">
+                      <span className="px-1 py-0.5 bg-orange-600 text-white rounded text-xs">
                         Exclusive
                       </span>
                     )}
@@ -175,20 +176,20 @@ const MarketplacePanel = () => {
                 {/* Tools and Prompts Preview */}
                 <div className="flex flex-wrap gap-1">
                   {/* Tools */}
-                  {server.tools.slice(0, 4).map((tool) => (
+                  {server.tools.slice(0, 3).map((tool) => (
                     <span
                       key={tool}
-                      className="px-2 py-1 bg-gray-700 text-xs rounded text-gray-300"
+                      className="px-1.5 py-0.5 bg-gray-700 text-xs rounded text-gray-300"
                     >
                       {tool}
                     </span>
                   ))}
                   
                   {/* Prompts */}
-                  {server.prompts.slice(0, 4).map((prompt) => (
+                  {server.prompts.slice(0, 3).map((prompt) => (
                     <span
                       key={prompt.name}
-                      className="px-2 py-1 bg-purple-700 text-xs rounded text-gray-300"
+                      className="px-1.5 py-0.5 bg-purple-700 text-xs rounded text-gray-300"
                       title={prompt.description}
                     >
                       {prompt.name}
@@ -196,9 +197,9 @@ const MarketplacePanel = () => {
                   ))}
                   
                   {/* Show "more" indicator */}
-                  {(server.tools.length + server.prompts.length) > 4 && (
-                    <span className="px-2 py-1 bg-gray-700 text-xs rounded text-gray-300">
-                      +{(server.tools.length + server.prompts.length) - 4} more
+                  {(server.tools.length + server.prompts.length) > 3 && (
+                    <span className="px-1.5 py-0.5 bg-gray-700 text-xs rounded text-gray-300">
+                      +{(server.tools.length + server.prompts.length) - 3} more
                     </span>
                   )}
                 </div>
@@ -229,6 +230,7 @@ const MarketplacePanel = () => {
             <li>• Your selections are saved in your browser</li>
             <li>• You can change your selection anytime by returning to this marketplace</li>
           </ul>
+        </div>
         </div>
       </div>
     </div>

@@ -62,18 +62,8 @@
     "short_description": "AI behavior prompts",
     "help_email": "support@chatui.example.com"
   },
-  "canvas": {
-    "command": ["python", "-m", "mcp.get", "canvas"],
-    "cwd": "backend",
-    "groups": ["users"],
-    "is_exclusive": false,
-    "description": "Canvas for showing final rendered content: complete code, reports, and polished documents. Use this to finalize your work. Most code and reports will be shown here.",
-    "author": "Chat UI Team",
-    "short_description": "Visual content display", 
-    "help_email": "support@chatui.example.com"
-  },
   "mcp-http-mock": {
-    "url": "http://127.0.0.1:8005",
+    "url": "http://127.0.0.1:8005/mcp",
     "groups": ["users"],
     "is_exclusive": false,
     "description": "Database simulation MCP server providing SQL-like query capabilities over HTTP/SSE transport",
