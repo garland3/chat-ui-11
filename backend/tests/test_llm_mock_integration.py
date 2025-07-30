@@ -17,7 +17,7 @@ class TestLLMMockService:
     def test_mock_llm_service_import(self):
         """Test that the LLM mock service can be imported."""
         import sys
-        sys.path.append('../llm-mock')
+        sys.path.append('../mocks/llm-mock')
         try:
             import main as llm_mock_main
             assert hasattr(llm_mock_main, 'app')
@@ -29,7 +29,7 @@ class TestLLMMockService:
     def test_mock_response_generation(self):
         """Test mock response generation logic."""
         import sys
-        sys.path.append('../llm-mock')
+        sys.path.append('../mocks/llm-mock')
         try:
             from main import generate_mock_response, ChatMessage
             
@@ -62,7 +62,7 @@ class TestLLMMockIntegration:
         import subprocess
         
         # Start the server
-        llm_mock_dir = os.path.join(os.path.dirname(__file__), '../../llm-mock')
+        llm_mock_dir = os.path.join(os.path.dirname(__file__), '../../mocks/llm-mock')
         if not os.path.exists(llm_mock_dir):
             pytest.skip("LLM mock directory not found")
         

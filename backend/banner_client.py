@@ -40,7 +40,7 @@ class BannerClient:
             import sys
             import os
             # Add the sys-admin-mock directory to the path
-            banner_mock_path = os.path.join(os.path.dirname(__file__), "..", "sys-admin-mock")
+            banner_mock_path = os.path.join(os.path.dirname(__file__), "..", "mocks", "sys-admin-mock")
             banner_mock_path = os.path.abspath(banner_mock_path)
             logger.info(f"Adding Banner mock path to sys.path: {banner_mock_path}")
             

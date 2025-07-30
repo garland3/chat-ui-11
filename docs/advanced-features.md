@@ -178,7 +178,7 @@ RAG_MOCK_URL=https://your-rag-service.com/api
 ### Mock RAG Service
 A mock service is included for testing:
 ```bash
-cd rag-mock
+cd mocks/rag-mock
 python mock_rag_server.py
 ```
 
@@ -209,7 +209,7 @@ The banner service should return JSON:
 ### Mock Banner Service
 A mock service is included:
 ```bash
-cd sys-admin-mock
+cd mocks/sys-admin-mock
 python banner_server.py
 ```
 

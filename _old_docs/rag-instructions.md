@@ -21,7 +21,7 @@ At the top of the RAG panel, include:
 ## Backend Integration
 
 ### Data Source Discovery
-- Use `rag-mock/main-rag-mock.py` to mock the actual RAG endpoint
+- Use `mocks/rag-mock/main-rag-mock.py` to mock the actual RAG endpoint
 - In production, this will be replaced with real API calls
 - The discovery endpoint must check the user's username
 - Only return data sources that the user is authorized to access

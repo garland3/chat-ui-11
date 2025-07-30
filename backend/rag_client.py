@@ -34,7 +34,7 @@ class RAGClient:
             import sys
             import os
             # Add the rag-mock directory to the path
-            rag_mock_path = os.path.join(os.path.dirname(__file__), "..", "rag-mock")
+            rag_mock_path = os.path.join(os.path.dirname(__file__), "..", "mocks", "rag-mock")
             rag_mock_path = os.path.abspath(rag_mock_path)
             logger.info(f"Adding RAG mock path to sys.path: {rag_mock_path}")
             

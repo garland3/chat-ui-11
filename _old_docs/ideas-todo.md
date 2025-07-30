@@ -38,7 +38,7 @@
 * the route is {endpoint host}/banner 
 * adn returns a json with a list of N banner messages. 
 * The idea is taht the sys admin can quickly add a message at the top to show to users, ... like "Known outage on RAG server 5 detected at 1:36 pm Mountain Time. . ETA till restoration = 20 minutes"
-* Similar to the RAG external url. Add a new folder called sys-admin-mock with a simple fastapi app that lets returns the needed json. 
+* Similar to the RAG external url. Add a new folder called mocks/sys-admin-mock with a simple fastapi app that returns the needed json. 
 * Each message should be on a new line, full width, 
 * Do not cover any existing features, just stack below. 
 
