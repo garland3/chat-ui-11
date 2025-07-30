@@ -226,7 +226,7 @@ const ChatArea = ({ canvasPanelOpen, canvasPanelWidth }) => {
             multiple
             onChange={handleFileUpload}
             className="hidden"
-            accept=".pdf,.txt,.doc,.docx,.jpg,.jpeg,.png,.gif"
+            accept=".pdf,.txt,.doc,.docx,.jpg,.jpeg,.png,.gif,.csv,.xlsx,.xls,.json,.md,.log"
           />
           
           <div className="flex items-center justify-between mt-2 text-xs text-gray-400">

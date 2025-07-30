@@ -442,12 +442,37 @@ class MessageProcessor:
             )
 
     def _build_content_with_files(self, content: str) -> str:
-        """Append available files to user prompt if any exist"""
+        """Append available files to user prompt if any exist, filtered by file policy"""
         if not self.session.uploaded_files:
             return content
-            
-        file_list = "\n".join(f"- {filename}" for filename in self.session.uploaded_files.keys())
-        return f"{content}\n\nFiles available:\n\n{file_list}"
+        
+        # Import file filtering functionality
+        from file_config import filter_files_for_llm_context, file_policy
+        
+        # Filter files that should be exposed to LLM context
+        llm_visible_files = filter_files_for_llm_context(self.session.uploaded_files)
+        
+        if not llm_visible_files:
+            # No files should be exposed to LLM - they are all tool-only
+            logger.info(f"All {len(self.session.uploaded_files)} files are tool-only, not exposing to LLM")
+            return content
+        
+        # Build file list with categories for better LLM understanding
+        file_entries = []
+        for filename, file_size in llm_visible_files.items():
+            category = file_policy.get_file_category(filename)
+            size_kb = file_size / 1024
+            file_entries.append(f"- {filename} ({category}, {size_kb:.1f}KB)")
+        
+        file_list = "\n".join(file_entries)
+        
+        # Count tool-only files for informational message
+        tool_only_count = len(self.session.uploaded_files) - len(llm_visible_files)
+        tool_only_note = ""
+        if tool_only_count > 0:
+            tool_only_note = f"\n\nNote: {tool_only_count} additional file(s) are available for tool processing only."
+        
+        return f"{content}\n\nFiles available for analysis:\n\n{file_list}{tool_only_note}"
     
     async def _get_custom_system_prompt(self) -> str:
         """Get custom system prompt from selected MCP servers that provide prompts."""
