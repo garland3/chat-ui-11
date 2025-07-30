@@ -10,7 +10,6 @@ const MarketplacePanel = () => {
     selectedServers,
     toggleServer,
     isServerSelected,
-    selectAllServers,
     deselectAllServers
   } = useMarketplace()
 
@@ -24,6 +23,9 @@ const MarketplacePanel = () => {
         server: toolServer.server,
         description: toolServer.description,
         is_exclusive: toolServer.is_exclusive,
+        author: toolServer.author,
+        short_description: toolServer.short_description,
+        help_email: toolServer.help_email,
         tools: toolServer.tools || [],
         tool_count: toolServer.tool_count || 0,
         prompts: [],
@@ -39,6 +41,9 @@ const MarketplacePanel = () => {
         server: promptServer.server,
         description: promptServer.description,
         is_exclusive: false,
+        author: promptServer.author,
+        short_description: promptServer.short_description,
+        help_email: promptServer.help_email,
         tools: [],
         tool_count: 0,
         prompts: promptServer.prompts || [],
@@ -58,7 +63,7 @@ const MarketplacePanel = () => {
     <div className="min-h-screen bg-gray-900 text-gray-200">
       {/* Header */}
       <div className="bg-gray-800 border-b border-gray-700 p-4">
-        <div className="max-w-4xl mx-auto flex items-center justify-between">
+        <div className="w-full px-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
               onClick={() => navigate('/')}
@@ -81,15 +86,9 @@ const MarketplacePanel = () => {
       </div>
 
       {/* Content */}
-      <div className="max-w-4xl mx-auto p-6">
+      <div className="w-full px-6 py-6">
         {/* Controls */}
         <div className="flex gap-4 mb-6">
-          <button
-            onClick={selectAllServers}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-          >
-            Select All
-          </button>
           <button
             onClick={deselectAllServers}
             className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors"

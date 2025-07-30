@@ -59,8 +59,8 @@ else
   fi
 fi
 
-echo "Installing context 7 into claude code"
-npm install -g @anthropic-ai/claude-code
+# echo "Installing context 7 into claude code"
+# npm install -g @anthropic-ai/claude-code
 
 echo "--- Installation Complete ---"
 echo "Remember to configure API keys and restart your shell for changes to take effect."

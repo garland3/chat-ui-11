@@ -1,5 +1,7 @@
 # Environment variables
 .env
+.claude
+
 
 # Python
 __pycache__/
@@ -50,3 +52,6 @@ backend/logs/
 
 # Docker
 .dockerignore
+
+# E2E Test Screenshots (local testing only)
+test_e2e/screenshots/
