@@ -5,7 +5,6 @@ import { Menu, ChevronDown, Settings, Bot, Download } from 'lucide-react'
 
 const Header = ({ onToggleRag, onToggleTools, onToggleAgent }) => {
   const { 
-    appName, 
     user, 
     models, 
     currentModel, 
@@ -37,9 +36,6 @@ const Header = ({ onToggleRag, onToggleTools, onToggleAgent }) => {
           <Menu className="w-5 h-5" />
         </button>
       </div>
-
-      {/* Center section */}
-      <h1 className="text-xl font-semibold text-gray-100">{appName}</h1>
 
       {/* Right section */}
       <div className="flex items-center gap-4">

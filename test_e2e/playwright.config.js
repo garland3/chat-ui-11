@@ -24,6 +24,6 @@ export default defineConfig({
   webServer: {
     command: 'echo "Server should already be running on port 8000"',
     port: 8000,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: true,
   },
 });
