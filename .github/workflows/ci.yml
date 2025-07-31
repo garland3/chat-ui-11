@@ -52,10 +52,7 @@ jobs:
         echo "Running tests in container: $IMAGE_TAG"
         
         # Run the master test script in the container
-        docker run --rm \
-          --workdir /app \
-          "$IMAGE_TAG" \
-          bash /app/test/run_tests.sh all
+        docker run --rm           --workdir /app           -e VERBOSE_DEBUG=true           "$IMAGE_TAG"           bash /app/test/run_tests.sh all
     
     - name: Push Docker image
       uses: docker/build-push-action@v5
