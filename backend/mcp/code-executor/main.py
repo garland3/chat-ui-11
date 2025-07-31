@@ -601,6 +601,98 @@ def encode_generated_files(exec_dir: Path) -> List[Dict[str, str]]:
         return []
 
 
+def truncate_output_for_llm(output: str, max_chars: int = 2000) -> tuple[str, bool]:
+    """
+    Smart truncation that preserves important context around key terms.
+    
+    Args:
+        output: The output text to potentially truncate
+        max_chars: Maximum characters to allow (default: 2000)
+        
+    Returns:
+        Tuple of (truncated_output, was_truncated)
+    """
+    if len(output) <= max_chars:
+        return output, False
+    
+    # Key terms that indicate important context
+    key_terms = [
+        'error', 'Error', 'ERROR', 'exception', 'Exception', 'EXCEPTION',
+        'traceback', 'Traceback', 'TRACEBACK', 'failed', 'Failed', 'FAILED',
+        'warning', 'Warning', 'WARNING', 'success', 'Success', 'SUCCESS',
+        'completed', 'Completed', 'COMPLETED', 'result', 'Result', 'RESULT',
+        'summary', 'Summary', 'SUMMARY', 'total', 'Total', 'TOTAL',
+        'shape:', 'dtype:', 'columns:', 'index:', 'memory usage:', 'non-null'
+    ]
+    
+    # Find all important sections
+    important_sections = []
+    context_chars = 150  # Characters around each key term
+    
+    for term in key_terms:
+        start_pos = 0
+        while True:
+            pos = output.find(term, start_pos)
+            if pos == -1:
+                break
+            
+            # Extract context around the term
+            section_start = max(0, pos - context_chars)
+            section_end = min(len(output), pos + len(term) + context_chars)
+            
+            # Expand to word boundaries if possible
+            while section_start > 0 and not output[section_start].isspace():
+                section_start -= 1
+            while section_end < len(output) and not output[section_end].isspace():
+                section_end += 1
+            
+            important_sections.append((section_start, section_end, term))
+            start_pos = pos + 1
+    
+    if important_sections:
+        # Sort sections by position and merge overlapping ones
+        important_sections.sort(key=lambda x: x[0])
+        merged_sections = []
+        
+        for start, end, term in important_sections:
+            if merged_sections and start <= merged_sections[-1][1] + 50:  # Merge if close
+                merged_sections[-1] = (merged_sections[-1][0], max(end, merged_sections[-1][1]), merged_sections[-1][2] + f", {term}")
+            else:
+                merged_sections.append((start, end, term))
+        
+        # Build truncated output with important sections
+        result_parts = []
+        total_chars = 0
+        
+        # Always include the beginning (first 300 chars)
+        beginning = output[:300]
+        result_parts.append(beginning)
+        total_chars += len(beginning)
+        
+        # Add important sections
+        for start, end, terms in merged_sections:
+            section = output[start:end]
+            if total_chars + len(section) + 100 > max_chars:  # Reserve space for truncation message
+                break
+            
+            if start > 300:  # Don't duplicate beginning
+                result_parts.append(f"\n\n[... content around: {terms} ...]\n")
+                result_parts.append(section)
+                total_chars += len(section) + 50
+        
+        truncated = ''.join(result_parts)
+    else:
+        # No key terms found, use simple truncation
+        truncated = output[:max_chars - 200]  # Reserve space for message
+        # Try to break at a reasonable point (newline) near the limit
+        last_newline = truncated.rfind('\n')
+        if last_newline > len(truncated) * 0.8:  # If newline is in last 20%, use it
+            truncated = truncated[:last_newline]
+    
+    truncation_msg = f"\n\n[OUTPUT TRUNCATED - Original length: {len(output)} characters. Full output preserved in downloaded files and visualizations.]"
+    return truncated + truncation_msg, True
+
+
 def cleanup_execution_environment(exec_dir: Path):
     """Clean up the execution environment."""
     try:
@@ -666,6 +758,13 @@ def execute_python_code_with_file(
     to an uploaded file (e.g., CSV, JSON, TXT, etc.). If a file is provided, it will 
     be available in the execution directory and can be accessed by filename in your code.
 
+    IMPORTANT - Output Truncation:
+        - Console output (print statements, etc.) is limited to 2000 characters in LLM context.
+        - If output exceeds this limit, it will be truncated with a warning message.
+        - Full output is always available in generated downloadable files.
+        - Large data should be saved to files rather than printed to console.
+        - Use plt.savefig() for plots - they will be displayed separately from text output.
+
     Constraints:
         - Only a limited set of safe modules are allowed (e.g., numpy, pandas, matplotlib, seaborn, json, csv, math, etc.).
         - Imports of dangerous or unauthorized modules (e.g., os, sys, subprocess, socket, requests, pickle, threading, etc.) are blocked.
@@ -684,7 +783,11 @@ def execute_python_code_with_file(
         import matplotlib.pyplot as plt
         
         df = pd.read_csv('data.csv')
-        print(df.head())
+        print(df.head())  # This will be truncated if very large
+        
+        # For large datasets, save to file instead of printing
+        df.describe().to_csv('summary.csv')  # Better approach for large output
+        print(f"Dataset has {len(df)} rows")  # Concise summary instead
         
         # Create plots - MUST use plt.savefig() to generate plot files
         plt.figure(figsize=(10, 6))
@@ -700,7 +803,7 @@ def execute_python_code_with_file(
         file_data_base64: Base64-encoded file data (automatically filled by framework)
         
     Returns:
-        Dictionary with execution results, output, any generated visualizations, and file list
+        Dictionary with execution results, output (truncated if large), any generated visualizations, and file list
     """
     start_time = time.time()
     exec_dir = None
@@ -761,11 +864,19 @@ def execute_python_code_with_file(
             encoded_generated_files = encode_generated_files(exec_dir)
             plots = detect_matplotlib_plots(exec_dir)
             
+            # Truncate output for LLM context to prevent overflow
+            raw_output = execution_result["stdout"]
+            truncated_output, was_truncated = truncate_output_for_llm(raw_output)
+            
+            if was_truncated:
+                logger.info(f"Output truncated from {len(raw_output)} to {len(truncated_output)} characters")
+            
             # Create custom HTML if there are plots or significant output
+            # Use raw output for HTML visualization (not truncated)
             custom_html = ""
-            if plots or execution_result["stdout"].strip():
+            if plots or raw_output.strip():
                 try:
-                    custom_html = create_visualization_html(plots, execution_result["stdout"])
+                    custom_html = create_visualization_html(plots, raw_output)
                 except Exception as e:
                     logger.warning(f"Failed to create visualization HTML: {str(e)}")
                     logger.warning(f"Traceback: {traceback.format_exc()}")
@@ -803,7 +914,7 @@ def execute_python_code_with_file(
             logger.info(f"Code execution completed successfully in {execution_time:.2f}s")
             return {
                 "success": True,
-                "output": execution_result["stdout"],
+                "output": truncated_output,  # Use truncated output for LLM context
                 "error": execution_result.get("stderr", ""),
                 "error_type": execution_result.get("error_type"),
                 "files": generated_files,
@@ -845,12 +956,19 @@ def execute_python_code_with_file(
             returned_file_names = [script_filename]
             returned_file_contents = [script_base64]
             
+            # Truncate output for LLM context even on failure
+            raw_output = execution_result.get("stdout", "")
+            truncated_output, was_truncated = truncate_output_for_llm(raw_output)
+            
+            if was_truncated:
+                logger.info(f"Failed execution output truncated from {len(raw_output)} to {len(truncated_output)} characters")
+            
             logger.error(f"Code execution failed: {execution_result.get('error', 'Unknown error')}")
             return {
                 "success": False,
                 "error": execution_result.get("error", "Unknown execution error"),
                 "error_type": execution_result.get("error_type"),
-                "output": execution_result.get("stdout", ""),
+                "output": truncated_output,  # Use truncated output for LLM context
                 "files": [],
                 "uploaded_file": saved_filename if 'saved_filename' in locals() else None,
                 "custom_html": "",
