@@ -9,6 +9,9 @@ const ChatArea = ({ canvasPanelOpen, canvasPanelWidth }) => {
   const [inputValue, setInputValue] = useState('')
   const [isMobile, setIsMobile] = useState(false)
   const [uploadedFiles, setUploadedFiles] = useState({})
+  const [showToolAutocomplete, setShowToolAutocomplete] = useState(false)
+  const [filteredTools, setFilteredTools] = useState([])
+  const [selectedToolIndex, setSelectedToolIndex] = useState(0)
   const textareaRef = useRef(null)
   const messagesRef = useRef(null)
   const fileInputRef = useRef(null)
@@ -18,7 +21,12 @@ const ChatArea = ({ canvasPanelOpen, canvasPanelWidth }) => {
     isWelcomeVisible, 
     isThinking, 
     sendChatMessage, 
-    currentModel 
+    currentModel,
+    tools,
+    selectedTools,
+    toggleTool,
+    toolChoiceRequired,
+    setToolChoiceRequired
   } = useChat()
   const { isConnected } = useWS()
 
@@ -85,6 +93,32 @@ const ChatArea = ({ canvasPanelOpen, canvasPanelWidth }) => {
   }
 
   const handleKeyDown = (e) => {
+    // Handle autocomplete navigation
+    if (showToolAutocomplete) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setSelectedToolIndex(prev => 
+          prev < filteredTools.length - 1 ? prev + 1 : 0
+        )
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setSelectedToolIndex(prev => 
+          prev > 0 ? prev - 1 : filteredTools.length - 1
+        )
+      } else if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault()
+        if (filteredTools[selectedToolIndex]) {
+          selectTool(filteredTools[selectedToolIndex])
+        }
+        return
+      } else if (e.key === 'Escape') {
+        e.preventDefault()
+        setShowToolAutocomplete(false)
+        return
+      }
+    }
+    
+    // Normal enter handling
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSubmit(e)
@@ -92,8 +126,79 @@ const ChatArea = ({ canvasPanelOpen, canvasPanelWidth }) => {
   }
 
   const handleInputChange = (e) => {
-    setInputValue(e.target.value)
+    const value = e.target.value
+    setInputValue(value)
     autoResizeTextarea()
+    
+    // Handle slash command autocomplete
+    handleSlashCommand(value)
+  }
+
+  // Get all available tools as flat list
+  const getAllAvailableTools = () => {
+    const allTools = []
+    tools.forEach(toolServer => {
+      toolServer.tools.forEach(toolName => {
+        allTools.push({
+          key: `${toolServer.server}_${toolName}`,
+          name: toolName,
+          server: toolServer.server,
+          description: toolServer.description
+        })
+      })
+    })
+    return allTools
+  }
+
+  // Handle slash command logic
+  const handleSlashCommand = (value) => {
+    if (value.startsWith('/')) {
+      const query = value.slice(1).toLowerCase()
+      const availableTools = getAllAvailableTools()
+      
+      if (query === '') {
+        // Show all tools when just "/" is typed
+        setFilteredTools(availableTools)
+        setShowToolAutocomplete(true)
+        setSelectedToolIndex(0)
+      } else {
+        // Filter tools based on query
+        const filtered = availableTools.filter(tool => 
+          tool.name.toLowerCase().includes(query) ||
+          tool.server.toLowerCase().includes(query)
+        )
+        
+        if (filtered.length > 0) {
+          setFilteredTools(filtered)
+          setShowToolAutocomplete(true)
+          setSelectedToolIndex(0)
+        } else {
+          setShowToolAutocomplete(false)
+        }
+      }
+    } else {
+      setShowToolAutocomplete(false)
+    }
+  }
+
+  // Handle tool selection from autocomplete
+  const selectTool = (tool) => {
+    // Enable the tool if not already selected
+    if (!selectedTools.has(tool.key)) {
+      toggleTool(tool.key)
+    }
+    
+    // Enable required tool call
+    setToolChoiceRequired(true)
+    
+    // Replace the slash command with the tool name and add a space
+    setInputValue(`/${tool.name} `)
+    setShowToolAutocomplete(false)
+    
+    // Focus back to textarea
+    if (textareaRef.current) {
+      textareaRef.current.focus()
+    }
   }
 
   const handleFileUpload = (e) => {
@@ -218,6 +323,38 @@ const ChatArea = ({ canvasPanelOpen, canvasPanelWidth }) => {
                 className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-gray-200 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 style={{ minHeight: '48px', maxHeight: '128px' }}
               />
+              
+              {/* Tool Autocomplete Dropdown */}
+              {showToolAutocomplete && filteredTools.length > 0 && (
+                <div className="absolute bottom-full left-0 right-0 mb-2 bg-gray-800 border border-gray-600 rounded-lg shadow-lg max-h-64 overflow-y-auto z-50">
+                  <div className="p-2 text-xs text-gray-400 bg-gray-700 border-b border-gray-600">
+                    Use ↑↓ to navigate, Enter to select, Esc to cancel
+                  </div>
+                  {filteredTools.map((tool, index) => (
+                    <div
+                      key={tool.key}
+                      onClick={() => selectTool(tool)}
+                      className={`px-3 py-2 cursor-pointer transition-colors border-b border-gray-700 last:border-b-0 ${
+                        index === selectedToolIndex 
+                          ? 'bg-blue-600 text-white' 
+                          : 'hover:bg-gray-700 text-gray-200'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold">/{tool.name}</span>
+                          <span className="text-xs text-gray-400">from {tool.server}</span>
+                        </div>
+                        {selectedTools.has(tool.key) && (
+                          <div className="text-xs bg-green-600 text-white px-1.5 py-0.5 rounded">
+                            ✓
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <button
               type="submit"
