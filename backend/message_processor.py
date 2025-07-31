@@ -214,7 +214,7 @@ class MessageProcessor:
             
             # Log file upload details for debugging
             if self.session.uploaded_files:
-                logger.info(f"📁 User {self.session.user_email} uploaded {len(self.session.uploaded_files)} files:")
+                logger.info(f"User {self.session.user_email} uploaded {len(self.session.uploaded_files)} files:")
                 for filename, file_data in self.session.uploaded_files.items():
                     file_size = len(file_data) if file_data else 0
                     logger.info(f"  - {filename} (size: {file_size} bytes)")
@@ -224,17 +224,17 @@ class MessageProcessor:
                                        if any(keyword in tool.lower() 
                                              for keyword in ['pdf', 'file', 'document', 'analyze'])]
                 if available_file_tools:
-                    logger.info(f"📋 Available file processing tools: {available_file_tools}")
+                    logger.info(f"Available file processing tools: {available_file_tools}")
                 else:
-                    logger.warning(f"⚠️  No file processing tools selected despite file upload")
+                    logger.warning(f"No file processing tools selected despite file upload")
             
             # Log file uploads more clearly
             if self.session.uploaded_files:
-                logger.info(f"📁 FILES UPLOADED: {len(self.session.uploaded_files)} files received:")
+                logger.info(f"FILES UPLOADED: {len(self.session.uploaded_files)} files received:")
                 for filename in self.session.uploaded_files.keys():
-                    logger.info(f"📁   - {filename}")
+                    logger.info(f"  - {filename}")
             else:
-                logger.info("📁 No files uploaded in this message")
+                logger.info("No files uploaded in this message")
 
             if not content or not self.session.model_name:
                 raise ValueError("Message content and model name are required.")
@@ -389,13 +389,13 @@ class MessageProcessor:
         summary_parts = []
         
         # Add processing info
-        summary_parts.append(f"🔍 **Data Source:** {metadata.data_source_name}")
-        summary_parts.append(f"⚡ **Processing Time:** {metadata.query_processing_time_ms}ms")
+        summary_parts.append(f" **Data Source:** {metadata.data_source_name}")
+        summary_parts.append(f" **Processing Time:** {metadata.query_processing_time_ms}ms")
         
         # Add document information
         if metadata.documents_found:
-            summary_parts.append(f"📄 **Documents Found:** {len(metadata.documents_found)} (searched {metadata.total_documents_searched})")
-            
+            summary_parts.append(f" **Documents Found:** {len(metadata.documents_found)} (searched {metadata.total_documents_searched})")
+
             # List top documents with confidence scores
             for i, doc in enumerate(metadata.documents_found[:3]):  # Show top 3 documents
                 confidence_percent = int(doc.confidence_score * 100)
@@ -406,8 +406,8 @@ class MessageProcessor:
                 summary_parts.append(f"  • ... and {remaining} more document(s)")
         
         # Add retrieval method
-        summary_parts.append(f"🔧 **Retrieval Method:** {metadata.retrieval_method}")
-        
+        summary_parts.append(f" **Retrieval Method:** {metadata.retrieval_method}")
+
         return "\n".join(summary_parts)
     
     async def _handle_rag_integrated_query(self) -> str:
