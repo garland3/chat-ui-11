@@ -14,7 +14,7 @@ if find e2e/ -name "*.spec.js" -not -name "*.disabled" | grep -q .; then
 
     # Run E2E tests
     echo "Running Playwright tests..."
-    npm run test:e2e
+    timeout 300 npm run test:e2e
 else
     echo "No active E2E tests found (all tests are disabled)"
     echo "Skipping E2E test execution"

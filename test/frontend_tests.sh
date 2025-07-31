@@ -9,6 +9,6 @@ cd /app/frontend
 
 # Run tests (dependencies should already be installed in container)
 echo "Running vitest..."
-npm test -- --run
+timeout 300 npm test -- --run
 
 echo "Frontend tests completed successfully!"

@@ -12,6 +12,6 @@ cd /app/backend
 
 # Run pytest with verbose output
 echo "Running pytest..."
-python -m pytest tests/ -v --tb=short
+timeout 300 python -m pytest tests/ -v --tb=short
 
 echo "Backend tests completed successfully!"
