@@ -42,6 +42,19 @@ const ChatArea = ({ canvasPanelOpen, canvasPanelWidth }) => {
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
+  // Focus message input on page load
+  useEffect(() => {
+    const focusInput = () => {
+      if (textareaRef.current && !isMobile) { // Don't auto-focus on mobile to prevent keyboard popup
+        textareaRef.current.focus()
+      }
+    }
+    
+    // Focus after a brief delay to ensure the component is fully rendered
+    const timeoutId = setTimeout(focusInput, 200)
+    return () => clearTimeout(timeoutId)
+  }, [isMobile])
+
   // Scroll to bottom when messages change - debounced for performance
   useEffect(() => {
     if (messagesRef.current) {

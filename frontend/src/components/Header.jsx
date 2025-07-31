@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useChat } from '../contexts/ChatContext'
 import { useWS } from '../contexts/WSContext'
-import { Menu, ChevronDown, Settings, Bot, Download } from 'lucide-react'
+import { Menu, ChevronDown, Settings, Bot, Download, Plus } from 'lucide-react'
 
-const Header = ({ onToggleRag, onToggleTools, onToggleAgent }) => {
+const Header = ({ onToggleRag, onToggleTools, onToggleAgent, onCloseCanvas }) => {
   const { 
     user, 
     models, 
@@ -13,7 +13,8 @@ const Header = ({ onToggleRag, onToggleTools, onToggleAgent }) => {
     selectedTools,
     downloadChat,
     downloadChatAsText,
-    messages
+    messages,
+    clearChat
   } = useChat()
   const { connectionStatus, isConnected } = useWS()
   const [dropdownOpen, setDropdownOpen] = useState(false)
@@ -23,6 +24,34 @@ const Header = ({ onToggleRag, onToggleTools, onToggleAgent }) => {
     setCurrentModel(model)
     setDropdownOpen(false)
   }
+
+  // Handle hotkey for new chat (Ctrl+Alt+N)
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      // Debug logging
+      if (event.ctrlKey && event.altKey) {
+        console.log('Ctrl+Alt pressed with key:', event.key, event.code)
+      }
+      
+      if (event.ctrlKey && event.altKey && (event.key === 'N' || event.key === 'n')) {
+        event.preventDefault()
+        event.stopPropagation()
+        console.log('New chat hotkey triggered!')
+        clearChat()
+        onCloseCanvas()
+        // Focus the message input after a brief delay
+        setTimeout(() => {
+          const messageInput = document.querySelector('textarea[placeholder*="message"]')
+          if (messageInput) {
+            messageInput.focus()
+          }
+        }, 100)
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown, true) // Use capture phase
+    return () => document.removeEventListener('keydown', handleKeyDown, true)
+  }, [clearChat])
 
   return (
     <header className="flex items-center justify-between p-4 bg-gray-800 border-b border-gray-700">
@@ -34,6 +63,26 @@ const Header = ({ onToggleRag, onToggleTools, onToggleAgent }) => {
           title="Toggle Data Sources"
         >
           <Menu className="w-5 h-5" />
+        </button>
+        
+        {/* New Chat Button */}
+        <button
+          onClick={() => {
+            clearChat()
+            onCloseCanvas()
+            // Focus the message input after a brief delay
+            setTimeout(() => {
+              const messageInput = document.querySelector('textarea[placeholder*="message"]')
+              if (messageInput) {
+                messageInput.focus()
+              }
+            }, 100)
+          }}
+          className="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors text-gray-200"
+          title="Start New Chat (Ctrl+Alt+N)"
+        >
+          <Plus className="w-4 h-4" />
+          <span className="text-sm font-medium hidden sm:inline">New Chat</span>
         </button>
       </div>
 

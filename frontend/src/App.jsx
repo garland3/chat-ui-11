@@ -69,6 +69,7 @@ function ChatInterface() {
           onToggleRag={() => setRagPanelOpen(!ragPanelOpen)}
           onToggleTools={() => setToolsPanelOpen(!toolsPanelOpen)}
           onToggleAgent={() => setAgentModalOpen(!agentModalOpen)}
+          onCloseCanvas={() => setCanvasPanelOpen(false)}
         />
 
         {/* Chat Area */}
