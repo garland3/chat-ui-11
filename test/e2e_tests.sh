@@ -21,17 +21,14 @@ export PATH="$FRONTEND_DIR/node_modules/.bin:$PATH"
 echo "Current PATH: $PATH"
 
 echo "Installing frontend dependencies..."
-npm install --only=dev
+npm install
 
 # Verify vite exists (local)
 if ! command -v vite >/dev/null 2>&1; then
     echo "vite binary not found in node_modules/.bin. Listing installed packages for debugging:"
     ls -1 node_modules/.bin || true
     echo "Attempting to install vite explicitly..."
-    npx vite --version || {
-        echo "Failed to get vite. Check that 'vite' is declared in package.json dependencies/devDependencies."
-        exit 1
-    }
+    npm install vite
 fi
 
 echo "Building frontend..."
