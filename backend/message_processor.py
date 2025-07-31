@@ -214,7 +214,7 @@ class MessageProcessor:
             
             # Log file upload details for debugging
             if self.session.uploaded_files:
-                logger.info(f"📁 User {self.session.user_email} uploaded {len(self.session.uploaded_files)} files:")
+                logger.info(f"User {self.session.user_email} uploaded {len(self.session.uploaded_files)} files:")
                 for filename, file_data in self.session.uploaded_files.items():
                     file_size = len(file_data) if file_data else 0
                     logger.info(f"  - {filename} (size: {file_size} bytes)")
@@ -224,17 +224,17 @@ class MessageProcessor:
                                        if any(keyword in tool.lower() 
                                              for keyword in ['pdf', 'file', 'document', 'analyze'])]
                 if available_file_tools:
-                    logger.info(f"📋 Available file processing tools: {available_file_tools}")
+                    logger.info(f"Available file processing tools: {available_file_tools}")
                 else:
-                    logger.warning(f"⚠️  No file processing tools selected despite file upload")
+                    logger.warning(f"No file processing tools selected despite file upload")
             
             # Log file uploads more clearly
             if self.session.uploaded_files:
-                logger.info(f"📁 FILES UPLOADED: {len(self.session.uploaded_files)} files received:")
+                logger.info(f"FILES UPLOADED: {len(self.session.uploaded_files)} files received:")
                 for filename in self.session.uploaded_files.keys():
-                    logger.info(f"📁   - {filename}")
+                    logger.info(f"  - {filename}")
             else:
-                logger.info("📁 No files uploaded in this message")
+                logger.info("No files uploaded in this message")
 
             if not content or not self.session.model_name:
                 raise ValueError("Message content and model name are required.")
@@ -360,15 +360,55 @@ class MessageProcessor:
         data_source = self.session.selected_data_sources[0]
         
         try:
-            response = await rag_client.rag_client.query_rag(
+            rag_response = await rag_client.rag_client.query_rag(
                 self.session.user_email,
                 data_source,
                 self.session.messages
             )
-            return response
+            
+            # Format response with metadata if available
+            response_content = rag_response.content
+            
+            if rag_response.metadata:
+                metadata_summary = self._format_metadata_summary(rag_response.metadata)
+                response_content += f"\n\n---\n**Sources & Processing Info:**\n{metadata_summary}"
+            
+            return response_content
+            
         except Exception as exc:
             logger.error(f"Error in RAG-only query for {self.session.user_email}: {exc}")
             return f"Error querying RAG system: {str(exc)}"
+    
+    def _format_metadata_summary(self, metadata) -> str:
+        """Format RAG metadata into a user-friendly summary."""
+        from rag_client import RAGMetadata
+        
+        if not isinstance(metadata, RAGMetadata):
+            return "Metadata unavailable"
+        
+        summary_parts = []
+        
+        # Add processing info
+        summary_parts.append(f" **Data Source:** {metadata.data_source_name}")
+        summary_parts.append(f" **Processing Time:** {metadata.query_processing_time_ms}ms")
+        
+        # Add document information
+        if metadata.documents_found:
+            summary_parts.append(f" **Documents Found:** {len(metadata.documents_found)} (searched {metadata.total_documents_searched})")
+
+            # List top documents with confidence scores
+            for i, doc in enumerate(metadata.documents_found[:3]):  # Show top 3 documents
+                confidence_percent = int(doc.confidence_score * 100)
+                summary_parts.append(f"  • {doc.source} ({confidence_percent}% relevance, {doc.content_type})")
+            
+            if len(metadata.documents_found) > 3:
+                remaining = len(metadata.documents_found) - 3
+                summary_parts.append(f"  • ... and {remaining} more document(s)")
+        
+        # Add retrieval method
+        summary_parts.append(f" **Retrieval Method:** {metadata.retrieval_method}")
+
+        return "\n".join(summary_parts)
     
     async def _handle_rag_integrated_query(self) -> str:
         """Handle queries that integrate RAG with normal LLM processing."""
@@ -402,10 +442,10 @@ class MessageProcessor:
             # Add the RAG response as context for the LLM
             messages_with_rag = self.session.messages.copy()
             
-            # Add RAG context as a system message
+            # Add RAG context as a system message (use content only for LLM)
             rag_context_message = {
                 "role": "system", 
-                "content": f"Retrieved context from {data_source}:\n\n{rag_response}\n\nUse this context to inform your response to the user's query."
+                "content": f"Retrieved context from {data_source}:\n\n{rag_response.content}\n\nUse this context to inform your response to the user's query."
             }
             messages_with_rag.insert(-1, rag_context_message)  # Insert before the last user message
             
@@ -422,6 +462,11 @@ class MessageProcessor:
                 self.session.tool_choice_required,  # Pass tool choice preference
                 self.session.selected_tools,  # Pass selected tools for filtering
             )
+            
+            # Append metadata to the LLM response if available
+            if rag_response.metadata:
+                metadata_summary = self._format_metadata_summary(rag_response.metadata)
+                llm_response += f"\n\n---\n**RAG Sources & Processing Info:**\n{metadata_summary}"
             
             return llm_response
             
