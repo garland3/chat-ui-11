@@ -497,27 +497,33 @@ class MessageProcessor:
         # Filter files that should be exposed to LLM context
         llm_visible_files = filter_files_for_llm_context(self.session.uploaded_files)
         
-        if not llm_visible_files:
-            # No files should be exposed to LLM - they are all tool-only
-            logger.info(f"All {len(self.session.uploaded_files)} files are tool-only, not exposing to LLM")
-            return content
+        # Always mention uploaded files to LLM, even if they're tool-only
+        # This helps the LLM use correct filenames when calling tools
         
         # Build file list with categories for better LLM understanding
+        # Include both LLM-visible and tool-only files, but mark them appropriately
+        import base64
+        
         file_entries = []
-        for filename, file_size in llm_visible_files.items():
-            category = file_policy.get_file_category(filename)
-            size_kb = file_size / 1024
-            file_entries.append(f"- {filename} ({category}, {size_kb:.1f}KB)")
+        for filename, base64_content in self.session.uploaded_files.items():
+            try:
+                file_size = len(base64.b64decode(base64_content))
+                category = file_policy.get_file_category(filename)
+                size_kb = file_size / 1024
+                
+                if filename in llm_visible_files:
+                    # LLM can see this file's content
+                    file_entries.append(f"- {filename} ({category}, {size_kb:.1f}KB)")
+                else:
+                    # Tool-only file - LLM knows the name but not the content
+                    file_entries.append(f"- {filename} ({category}, {size_kb:.1f}KB) [tool-accessible only]")
+            except Exception as e:
+                logger.warning(f"Could not analyze file {filename}: {e}")
+                file_entries.append(f"- {filename} [analysis failed]")
         
         file_list = "\n".join(file_entries)
         
-        # Count tool-only files for informational message
-        tool_only_count = len(self.session.uploaded_files) - len(llm_visible_files)
-        tool_only_note = ""
-        if tool_only_count > 0:
-            tool_only_note = f"\n\nNote: {tool_only_count} additional file(s) are available for tool processing only."
-        
-        return f"{content}\n\nFiles available for analysis:\n\n{file_list}{tool_only_note}"
+        return f"{content}\n\nUploaded files available:\n{file_list}\n\nNote: Files marked as [tool-accessible only] can be processed by tools but their content is not directly visible to me. Use the appropriate tools to analyze these files."
     
     async def _get_custom_system_prompt(self) -> str:
         """Get custom system prompt from selected MCP servers that provide prompts."""

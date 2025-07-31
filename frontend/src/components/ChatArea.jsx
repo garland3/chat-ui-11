@@ -153,33 +153,46 @@ const ChatArea = ({ canvasPanelOpen, canvasPanelWidth }) => {
   // Handle slash command logic
   const handleSlashCommand = (value) => {
     if (value.startsWith('/')) {
-      const query = value.slice(1).toLowerCase()
+      // Extract the command part (before any space)
+      const spaceIndex = value.indexOf(' ')
+      const commandPart = spaceIndex === -1 ? value.slice(1) : value.slice(1, spaceIndex)
+      const query = commandPart.toLowerCase()
       const availableTools = getAllAvailableTools()
       
-      if (query === '') {
-        // Show all tools when just "/" is typed
-        setFilteredTools(availableTools)
-        setShowToolAutocomplete(true)
-        setSelectedToolIndex(0)
-      } else {
-        // Filter tools based on query
-        const filtered = availableTools.filter(tool => 
-          tool.name.toLowerCase().includes(query) ||
-          tool.server.toLowerCase().includes(query)
-        )
-        
-        if (filtered.length > 0) {
-          setFilteredTools(filtered)
+      // Only show autocomplete if we're still typing the command (no space yet or at the end)
+      const showAutocomplete = spaceIndex === -1 || value.length === spaceIndex + 1
+      
+      if (showAutocomplete) {
+        if (query === '') {
+          // Show all tools when just "/" is typed
+          setFilteredTools(availableTools)
           setShowToolAutocomplete(true)
           setSelectedToolIndex(0)
         } else {
-          setShowToolAutocomplete(false)
+          // Filter tools based on query
+          const filtered = availableTools.filter(tool => 
+            tool.name.toLowerCase().includes(query) ||
+            tool.server.toLowerCase().includes(query)
+          )
+          
+          if (filtered.length > 0) {
+            setFilteredTools(filtered)
+            setShowToolAutocomplete(true)
+            setSelectedToolIndex(0)
+          } else {
+            setShowToolAutocomplete(false)
+          }
         }
+      } else {
+        setShowToolAutocomplete(false)
       }
     } else {
       setShowToolAutocomplete(false)
     }
   }
+
+  // Check if input contains a slash command
+  const hasSlashCommand = inputValue.startsWith('/') && inputValue.includes(' ')
 
   // Handle tool selection from autocomplete
   const selectTool = (tool) => {
@@ -320,7 +333,11 @@ const ChatArea = ({ canvasPanelOpen, canvasPanelWidth }) => {
                 onKeyDown={handleKeyDown}
                 placeholder="Type your message..."
                 rows={1}
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-600 rounded-lg text-gray-200 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className={`w-full px-4 py-3 bg-gray-800 rounded-lg text-gray-200 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:border-transparent ${
+                  hasSlashCommand 
+                    ? 'border-2 border-yellow-500 focus:ring-yellow-500 bg-yellow-900/10' 
+                    : 'border border-gray-600 focus:ring-blue-500'
+                }`}
                 style={{ minHeight: '48px', maxHeight: '128px' }}
               />
               
@@ -340,16 +357,9 @@ const ChatArea = ({ canvasPanelOpen, canvasPanelWidth }) => {
                           : 'hover:bg-gray-700 text-gray-200'
                       }`}
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold">/{tool.name}</span>
-                          <span className="text-xs text-gray-400">from {tool.server}</span>
-                        </div>
-                        {selectedTools.has(tool.key) && (
-                          <div className="text-xs bg-green-600 text-white px-1.5 py-0.5 rounded">
-                            ✓
-                          </div>
-                        )}
+                      <div className="flex items-center gap-2">
+                        <span className="font-black text-white">/{tool.name}</span>
+                        <span className="text-xs text-gray-400">from {tool.server}</span>
                       </div>
                     </div>
                   ))}
