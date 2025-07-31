@@ -23,7 +23,7 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 # Copy and install frontend dependencies (for caching)
 COPY frontend/package*.json ./frontend/
 WORKDIR /app/frontend
-RUN npm ci --only=production
+RUN npm ci
 
 # Build frontend
 COPY frontend/ .
@@ -37,6 +37,7 @@ COPY backend/ ./backend/
 COPY llmconfig.yml .
 COPY docs/ ./docs/
 COPY scripts/ ./scripts/
+COPY test/ ./test/
 
 # Change ownership to non-root user
 RUN chown -R appuser:appuser /app

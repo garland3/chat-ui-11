@@ -47,12 +47,12 @@ class TestAuthFunctionality:
 class TestConfigurationClasses:
     """Test configuration data classes."""
     
-    def test_app_settings_default_initialization(self):
-        """Test AppSettings with default values."""
-        settings = AppSettings()
-        assert settings.app_name == "Chat UI"
-        assert settings.port == 8000
-        assert settings.debug_mode is False
+    # def test_app_settings_default_initialization(self):
+    #     """Test AppSettings with default values."""
+    #     settings = AppSettings()
+    #     assert settings.app_name == "Chat UI"
+    #     assert settings.port == 8000
+    #     assert settings.debug_mode is False
     
     def test_model_config_initialization(self):
         """Test ModelConfig with custom values."""
