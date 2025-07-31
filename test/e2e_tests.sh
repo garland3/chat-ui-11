@@ -21,7 +21,7 @@ export PATH="$FRONTEND_DIR/node_modules/.bin:$PATH"
 echo "Current PATH: $PATH"
 
 echo "Installing frontend dependencies..."
-npm ci
+npm install
 
 # Verify vite exists (local)
 if ! command -v vite >/dev/null 2>&1; then
