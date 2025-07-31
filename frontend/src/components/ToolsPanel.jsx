@@ -190,7 +190,7 @@ const ToolsPanel = ({ isOpen, onClose }) => {
                   : 'bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600'
               }`}
             >
-              {toolChoiceRequired ? 'Required (Active)' : 'Required'}
+              {toolChoiceRequired ? 'Required Tool Call (Active)' : 'Required Tool Call'}
             </button>
           </div>
         </div>
