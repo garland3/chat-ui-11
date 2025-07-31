@@ -19,6 +19,7 @@ echo "Backend directory: $BACKEND_DIR"
 # Build frontend
 echo "Building frontend..."
 cd "$FRONTEND_DIR"
+export PATH=$(npm bin):$PATH
 npm ci
 npm run build
 
