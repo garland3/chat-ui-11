@@ -25,6 +25,7 @@ COPY frontend/package*.json ./frontend/
 WORKDIR /app/frontend
 ENV NPM_CONFIG_CACHE=/app/.npm
 RUN npm ci
+RUN npm install vite
 RUN ls -l node_modules/.bin
 
 # Build frontend
