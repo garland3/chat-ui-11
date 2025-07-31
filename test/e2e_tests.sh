@@ -35,7 +35,7 @@ if ! command -v vite >/dev/null 2>&1; then
 fi
 
 echo "Building frontend..."
-npm run build
+npx vite build
 
 # Start backend
 echo "Starting backend server..."
