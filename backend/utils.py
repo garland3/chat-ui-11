@@ -132,6 +132,81 @@ async def _save_tool_files_to_session(tool_result: Dict[str, Any], session, tool
         logger.info(f"Tool {tool_name} generated {files_saved} files now available for other tools in session")
 
 
+def _filter_large_base64_from_tool_result(content_text: str) -> str:
+    """
+    Filter out large base64 content from tool results to prevent LLM context overflow.
+    
+    Specifically targets the returned_file_contents and returned_file_base64 fields
+    that contain large base64 encoded files that can crash the LLM.
+    """
+    try:
+        # Try to parse as JSON to filter base64 fields
+        import json
+        import re
+        
+        # Check if this looks like JSON
+        if content_text.strip().startswith('{'):
+            try:
+                data = json.loads(content_text)
+                if isinstance(data, dict):
+                    # Filter out large base64 content fields
+                    filtered_data = data.copy()
+                    
+                    # Remove or truncate large base64 fields
+                    large_base64_fields = [
+                        'returned_file_contents', 'returned_file_base64', 
+                        'content_base64', 'file_data_base64'
+                    ]
+                    
+                    for field in large_base64_fields:
+                        if field in filtered_data:
+                            if isinstance(filtered_data[field], list):
+                                # For arrays of base64 content, replace with placeholders
+                                filtered_data[field] = [
+                                    f"<file_content_removed_{i}_size_{len(content)}_bytes>" 
+                                    if len(content) > 10000 else content
+                                    for i, content in enumerate(filtered_data[field])
+                                ]
+                            elif isinstance(filtered_data[field], str) and len(filtered_data[field]) > 10000:
+                                # For single large base64 strings, replace with placeholder
+                                filtered_data[field] = f"<file_content_removed_size_{len(filtered_data[field])}_bytes>"
+                    
+                    # Also filter returned_files array
+                    if 'returned_files' in filtered_data and isinstance(filtered_data['returned_files'], list):
+                        for file_info in filtered_data['returned_files']:
+                            if isinstance(file_info, dict) and 'content_base64' in file_info:
+                                content_size = len(file_info['content_base64'])
+                                if content_size > 10000:  # 10KB threshold
+                                    file_info['content_base64'] = f"<file_content_removed_size_{content_size}_bytes>"
+                    
+                    # Convert back to JSON string
+                    return json.dumps(filtered_data, indent=2)
+                    
+            except json.JSONDecodeError:
+                # Not JSON, fall through to text processing
+                pass
+        
+        # Fallback: Use regex to find and replace large base64-like strings
+        # Base64 pattern: long strings of alphanumeric characters, +, /, and = at the end
+        base64_pattern = r'\b[A-Za-z0-9+/]{1000,}={0,2}\b'
+        
+        def replace_large_base64(match):
+            content = match.group(0)
+            return f"<large_base64_content_removed_size_{len(content)}_bytes>"
+        
+        # Replace large base64 strings with placeholders
+        filtered_content = re.sub(base64_pattern, replace_large_base64, content_text)
+        
+        if len(filtered_content) != len(content_text):
+            logger.info(f"Filtered large base64 content from tool result: {len(content_text)} -> {len(filtered_content)} chars")
+        
+        return filtered_content
+        
+    except Exception as e:
+        logger.warning(f"Error filtering base64 content from tool result: {e}")
+        return content_text
+
+
 def _inject_file_data(function_args: Dict, session) -> Dict:
     """Inject file data into tool arguments if tool expects it and files are available"""
     logger.info(f"_inject_file_data called with args: {list(function_args.keys())}")
@@ -417,21 +492,33 @@ async def call_llm_with_tools(
                             result_dict = tool_result
                         
                         if session and result_dict:
+                            logger.info(f"About to save tool files to session for tool {tool_name}")
                             await _save_tool_files_to_session(result_dict, session, tool_name)
+                            logger.info(f"Session now has {len(session.uploaded_files)} files: {list(session.uploaded_files.keys())}")
+                            
+                            # Log file sizes for debugging large file issues
+                            for filename, base64_data in session.uploaded_files.items():
+                                file_size = len(base64_data) if base64_data else 0
+                                logger.info(f"File {filename}: {file_size} bytes (base64)")
+                                if file_size > 100000:  # Log warning for files over 100KB
+                                    logger.warning(f"Large file {filename} ({file_size} bytes) may cause LLM context issues")
                         
-                        # Send tool result notification to UI
+                        # Send tool result notification to UI (with unfiltered content for downloads)
                         if session:
                             await session.send_update_to_ui("tool_result", {
                                 "tool_name": tool_name,
                                 "server_name": server_name,
                                 "function_name": function_name,
                                 "tool_call_id": tool_call["id"],
-                                "result": content_text,
+                                "result": content_text,  # Send unfiltered content to UI for downloads
                                 "success": True
                             })
                         
+                        # Filter out large base64 content from tool results for LLM context only
+                        filtered_content_for_llm = _filter_large_base64_from_tool_result(content_text)
+                        
                         tool_results.append(
-                            {"tool_call_id": tool_call["id"], "role": "tool", "content": content_text}
+                            {"tool_call_id": tool_call["id"], "role": "tool", "content": filtered_content_for_llm}
                         )
                     except Exception as exc:
                         logger.error("Error executing tool %s: %s", tool_name, exc)
@@ -449,11 +536,12 @@ async def call_llm_with_tools(
                                 "error": str(exc)
                             })
                         
+                        error_content = json.dumps({"error": error_message})
                         tool_results.append(
                             {
                                 "tool_call_id": tool_call["id"],
                                 "role": "tool",
-                                "content": json.dumps({"error": error_message}),
+                                "content": error_content,
                             }
                         )
                 else:
@@ -473,15 +561,27 @@ async def call_llm_with_tools(
                             "error": f"Tool {function_name} not found"
                         })
                     
+                    error_content = json.dumps({"error": error_message})
                     tool_results.append(
                         {
                             "tool_call_id": tool_call["id"],
                             "role": "tool",
-                            "content": json.dumps({"error": error_message}),
+                            "content": error_content,
                         }
                     )
             if tool_results:
                 follow_up_messages = messages + [message] + tool_results
+                
+                # Log follow-up payload details for debugging
+                total_content_length = sum(len(str(msg.get('content', ''))) for msg in follow_up_messages)
+                logger.info(f"Follow-up LLM call: {len(follow_up_messages)} messages, total content length: {total_content_length} chars")
+                
+                # Check if any message content is extremely large
+                for i, msg in enumerate(follow_up_messages):
+                    content_length = len(str(msg.get('content', '')))
+                    if content_length > 50000:  # Warn about messages over 50KB
+                        logger.warning(f"Message {i} has large content: {content_length} chars, role: {msg.get('role', 'unknown')}")
+                
                 follow_up_payload = {
                     "model": model_id,
                     "messages": follow_up_messages,

@@ -244,6 +244,12 @@ class MessageProcessor:
             # Append available files to content if any exist
             enhanced_content = self._build_content_with_files(content)
             
+            # Log content length to detect large file injection issues
+            if len(enhanced_content) > len(content) + 1000:  # Significant content addition
+                logger.info(f"Enhanced content is {len(enhanced_content)} chars (original: {len(content)} chars)")
+                if len(enhanced_content) > 100000:  # Over 100KB
+                    logger.warning(f"Very large enhanced content ({len(enhanced_content)} chars) may cause LLM issues")
+            
             user_message = {"role": "user", "content": enhanced_content}
             
             # Check if this is the first user message and if we should apply custom system prompts
