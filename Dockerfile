@@ -8,13 +8,7 @@ WORKDIR /app
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 
 # Install system dependencies including Python and Node.js
-RUN dnf update -y && dnf install -y \
-    python3 \
-    python3-pip \
-    nodejs \
-    npm \
-    curl \
-    && dnf clean all
+RUN dnf update -y && dnf install -y     python3     python3-pip     nodejs     npm     curl     hostname     && dnf clean all
 
 # Copy and install Python dependencies first (for caching)
 COPY requirements.txt .
@@ -25,12 +19,10 @@ COPY frontend/package*.json ./frontend/
 WORKDIR /app/frontend
 ENV NPM_CONFIG_CACHE=/app/.npm
 RUN npm ci
-RUN npm install vite
-RUN ls -l node_modules/.bin
 
 # Build frontend
 COPY frontend/ .
-RUN npm run build
+RUN npx vite build
 
 # Switch back to app directory and copy backend code
 WORKDIR /app
