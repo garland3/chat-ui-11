@@ -23,6 +23,7 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 # Copy and install frontend dependencies (for caching)
 COPY frontend/package*.json ./frontend/
 WORKDIR /app/frontend
+ENV NPM_CONFIG_CACHE=/app/.npm
 RUN npm ci
 
 # Build frontend
