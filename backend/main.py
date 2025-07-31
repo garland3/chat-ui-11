@@ -265,6 +265,11 @@ async def get_session_info(current_user: str = Depends(get_current_user)):
     }
 
 
+@app.get("/healthz")
+async def health_check():
+    return {"status": "ok"}
+
+
 @app.get("/api/debug/servers")
 async def get_server_debug_info(current_user: str = Depends(get_current_user)):
     """Get detailed server authorization information for debugging.
