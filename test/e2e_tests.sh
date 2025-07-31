@@ -18,6 +18,7 @@ echo "Backend directory: $BACKEND_DIR"
 # Ensure frontend dependencies are installed once
 cd "$FRONTEND_DIR"
 export PATH="$FRONTEND_DIR/node_modules/.bin:$PATH"
+echo "Current PATH: $PATH"
 
 echo "Installing frontend dependencies..."
 npm ci
