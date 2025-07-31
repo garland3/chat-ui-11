@@ -28,7 +28,10 @@ if ! command -v vite >/dev/null 2>&1; then
     echo "vite binary not found in node_modules/.bin. Listing installed packages for debugging:"
     ls -1 node_modules/.bin || true
     echo "Attempting to install vite explicitly..."
-    npm install vite
+    npx vite --version || {
+        echo "Failed to get vite. Check that 'vite' is declared in package.json dependencies/devDependencies."
+        exit 1
+    }
 fi
 
 echo "Building frontend..."
