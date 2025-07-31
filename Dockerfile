@@ -24,7 +24,6 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 COPY frontend/package*.json ./frontend/
 WORKDIR /app/frontend
 ENV NPM_CONFIG_CACHE=/app/.npm
-RUN rm -rf node_modules package-lock.json
 RUN npm ci
 RUN ls -l node_modules/.bin
 
