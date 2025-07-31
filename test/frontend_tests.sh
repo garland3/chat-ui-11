@@ -6,11 +6,7 @@ echo "================================="
 
 # Use PROJECT_ROOT if set by master script, otherwise detect
 if [ -z "$PROJECT_ROOT" ]; then
-    if [ -d "/app" ]; then
-        PROJECT_ROOT="/app"
-    else
-        PROJECT_ROOT="$(pwd)/.."
-    fi
+    PROJECT_ROOT=$(pwd)
 fi
 
 # Set frontend directory path
@@ -27,7 +23,7 @@ if [ "$ENVIRONMENT" = "local" ]; then
     npm ci
 fi
 
-# Run tests
+# Run tests (ENVIRONMENT variable is already set by master script)
 echo "Running vitest..."
 timeout 300 npm test -- --run
 
