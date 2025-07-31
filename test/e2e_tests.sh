@@ -19,7 +19,7 @@ echo "Backend directory: $BACKEND_DIR"
 # Build frontend
 echo "Building frontend..."
 cd "$FRONTEND_DIR"
-npm install --only=dev
+npm ci
 npm run build
 
 # Start backend in the background
