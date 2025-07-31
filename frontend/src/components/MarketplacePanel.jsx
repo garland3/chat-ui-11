@@ -66,7 +66,11 @@ const MarketplacePanel = () => {
         <div className="w-full px-6 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button
-              onClick={() => navigate('/')}
+              onClick={() => {
+                // Set a flag to auto-open tools panel when returning to chat
+                sessionStorage.setItem('openToolsPanel', 'true')
+                navigate('/')
+              }}
               className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
               title="Back to Chat"
             >

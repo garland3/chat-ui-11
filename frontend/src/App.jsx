@@ -21,6 +21,15 @@ function ChatInterface() {
   const [canvasPanelWidth, setCanvasPanelWidth] = useState(0)
   const { canvasContent, customUIContent } = useChat()
 
+  // Auto-open tools panel when returning from marketplace
+  useEffect(() => {
+    const shouldOpenToolsPanel = sessionStorage.getItem('openToolsPanel')
+    if (shouldOpenToolsPanel === 'true') {
+      setToolsPanelOpen(true)
+      sessionStorage.removeItem('openToolsPanel') // Clear the flag
+    }
+  }, [])
+
   // Auto-open canvas panel when content is received
   useEffect(() => {
     if (canvasContent && canvasContent.trim()) {
