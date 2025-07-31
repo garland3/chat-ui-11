@@ -144,11 +144,14 @@ def _filter_large_base64_from_tool_result(content_text: str) -> str:
         import json
         import re
         
+        logger.info(f"Filtering tool result content: {len(content_text)} chars")
+        
         # Check if this looks like JSON
         if content_text.strip().startswith('{'):
             try:
                 data = json.loads(content_text)
                 if isinstance(data, dict):
+                    logger.info(f"Parsed JSON data with keys: {list(data.keys())}")
                     # Filter out large base64 content fields
                     filtered_data = data.copy()
                     
@@ -171,6 +174,20 @@ def _filter_large_base64_from_tool_result(content_text: str) -> str:
                                 # For single large base64 strings, replace with placeholder
                                 filtered_data[field] = f"<file_content_removed_size_{len(filtered_data[field])}_bytes>"
                     
+                    # Remove HTML content entirely from LLM context (it's only for UI)
+                    ui_only_fields = ['custom_html', 'html_content', 'plot_html']
+                    for field in ui_only_fields:
+                        if field in filtered_data:
+                            content_size = len(str(filtered_data[field])) if filtered_data[field] else 0
+                            if content_size > 0:
+                                logger.info(f"Removing UI-only field '{field}' ({content_size} bytes) from LLM context")
+                                del filtered_data[field]
+                                
+                    # Remove or summarize other non-essential large fields for LLM context
+                    if 'files' in filtered_data and isinstance(filtered_data['files'], list):
+                        # Replace with just filenames for LLM context
+                        filtered_data['files'] = [f"Generated file: {f}" for f in filtered_data['files']]
+                    
                     # Also filter returned_files array
                     if 'returned_files' in filtered_data and isinstance(filtered_data['returned_files'], list):
                         for file_info in filtered_data['returned_files']:
@@ -180,7 +197,9 @@ def _filter_large_base64_from_tool_result(content_text: str) -> str:
                                     file_info['content_base64'] = f"<file_content_removed_size_{content_size}_bytes>"
                     
                     # Convert back to JSON string
-                    return json.dumps(filtered_data, indent=2)
+                    filtered_json = json.dumps(filtered_data, indent=2)
+                    logger.info(f"Filtered JSON result: {len(filtered_json)} chars (was {len(content_text)} chars)")
+                    return filtered_json
                     
             except json.JSONDecodeError:
                 # Not JSON, fall through to text processing
@@ -198,7 +217,9 @@ def _filter_large_base64_from_tool_result(content_text: str) -> str:
         filtered_content = re.sub(base64_pattern, replace_large_base64, content_text)
         
         if len(filtered_content) != len(content_text):
-            logger.info(f"Filtered large base64 content from tool result: {len(content_text)} -> {len(filtered_content)} chars")
+            logger.info(f"Regex filtered large base64 content from tool result: {len(content_text)} -> {len(filtered_content)} chars")
+        else:
+            logger.info(f"No large base64 content found to filter (content: {len(content_text)} chars)")
         
         return filtered_content
         
@@ -515,7 +536,9 @@ async def call_llm_with_tools(
                             })
                         
                         # Filter out large base64 content from tool results for LLM context only
+                        logger.info(f"About to filter content for LLM: {len(content_text)} chars")
                         filtered_content_for_llm = _filter_large_base64_from_tool_result(content_text)
+                        logger.info(f"Filtered content for LLM: {len(filtered_content_for_llm)} chars")
                         
                         tool_results.append(
                             {"tool_call_id": tool_call["id"], "role": "tool", "content": filtered_content_for_llm}
