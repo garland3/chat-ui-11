@@ -2,12 +2,38 @@
 
 import logging
 import os
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Any
 from fastapi import HTTPException
+from pydantic import BaseModel
 
 from http_client import create_rag_client
 
 logger = logging.getLogger(__name__)
+
+
+class DocumentMetadata(BaseModel):
+    """Metadata about a source document."""
+    source: str
+    content_type: str
+    confidence_score: float
+    chunk_id: Optional[str] = None
+    last_modified: Optional[str] = None
+
+
+class RAGMetadata(BaseModel):
+    """Metadata about RAG query processing."""
+    query_processing_time_ms: int
+    total_documents_searched: int
+    documents_found: List[DocumentMetadata]
+    data_source_name: str
+    retrieval_method: str
+    query_embedding_time_ms: Optional[int] = None
+
+
+class RAGResponse(BaseModel):
+    """Combined response from RAG system including content and metadata."""
+    content: str
+    metadata: Optional[RAGMetadata] = None
 
 
 class RAGClient:
@@ -80,8 +106,8 @@ class RAGClient:
             logger.error(f"Unexpected error while discovering data sources for {user_name}: {exc}", exc_info=True)
             return []
     
-    async def query_rag(self, user_name: str, data_source: str, messages: List[Dict]) -> str:
-        """Query RAG endpoint for a response."""
+    async def query_rag(self, user_name: str, data_source: str, messages: List[Dict]) -> RAGResponse:
+        """Query RAG endpoint for a response with metadata."""
         payload = {
             "messages": messages,
             "user_name": user_name,
@@ -98,12 +124,22 @@ class RAGClient:
                 data = response.json()
                 
                 # Extract the assistant message from the response
+                content = "No response from RAG system."
                 if "choices" in data and len(data["choices"]) > 0:
                     choice = data["choices"][0]
                     if "message" in choice and "content" in choice["message"]:
-                        return choice["message"]["content"]
+                        content = choice["message"]["content"]
                 
-                return "No response from RAG system."
+                # Extract metadata if present
+                metadata = None
+                if "rag_metadata" in data and data["rag_metadata"]:
+                    try:
+                        metadata = RAGMetadata(**data["rag_metadata"])
+                    except Exception as e:
+                        logger.warning(f"Failed to parse RAG metadata: {e}")
+                
+                return RAGResponse(content=content, metadata=metadata)
+                
             except Exception as exc:
                 logger.error(f"TestClient error while querying RAG for {user_name}: {exc}", exc_info=True)
                 if hasattr(exc, 'response') and hasattr(exc.response, 'status_code'):
@@ -118,12 +154,21 @@ class RAGClient:
             data = await self.http_client.post("/v1/chat/completions", json_data=payload)
             
             # Extract the assistant message from the response
+            content = "No response from RAG system."
             if "choices" in data and len(data["choices"]) > 0:
                 choice = data["choices"][0]
                 if "message" in choice and "content" in choice["message"]:
-                    return choice["message"]["content"]
+                    content = choice["message"]["content"]
             
-            return "No response from RAG system."
+            # Extract metadata if present
+            metadata = None
+            if "rag_metadata" in data and data["rag_metadata"]:
+                try:
+                    metadata = RAGMetadata(**data["rag_metadata"])
+                except Exception as e:
+                    logger.warning(f"Failed to parse RAG metadata: {e}")
+            
+            return RAGResponse(content=content, metadata=metadata)
             
         except HTTPException:
             # Re-raise HTTPExceptions from the unified client (they already have proper error handling)
