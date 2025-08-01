@@ -67,6 +67,7 @@ import rag_client
 from rag_client import initialize_rag_client
 import banner_client
 from banner_client import initialize_banner_client
+from llm_health_check import health_checker, get_llm_health_status
 
 mcp_manager: Optional[MCPToolManager] = None
 session_manager: Optional[SessionManager] = None
@@ -124,11 +125,15 @@ async def lifespan(app: FastAPI):
     session_manager.register_callback("after_user_message_added", conversation_context_callback)
     session_manager.register_callback("after_validation", authorization_audit_callback)
     
+    # Start LLM health checks
+    await health_checker.start_periodic_checks()
+    
     logger.info("All callbacks registered successfully")
     yield
     
     # Shutdown
     logger.info("Shutting down Chat UI backend")
+    await health_checker.stop_periodic_checks()
     if mcp_manager:
         await mcp_manager.cleanup()
 
@@ -279,6 +284,12 @@ async def get_session_info(current_user: str = Depends(get_current_user)):
 @app.get("/healthz")
 async def health_check():
     return {"status": "ok"}
+
+
+@app.get("/api/llm-health")
+async def get_llm_health(current_user: str = Depends(get_current_user)):
+    """Get the current LLM health status."""
+    return await get_llm_health_status()
 
 
 @app.get("/api/debug/servers")

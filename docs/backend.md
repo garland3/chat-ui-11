@@ -24,6 +24,7 @@ The backend is a FastAPI application that serves as an MCP (Model Context Protoc
 - **`utils.py`** - Utility functions and tool validation
 - **`rag_client.py`** - RAG integration client
 - **`http_client.py`** - Unified HTTP client with error handling
+- **`llm_health_check.py`** - LLM health monitoring system
 
 ## Configuration System (v2.0)
 
