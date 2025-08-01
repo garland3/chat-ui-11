@@ -110,11 +110,9 @@ fi
 if find e2e/ -name "*.spec.js" -not -name "*.disabled" | grep -q .; then
     echo "Installing Playwright browsers..."
     if [ "${ENVIRONMENT:-}" = "cicd" ]; then
-        # In CI, system deps are pre-installed in Docker image
-        npx playwright install chromium
-    else
-        # In local, install with system dependencies
         npx playwright install --with-deps chromium
+    else
+        npx playwright install chromium
     fi
 
     echo "Executing E2E test suite with enhanced timeout and retry logic..."

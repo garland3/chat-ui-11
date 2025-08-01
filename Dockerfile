@@ -8,10 +8,7 @@ WORKDIR /app
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 
 # Install system dependencies including Python and Node.js
-RUN dnf update -y && dnf install -y     python3     python3-pip     nodejs     npm     curl     hostname     && dnf clean all
-
-# Install Playwright system dependencies for Chromium
-RUN dnf install -y     at-spi2-atk     atk     cups-libs     drm     gtk3     libxcomposite     libxdamage     libxrandr     libxss     mesa-libgbm     && dnf clean all
+RUN dnf update -y && dnf install -y     python3     python3-pip     nodejs     npm     curl     hostname     sudo     && dnf clean all
 
 # Copy and install Python dependencies first (for caching)
 COPY requirements.txt .
@@ -40,6 +37,9 @@ COPY test/ ./test/
 
 # Create logs directory for the backend
 RUN mkdir -p /app/backend/logs
+
+# Configure sudo for appuser (needed for Playwright browser installation)
+RUN echo "appuser ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
 # Change ownership to non-root user
 RUN chown -R appuser:appuser /app
