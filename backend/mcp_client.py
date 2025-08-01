@@ -23,61 +23,128 @@ class MCPToolManager:
         self.available_prompts = {}
         
     
+    def _determine_transport_type(self, config: Dict[str, Any]) -> str:
+        """Determine the transport type for an MCP server configuration.
+        
+        Priority order:
+        1. Explicit 'transport' field (highest priority)
+        2. Auto-detection from command
+        3. Auto-detection from URL if it has protocol
+        4. Fallback to 'type' field (backward compatibility)
+        """
+        # 1. Explicit transport field takes highest priority
+        if config.get("transport"):
+            logger.debug(f"Using explicit transport: {config['transport']}")
+            return config["transport"]
+        
+        # 2. Auto-detect from command (takes priority over URL)
+        if config.get("command"):
+            logger.debug("Auto-detected STDIO transport from command")
+            return "stdio"
+        
+        # 3. Auto-detect from URL if it has protocol
+        url = config.get("url")
+        if url:
+            if url.startswith(("http://", "https://")):
+                if url.endswith("/sse"):
+                    logger.debug(f"Auto-detected SSE transport from URL: {url}")
+                    return "sse"
+                else:
+                    logger.debug(f"Auto-detected HTTP transport from URL: {url}")
+                    return "http"
+            else:
+                # URL without protocol - check if type field specifies transport
+                transport_type = config.get("type", "stdio")
+                if transport_type in ["http", "sse"]:
+                    logger.debug(f"Using type field '{transport_type}' for URL without protocol: {url}")
+                    return transport_type
+                else:
+                    logger.debug(f"URL without protocol, defaulting to HTTP: {url}")
+                    return "http"
+            
+        # 4. Fallback to type field (backward compatibility)
+        transport_type = config.get("type", "stdio")
+        logger.debug(f"Using fallback transport type: {transport_type}")
+        return transport_type
+
     async def initialize_clients(self):
         """Initialize FastMCP clients for all configured servers."""
         for server_name, config in self.servers_config.items():
             try:
-                # Check for HTTP URL first
-                url = config.get("url")
-                if url:
-                    # HTTP/SSE MCP server - Client auto-detects transport from URL
-                    logger.debug(f"Creating HTTP/SSE client for {server_name} at {url}")
-                    client = Client(url)
-                    self.clients[server_name] = client
-                    logger.info(f"Created HTTP/SSE MCP client for {server_name}")
-                    continue
+                transport_type = self._determine_transport_type(config)
                 
-                # Check for custom command
-                command = config.get("command")
-                if command:
-                    # STDIO MCP server with custom command - Client auto-detects STDIO transport
-                    cwd = config.get("cwd")
-                    if cwd:
-                        # Convert relative path to absolute path from project root
-                        if not os.path.isabs(cwd):
-                            # Assume relative to project root (parent of backend)
-                            project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-                            cwd = os.path.join(project_root, cwd)
-                        
-                        if os.path.exists(cwd):
-                            logger.debug(f"Creating STDIO client for {server_name} with command: {command} in cwd: {cwd}")
-                            # FastMCP Client can handle cwd parameter in StdioTransport
-                            from fastmcp.client.transports import StdioTransport
-                            transport = StdioTransport(command=command[0], args=command[1:], cwd=cwd)
-                            client = Client(transport)
-                            self.clients[server_name] = client
-                            logger.info(f"Created STDIO MCP client for {server_name} with custom command and cwd")
-                        else:
-                            logger.error(f"Working directory does not exist: {cwd}")
-                            continue
+                if transport_type in ["http", "sse"]:
+                    # HTTP/SSE MCP server
+                    url = config.get("url")
+                    if not url:
+                        logger.error(f"No URL provided for HTTP/SSE server: {server_name}")
+                        continue
+                    
+                    # Ensure URL has protocol for FastMCP client
+                    if not url.startswith(("http://", "https://")):
+                        url = f"http://{url}"
+                        logger.debug(f"Added http:// protocol to URL: {url}")
+                    
+                    if transport_type == "sse":
+                        # Use explicit SSE transport
+                        logger.debug(f"Creating SSE client for {server_name} at {url}")
+                        from fastmcp.client.transports import SSETransport
+                        transport = SSETransport(url)
+                        client = Client(transport)
                     else:
-                        logger.debug(f"Creating STDIO client for {server_name} with command: {command}")
-                        client = Client(command)
-                        self.clients[server_name] = client
-                        logger.info(f"Created STDIO MCP client for {server_name} with custom command")
+                        # Use HTTP transport (StreamableHttp)
+                        logger.debug(f"Creating HTTP client for {server_name} at {url}")
+                        client = Client(url)
+                    
+                    self.clients[server_name] = client
+                    logger.info(f"Created {transport_type.upper()} MCP client for {server_name}")
                     continue
                 
-                # Fallback to old behavior for backward compatibility
-                server_path = f"mcp/{server_name}/main.py"
-                logger.debug(f"Attempting to initialize {server_name} at path: {server_path}")
-                if os.path.exists(server_path):
-                    logger.debug(f"Server script exists for {server_name}, creating client...")
-                    client = Client(server_path)  # Client auto-detects STDIO transport from .py file
-                    self.clients[server_name] = client
-                    logger.info(f"Created MCP client for {server_name}")
-                    logger.debug(f"Successfully created client for {server_name}")
+                elif transport_type == "stdio":
+                    # STDIO MCP server
+                    command = config.get("command")
+                    if command:
+                        # Custom command specified
+                        cwd = config.get("cwd")
+                        if cwd:
+                            # Convert relative path to absolute path from project root
+                            if not os.path.isabs(cwd):
+                                # Assume relative to project root (parent of backend)
+                                project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                                cwd = os.path.join(project_root, cwd)
+                            
+                            if os.path.exists(cwd):
+                                logger.debug(f"Creating STDIO client for {server_name} with command: {command} in cwd: {cwd}")
+                                from fastmcp.client.transports import StdioTransport
+                                transport = StdioTransport(command=command[0], args=command[1:], cwd=cwd)
+                                client = Client(transport)
+                                self.clients[server_name] = client
+                                logger.info(f"Created STDIO MCP client for {server_name} with custom command and cwd")
+                            else:
+                                logger.error(f"Working directory does not exist: {cwd}")
+                                continue
+                        else:
+                            logger.debug(f"Creating STDIO client for {server_name} with command: {command}")
+                            client = Client(command)
+                            self.clients[server_name] = client
+                            logger.info(f"Created STDIO MCP client for {server_name} with custom command")
+                        continue
+                    else:
+                        # Fallback to old behavior for backward compatibility
+                        server_path = f"mcp/{server_name}/main.py"
+                        logger.debug(f"Attempting to initialize {server_name} at path: {server_path}")
+                        if os.path.exists(server_path):
+                            logger.debug(f"Server script exists for {server_name}, creating client...")
+                            client = Client(server_path)  # Client auto-detects STDIO transport from .py file
+                            self.clients[server_name] = client
+                            logger.info(f"Created MCP client for {server_name}")
+                            logger.debug(f"Successfully created client for {server_name}")
+                        else:
+                            logger.error(f"MCP server script not found: {server_path}", exc_info=True)
+                            continue
                 else:
-                    logger.error(f"MCP server script not found: {server_path}", exc_info=True)
+                    logger.error(f"Unsupported transport type '{transport_type}' for server: {server_name}")
+                    continue
                             
             except Exception as e:
                 logger.error(f"Error creating client for {server_name}: {e}", exc_info=True)

@@ -8,11 +8,21 @@ WORKDIR /app
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 
 # Install system dependencies including Python and Node.js
-RUN apt-get update && apt-get install -y     python3     python3-pip     nodejs     npm     curl     hostname     sudo     && apt-get clean && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y     python3     python3-pip     python3-venv     nodejs     npm     curl     hostname     sudo     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Copy and install Python dependencies first (for caching)
+# Install uv for better Python dependency management
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.cargo/bin:$PATH"
+
+# Create Python virtual environment with uv
+RUN uv python install 3.12
+RUN uv venv venv --python 3.12
+ENV VIRTUAL_ENV=/app/venv
+ENV PATH="/app/venv/bin:$PATH"
+
+# Copy and install Python dependencies using uv
 COPY requirements.txt .
-RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
+RUN uv pip install -r requirements.txt
 
 # Copy and install frontend dependencies (for caching)
 COPY frontend/package*.json ./frontend/
