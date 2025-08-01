@@ -1,5 +1,5 @@
-# Use Fedora as base image
-FROM fedora:latest
+# Use Ubuntu as base image (better Playwright support)
+FROM ubuntu:24.04
 
 # Set working directory
 WORKDIR /app
@@ -8,7 +8,7 @@ WORKDIR /app
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 
 # Install system dependencies including Python and Node.js
-RUN dnf update -y && dnf install -y     python3     python3-pip     nodejs     npm     curl     hostname     sudo     && dnf clean all
+RUN apt-get update && apt-get install -y     python3     python3-pip     nodejs     npm     curl     hostname     sudo     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Copy and install Python dependencies first (for caching)
 COPY requirements.txt .
