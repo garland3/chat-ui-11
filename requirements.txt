@@ -11,6 +11,7 @@ requests
 httpx
 duckduckgo-search
 PyPDF2
+reportlab
 pandas
 matplotlib
 numpy
