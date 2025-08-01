@@ -12,6 +12,7 @@ import CanvasPanel from './components/CanvasPanel'
 import AgentModal from './components/AgentModal'
 import MarketplacePanel from './components/MarketplacePanel'
 import BannerPanel from './components/BannerPanel'
+import HelpPage from './components/HelpPage'
 
 function ChatInterface() {
   const [toolsPanelOpen, setToolsPanelOpen] = useState(false)
@@ -103,6 +104,7 @@ function App() {
             <Routes>
               <Route path="/" element={<ChatInterface />} />
               <Route path="/marketplace" element={<MarketplacePanel />} />
+              <Route path="/help" element={<HelpPage />} />
             </Routes>
           </MarketplaceProvider>
         </ChatProvider>

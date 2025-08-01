@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useChat } from '../contexts/ChatContext'
 import { useWS } from '../contexts/WSContext'
-import { Menu, ChevronDown, Settings, Bot, Download, Plus } from 'lucide-react'
+import { Menu, ChevronDown, Settings, Bot, Download, Plus, HelpCircle } from 'lucide-react'
 
 const Header = ({ onToggleRag, onToggleTools, onToggleAgent, onCloseCanvas }) => {
+  const navigate = useNavigate()
   const { 
     user, 
     models, 
@@ -179,6 +181,15 @@ const Header = ({ onToggleRag, onToggleTools, onToggleAgent, onCloseCanvas }) =>
             <Bot className="w-5 h-5" />
           </button>
         )}
+
+        {/* Help Button */}
+        <button
+          onClick={() => navigate('/help')}
+          className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
+          title="Help & Documentation"
+        >
+          <HelpCircle className="w-5 h-5" />
+        </button>
 
         {/* Tools Panel Toggle */}
         <button
