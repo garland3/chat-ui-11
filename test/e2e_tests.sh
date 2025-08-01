@@ -37,11 +37,29 @@ fi
 echo "Building frontend..."
 npx vite build
 
-# Start backend
+# Start backend with startup validation
 echo "Starting backend server..."
 cd "$BACKEND_DIR"
-uvicorn main:app --host 0.0.0.0 --port 8000 &
-BACKEND_PID=$!
+
+# Check if port 8000 is already in use
+if lsof -Pi :8000 -sTCP:LISTEN -t >/dev/null 2>&1; then
+    echo "⚠️  Port 8000 is already in use. Attempting to continue with existing service..."
+else
+    echo "Starting uvicorn server..."
+    uvicorn main:app --host 0.0.0.0 --port 8000 &
+    BACKEND_PID=$!
+    
+    # Give the server a moment to start
+    sleep 3
+    
+    # Verify the process started successfully
+    if ! kill -0 "$BACKEND_PID" 2>/dev/null; then
+        echo "❌ Backend process failed to start or died immediately"
+        exit 1
+    fi
+    
+    echo "✅ Backend server started successfully (PID: $BACKEND_PID)"
+fi
 
 # Wait for backend to be healthy (probe)
 echo "Waiting for backend to become ready..."
