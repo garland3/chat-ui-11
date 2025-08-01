@@ -1,7 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 
-trap 'rc=$?; echo "Cleaning up..."; [[ -n "${BACKEND_PID-}" ]] && kill "${BACKEND_PID}" 2>/dev/null || true; exit $rc' EXIT
+trap 'rc=$?; echo "🧹 Cleaning up..."; [[ -n "${BACKEND_PID-}" ]] && { echo "Killing backend process (PID: $BACKEND_PID)"; kill "${BACKEND_PID}" 2>/dev/null || true; }; exit $rc' EXIT
 
 echo "Running E2E Tests..."
 echo "================================="
@@ -44,6 +44,9 @@ cd "$BACKEND_DIR"
 # Check if port 8000 is already in use
 if lsof -Pi :8000 -sTCP:LISTEN -t >/dev/null 2>&1; then
     echo "⚠️  Port 8000 is already in use. Attempting to continue with existing service..."
+    # Get the PID of the existing process for potential cleanup
+    EXISTING_PID=$(lsof -Pi :8000 -sTCP:LISTEN -t 2>/dev/null | head -1)
+    echo "ℹ️  Existing service PID: ${EXISTING_PID:-unknown}"
 else
     echo "Starting uvicorn server..."
     uvicorn main:app --host 0.0.0.0 --port 8000 &
@@ -146,3 +149,14 @@ else
 fi
 
 echo "E2E tests finished."
+
+# Explicit cleanup before exit
+if [[ -n "${BACKEND_PID-}" ]]; then
+    echo "🧹 Stopping backend server (PID: $BACKEND_PID)..."
+    kill "${BACKEND_PID}" 2>/dev/null || true
+    # Wait a moment for graceful shutdown
+    sleep 2
+    # Force kill if still running
+    kill -9 "${BACKEND_PID}" 2>/dev/null || true
+    echo "✅ Backend server stopped"
+fi
