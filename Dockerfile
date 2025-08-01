@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y     python3     python3-pip     nodejs 
 
 # Copy and install Python dependencies first (for caching)
 COPY requirements.txt .
-RUN pip3 install --no-cache-dir -r requirements.txt
+RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
 
 # Copy and install frontend dependencies (for caching)
 COPY frontend/package*.json ./frontend/
