@@ -69,6 +69,7 @@ class SecurityChecker(ast.NodeVisitor):
         # Allowed safe modules for data analysis
         self.allowed_modules = {
             'numpy', 'np', 'pandas', 'pd', 'matplotlib', 'plt', 'seaborn', 'sns',
+            'scipy', 'sklearn', 'PIL', 'pillow', 'openpyxl',
             'json', 'csv', 'datetime', 'math', 'statistics', 'random', 're',
             'collections', 'itertools', 'functools', 'operator', 'copy',
             'decimal', 'fractions', 'pathlib', 'typing'

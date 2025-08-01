@@ -18,6 +18,7 @@ numpy
 seaborn
 scikit-learn
 scipy
+openpyxl
 beautifulsoup4
 pytest
 pytest-asyncio
