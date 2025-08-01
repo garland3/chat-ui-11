@@ -35,6 +35,9 @@ COPY docs/ ./docs/
 COPY scripts/ ./scripts/
 COPY test/ ./test/
 
+# Create logs directory for the backend
+RUN mkdir -p /app/backend/logs
+
 # Change ownership to non-root user
 RUN chown -R appuser:appuser /app
 
