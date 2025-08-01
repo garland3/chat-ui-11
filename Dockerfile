@@ -12,17 +12,17 @@ RUN apt-get update && apt-get install -y     python3     python3-pip     python3
 
 # Install uv for better Python dependency management
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-ENV PATH="/root/.cargo/bin:$PATH"
+ENV PATH="/root/.local/bin:$PATH"
 
 # Create Python virtual environment with uv
-RUN uv python install 3.12
-RUN uv venv venv --python 3.12
+RUN /root/.local/bin/uv python install 3.12
+RUN /root/.local/bin/uv venv venv --python 3.12
 ENV VIRTUAL_ENV=/app/venv
 ENV PATH="/app/venv/bin:$PATH"
 
 # Copy and install Python dependencies using uv
 COPY requirements.txt .
-RUN uv pip install -r requirements.txt
+RUN /root/.local/bin/uv pip install -r requirements.txt
 
 # Copy and install frontend dependencies (for caching)
 COPY frontend/package*.json ./frontend/
