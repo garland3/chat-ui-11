@@ -15,27 +15,39 @@ echo "Project root: $PROJECT_ROOT"
 echo "Frontend directory: $FRONTEND_DIR"
 echo "Backend directory: $BACKEND_DIR"
 
-# Ensure frontend dependencies are installed once
+# Handle frontend build based on environment
 cd "$FRONTEND_DIR"
-export PATH="$FRONTEND_DIR/node_modules/.bin:$PATH"
-echo "Current PATH: $PATH"
 
-echo "Installing frontend dependencies..."
-npm install
-
-# Verify vite exists (local)
-if ! command -v vite >/dev/null 2>&1; then
-    echo "vite binary not found in node_modules/.bin. Listing installed packages for debugging:"
-    ls -1 node_modules/.bin || true
-    echo "Attempting to install vite explicitly..."
-    npx vite --version || {
-        echo "Failed to get vite. Check that 'vite' is declared in package.json dependencies/devDependencies."
+if [ "${ENVIRONMENT:-}" = "cicd" ]; then
+    echo "CI/CD environment: Frontend already built during Docker build, skipping rebuild..."
+    # Verify dist directory exists
+    if [ ! -d "dist" ]; then
+        echo "ERROR: Frontend dist directory not found. Docker build may have failed."
         exit 1
-    }
-fi
+    fi
+    echo "✅ Frontend build verified (dist directory exists)"
+else
+    echo "Local environment: Installing dependencies and building frontend..."
+    export PATH="$FRONTEND_DIR/node_modules/.bin:$PATH"
+    echo "Current PATH: $PATH"
 
-echo "Building frontend..."
-npx vite build
+    echo "Installing frontend dependencies..."
+    npm install
+
+    # Verify vite exists (local)
+    if ! command -v vite >/dev/null 2>&1; then
+        echo "vite binary not found in node_modules/.bin. Listing installed packages for debugging:"
+        ls -1 node_modules/.bin || true
+        echo "Attempting to install vite explicitly..."
+        npx vite --version || {
+            echo "Failed to get vite. Check that 'vite' is declared in package.json dependencies/devDependencies."
+            exit 1
+        }
+    fi
+
+    echo "Building frontend..."
+    npx vite build
+fi
 
 # Start backend with startup validation
 echo "Starting backend server..."

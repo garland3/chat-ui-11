@@ -30,7 +30,7 @@ WORKDIR /app
 COPY backend/ ./backend/
 
 # Copy other necessary files
-COPY llmconfig.yml .
+COPY backend/configfiles/llmconfig.yml ./backend/configfiles/
 COPY docs/ ./docs/
 COPY scripts/ ./scripts/
 COPY test/ ./test/

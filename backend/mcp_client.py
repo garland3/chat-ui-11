@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 class MCPToolManager:
     """Manager for MCP servers and their tools."""
     
-    def __init__(self, config_path: str = "mcp.json"):
+    def __init__(self, config_path: str = "configfiles/mcp.json"):
         self.config_path = config_path
         mcp_config = config_manager.mcp_config
         self.servers_config = {name: server.model_dump() for name, server in mcp_config.servers.items()}

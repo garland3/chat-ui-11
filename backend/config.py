@@ -116,6 +116,7 @@ class ConfigManager:
         """Generate common search paths for a configuration file."""
         current_dir = Path(__file__).parent
         return [
+            current_dir / "configfiles" / file_name,  # New configfiles location
             Path(file_name),
             Path(f"../{file_name}"),
             current_dir.parent / file_name,

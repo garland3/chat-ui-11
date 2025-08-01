@@ -237,10 +237,10 @@ async def get_config(current_user: str = Depends(get_current_user)):
     help_config = {}
     try:
         import json
-        with open("help-config.json", "r", encoding="utf-8") as f:
+        with open("configfiles/help-config.json", "r", encoding="utf-8") as f:
             help_config = json.load(f)
     except Exception as e:
-        logger.warning(f"Could not read help-config.json: {e}")
+        logger.warning(f"Could not read configfiles/help-config.json: {e}")
         help_config = {"title": "Help & Documentation", "sections": []}
     
     # Log what the user can see for debugging
