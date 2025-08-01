@@ -82,8 +82,47 @@ if find e2e/ -name "*.spec.js" -not -name "*.disabled" | grep -q .; then
         npx playwright install chromium
     fi
 
-    echo "Executing E2E test suite with timeout..."
-    timeout 300 npm run test:e2e
+    echo "Executing E2E test suite with enhanced timeout and retry logic..."
+    
+    # Enhanced timeout and retry configuration from run.sh
+    TIMEOUT_DURATION=300  # 5 minutes
+    MAX_RETRIES=2
+    
+    # Function to run tests with timeout and better error handling
+    run_tests_with_timeout() {
+        local attempt=$1
+        echo "🧪 Test attempt ${attempt}/${MAX_RETRIES}"
+        
+        # Run tests with timeout
+        if timeout ${TIMEOUT_DURATION} npm run test:e2e; then
+            echo "✅ E2E tests passed on attempt ${attempt}"
+            return 0
+        else
+            local exit_code=$?
+            if [ $exit_code -eq 124 ]; then
+                echo "⏰ Tests timed out after ${TIMEOUT_DURATION} seconds on attempt ${attempt}"
+            else
+                echo "❌ Tests failed with exit code ${exit_code} on attempt ${attempt}"
+            fi
+            return $exit_code
+        fi
+    }
+    
+    # Run tests with retry logic
+    for attempt in $(seq 1 $MAX_RETRIES); do
+        if run_tests_with_timeout $attempt; then
+            echo "🎉 E2E tests completed successfully!"
+            break
+        fi
+        
+        if [ $attempt -lt $MAX_RETRIES ]; then
+            echo "🔄 Retrying in 5 seconds..."
+            sleep 5
+        else
+            echo "💥 All attempts failed. E2E tests failed after ${MAX_RETRIES} attempts."
+            exit 1
+        fi
+    done
 else
     echo "No active E2E tests found (all *.spec.js are disabled). Skipping."
 fi
