@@ -10,6 +10,9 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser
 # Install system dependencies including Python and Node.js
 RUN dnf update -y && dnf install -y     python3     python3-pip     nodejs     npm     curl     hostname     && dnf clean all
 
+# Install Playwright system dependencies for Chromium
+RUN dnf install -y     at-spi2-atk     atk     cups-libs     drm     gtk3     libxcomposite     libxdamage     libxrandr     libxss     mesa-libgbm     && dnf clean all
+
 # Copy and install Python dependencies first (for caching)
 COPY requirements.txt .
 RUN pip3 install --no-cache-dir -r requirements.txt
