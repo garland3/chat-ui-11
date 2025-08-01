@@ -34,6 +34,9 @@ RAG_MOCK_URL=http://localhost:8001  # RAG service URL
 AGENT_MODE_AVAILABLE=false  # Enable agent mode UI
 AGENT_MAX_STEPS=10          # Maximum agent reasoning steps
 
+# LLM Health Check Settings
+LLM_HEALTH_CHECK_INTERVAL=5  # Health check interval in minutes (0 = disabled)
+
 # API Keys (used by LLM config)
 OPENAI_API_KEY=your_key     # OpenAI API key
 ANTHROPIC_API_KEY=your_key  # Anthropic API key
@@ -362,4 +365,86 @@ cp .env.development .env
 
 # Production
 cp .env.production .env
+```
+
+## LLM Health Check
+
+The system includes automatic health monitoring for all configured LLM models.
+
+### Configuration
+
+Configure health check behavior in your `.env` file:
+
+```bash
+# LLM Health Check Settings
+LLM_HEALTH_CHECK_INTERVAL=5  # Check interval in minutes (0 = disabled)
+```
+
+### How It Works
+
+1. **Startup Check**: Health checks run automatically when the server starts
+2. **Periodic Checks**: Continue running every N minutes (configurable)
+3. **Simple Test**: Sends a minimal "Hi" prompt to each model
+4. **Response Validation**: Expects a non-empty response within reasonable time
+5. **Concurrent Execution**: All models checked simultaneously for efficiency
+
+### Monitoring Health Status
+
+**API Endpoint**: Access real-time health status via the API:
+
+```bash
+curl -H "X-User-Email: user@example.com" \
+     http://localhost:8000/api/llm-health
+```
+
+**Response Format**:
+```json
+{
+  "status": "healthy",
+  "overall_healthy": true,
+  "healthy_count": 2,
+  "total_count": 2,
+  "last_check": "2024-01-15T10:30:45.123456",
+  "models": {
+    "gpt-4": {
+      "healthy": true,
+      "response_time_ms": 245.7,
+      "last_check": "2024-01-15T10:30:45.123456",
+      "error": null
+    },
+    "claude-3": {
+      "healthy": false,
+      "response_time_ms": 5000.0,
+      "last_check": "2024-01-15T10:30:44.987654", 
+      "error": "Connection timeout"
+    }
+  }
+}
+```
+
+### Health Check Logs
+
+Monitor health status in the application logs:
+
+```
+2024-01-15 10:30:45 - llm_health_check - INFO - Running health checks for 2 models: ['gpt-4', 'claude-3']
+2024-01-15 10:30:45 - llm_health_check - INFO - Health check for model 'gpt-4': ✓ HEALTHY (245.7ms)
+2024-01-15 10:30:45 - llm_health_check - ERROR - Health check for model 'claude-3': ✗ FAILED (5000.0ms) - Connection timeout
+2024-01-15 10:30:45 - llm_health_check - INFO - Health check completed: 1/2 models healthy
+```
+
+### Troubleshooting
+
+**Common Issues**:
+
+1. **All models unhealthy**: Check API keys and network connectivity
+2. **Specific model failing**: Verify model configuration in `llmconfig.yml`
+3. **Health checks disabled**: Ensure `LLM_HEALTH_CHECK_INTERVAL > 0`
+4. **High response times**: Consider network latency or model load
+
+**Disable Health Checks**:
+```bash
+# Disable by setting interval to 0
+LLM_HEALTH_CHECK_INTERVAL=0
+```
 ```
