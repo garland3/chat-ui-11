@@ -14,15 +14,8 @@ RUN apt-get update && apt-get install -y     python3     python3-pip     python3
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 ENV PATH="/root/.local/bin:$PATH"
 
-# Create Python virtual environment with uv
-RUN /root/.local/bin/uv python install 3.12
-RUN /root/.local/bin/uv venv venv --python 3.12
-ENV VIRTUAL_ENV=/app/venv
-ENV PATH="/app/venv/bin:$PATH"
-
-# Copy and install Python dependencies using uv
+# Copy requirements first
 COPY requirements.txt .
-RUN /root/.local/bin/uv pip install -r requirements.txt
 
 # Copy and install frontend dependencies (for caching)
 COPY frontend/package*.json ./frontend/
@@ -51,11 +44,24 @@ RUN mkdir -p /app/backend/logs
 # Configure sudo for appuser (needed for Playwright browser installation)
 RUN echo "appuser ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
+# Copy uv to appuser's home directory and set up environment
+RUN cp -r /root/.local /home/appuser/.local && chown -R appuser:appuser /home/appuser/.local
+
 # Change ownership to non-root user
 RUN chown -R appuser:appuser /app
 
 # Switch to non-root user
 USER appuser
+
+# Set up Python environment as appuser
+ENV PATH="/home/appuser/.local/bin:$PATH"
+RUN /home/appuser/.local/bin/uv python install 3.12
+RUN /home/appuser/.local/bin/uv venv venv --python 3.12
+ENV VIRTUAL_ENV=/app/venv
+ENV PATH="/app/venv/bin:$PATH"
+
+# Install Python dependencies using uv
+RUN /home/appuser/.local/bin/uv pip install -r requirements.txt
 
 # Expose port
 EXPOSE 8000
