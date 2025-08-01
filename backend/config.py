@@ -97,6 +97,9 @@ class AppSettings(BaseSettings):
     agent_mode_available: bool = True
     agent_max_steps: int = 10
     
+    # LLM Health Check settings
+    llm_health_check_interval: int = 5  # minutes
+    
     model_config = {
         "env_file": "../.env", 
         "env_file_encoding": "utf-8", 
