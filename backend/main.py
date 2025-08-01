@@ -233,6 +233,16 @@ async def get_config(current_user: str = Depends(get_current_user)):
                     'help_email': server_config.get('help_email', '')
                 })
     
+    # Read help page configuration
+    help_config = {}
+    try:
+        import json
+        with open("help-config.json", "r", encoding="utf-8") as f:
+            help_config = json.load(f)
+    except Exception as e:
+        logger.warning(f"Could not read help-config.json: {e}")
+        help_config = {"title": "Help & Documentation", "sections": []}
+    
     # Log what the user can see for debugging
     logger.info(f"User {current_user} has access to {len(authorized_servers)} servers: {authorized_servers}")
     logger.info(f"Returning {len(tools_info)} server tool groups to frontend for user {current_user}")
@@ -247,7 +257,8 @@ async def get_config(current_user: str = Depends(get_current_user)):
         "active_sessions": session_manager.get_session_count() if session_manager else 0,
         "authorized_servers": authorized_servers,  # Optional: expose for debugging
         "agent_mode_available": app_settings.agent_mode_available,  # Whether agent mode UI should be shown
-        "banner_enabled": app_settings.banner_enabled  # Whether banner system is enabled
+        "banner_enabled": app_settings.banner_enabled,  # Whether banner system is enabled
+        "help_config": help_config  # Help page configuration from help-config.json
     }
 
 
