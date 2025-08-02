@@ -535,3 +535,294 @@ async def reload_configuration(admin_user: str = Depends(require_admin)):
     except Exception as e:
         logger.error(f"Error reloading config: {e}")
         raise HTTPException(status_code=500, detail=f"Error reloading configuration: {str(e)}")
+
+
+# --- Logging Management ---
+
+@admin_router.get("/logs")
+async def get_application_logs(
+    admin_user: str = Depends(require_admin),
+    limit: int = 100,
+    level: str = None,
+    search: str = None
+):
+    """Get application logs from the database."""
+    try:
+        import sqlite3
+        from pathlib import Path
+        
+        db_path = Path("logs/app_logs.db")
+        if not db_path.exists():
+            return {
+                "logs": [],
+                "message": "No log database found",
+                "retrieved_by": admin_user
+            }
+        
+        with sqlite3.connect(str(db_path)) as conn:
+            conn.row_factory = sqlite3.Row
+            
+            # Build query with optional filters
+            query = "SELECT * FROM app_logs"
+            params = []
+            conditions = []
+            
+            if level:
+                conditions.append("level = ?")
+                params.append(level.upper())
+            
+            if search:
+                conditions.append("(message LIKE ? OR logger_name LIKE ? OR user_email LIKE ?)")
+                search_param = f"%{search}%"
+                params.extend([search_param, search_param, search_param])
+            
+            if conditions:
+                query += " WHERE " + " AND ".join(conditions)
+            
+            query += " ORDER BY timestamp DESC LIMIT ?"
+            params.append(limit)
+            
+            cursor = conn.execute(query, params)
+            logs = [dict(row) for row in cursor.fetchall()]
+        
+        return {
+            "logs": logs,
+            "count": len(logs),
+            "filters": {"level": level, "search": search, "limit": limit},
+            "retrieved_by": admin_user
+        }
+    except Exception as e:
+        logger.error(f"Error retrieving logs: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@admin_router.get("/logs/file/{filename}")
+async def get_log_file(
+    filename: str,
+    admin_user: str = Depends(require_admin)
+):
+    """Download a log file."""
+    try:
+        log_file = Path("logs") / filename
+        if not log_file.exists():
+            raise HTTPException(status_code=404, detail=f"Log file {filename} not found")
+        
+        # Security check - ensure the file is in the logs directory
+        if not str(log_file.resolve()).startswith(str(Path("logs").resolve())):
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        logger.info(f"Log file {filename} downloaded by {admin_user}")
+        return FileResponse(
+            path=str(log_file),
+            filename=filename,
+            media_type='text/plain'
+        )
+    except Exception as e:
+        logger.error(f"Error downloading log file: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@admin_router.get("/llm-calls")
+async def get_llm_call_logs(
+    admin_user: str = Depends(require_admin),
+    limit: int = 50,
+    user_email: str = None,
+    model_name: str = None,
+    has_error: bool = None
+):
+    """Get LLM call logs from the database."""
+    try:
+        from logging_config import get_llm_call_logger
+        
+        llm_logger = get_llm_call_logger()
+        if not llm_logger:
+            return {
+                "calls": [],
+                "message": "LLM call logger not available",
+                "retrieved_by": admin_user
+            }
+        
+        import sqlite3
+        from pathlib import Path
+        
+        db_path = Path("logs/llm_calls.db")
+        if not db_path.exists():
+            return {
+                "calls": [],
+                "message": "No LLM call database found",
+                "retrieved_by": admin_user
+            }
+        
+        with sqlite3.connect(str(db_path)) as conn:
+            conn.row_factory = sqlite3.Row
+            
+            # Build query with optional filters
+            query = "SELECT * FROM llm_calls"
+            params = []
+            conditions = []
+            
+            if user_email:
+                conditions.append("user_email = ?")
+                params.append(user_email)
+            
+            if model_name:
+                conditions.append("model_name = ?")
+                params.append(model_name)
+            
+            if has_error is not None:
+                if has_error:
+                    conditions.append("error_message IS NOT NULL")
+                else:
+                    conditions.append("error_message IS NULL")
+            
+            if conditions:
+                query += " WHERE " + " AND ".join(conditions)
+            
+            query += " ORDER BY timestamp DESC LIMIT ?"
+            params.append(limit)
+            
+            cursor = conn.execute(query, params)
+            calls = [dict(row) for row in cursor.fetchall()]
+        
+        # Don't return full input/output for list view - only for detail view
+        for call in calls:
+            if len(call.get('input_messages', '')) > 500:
+                call['input_messages'] = call['input_messages'][:500] + "... (truncated)"
+            if len(call.get('output_response', '')) > 500:
+                call['output_response'] = call['output_response'][:500] + "... (truncated)"
+        
+        return {
+            "calls": calls,
+            "count": len(calls),
+            "filters": {
+                "user_email": user_email,
+                "model_name": model_name,
+                "has_error": has_error,
+                "limit": limit
+            },
+            "retrieved_by": admin_user
+        }
+    except Exception as e:
+        logger.error(f"Error retrieving LLM call logs: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@admin_router.get("/llm-calls/{call_id}")
+async def get_llm_call_detail(
+    call_id: int,
+    admin_user: str = Depends(require_admin)
+):
+    """Get detailed information about a specific LLM call."""
+    try:
+        import sqlite3
+        from pathlib import Path
+        
+        db_path = Path("logs/llm_calls.db")
+        if not db_path.exists():
+            raise HTTPException(status_code=404, detail="LLM call database not found")
+        
+        with sqlite3.connect(str(db_path)) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.execute(
+                "SELECT * FROM llm_calls WHERE id = ?",
+                (call_id,)
+            )
+            call = cursor.fetchone()
+        
+        if not call:
+            raise HTTPException(status_code=404, detail=f"LLM call {call_id} not found")
+        
+        logger.info(f"LLM call details {call_id} viewed by {admin_user}")
+        return {
+            "call": dict(call),
+            "retrieved_by": admin_user
+        }
+    except Exception as e:
+        logger.error(f"Error retrieving LLM call detail: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@admin_router.get("/llm-stats")
+async def get_llm_usage_stats(
+    admin_user: str = Depends(require_admin),
+    days: int = 7
+):
+    """Get LLM usage statistics."""
+    try:
+        import sqlite3
+        from pathlib import Path
+        from datetime import datetime, timedelta
+        
+        db_path = Path("logs/llm_calls.db")
+        if not db_path.exists():
+            return {
+                "stats": {},
+                "message": "No LLM call database found",
+                "retrieved_by": admin_user
+            }
+        
+        since_date = (datetime.now() - timedelta(days=days)).isoformat()
+        
+        with sqlite3.connect(str(db_path)) as conn:
+            conn.row_factory = sqlite3.Row
+            
+            # Total calls and errors
+            cursor = conn.execute("""
+                SELECT 
+                    COUNT(*) as total_calls,
+                    SUM(CASE WHEN error_message IS NOT NULL THEN 1 ELSE 0 END) as error_calls,
+                    AVG(processing_time_ms) as avg_processing_time,
+                    SUM(token_count_input) as total_input_tokens,
+                    SUM(token_count_output) as total_output_tokens
+                FROM llm_calls 
+                WHERE timestamp >= ?
+            """, (since_date,))
+            summary = dict(cursor.fetchone())
+            
+            # Calls by model
+            cursor = conn.execute("""
+                SELECT model_name, COUNT(*) as count
+                FROM llm_calls 
+                WHERE timestamp >= ?
+                GROUP BY model_name
+                ORDER BY count DESC
+            """, (since_date,))
+            by_model = [dict(row) for row in cursor.fetchall()]
+            
+            # Calls by user
+            cursor = conn.execute("""
+                SELECT user_email, COUNT(*) as count
+                FROM llm_calls 
+                WHERE timestamp >= ?
+                GROUP BY user_email
+                ORDER BY count DESC
+                LIMIT 10
+            """, (since_date,))
+            by_user = [dict(row) for row in cursor.fetchall()]
+            
+            # Daily usage
+            cursor = conn.execute("""
+                SELECT 
+                    DATE(timestamp) as date,
+                    COUNT(*) as calls,
+                    SUM(CASE WHEN error_message IS NOT NULL THEN 1 ELSE 0 END) as errors
+                FROM llm_calls 
+                WHERE timestamp >= ?
+                GROUP BY DATE(timestamp)
+                ORDER BY date DESC
+            """, (since_date,))
+            daily_usage = [dict(row) for row in cursor.fetchall()]
+        
+        return {
+            "stats": {
+                "summary": summary,
+                "by_model": by_model,
+                "by_user": by_user,
+                "daily_usage": daily_usage,
+                "period_days": days
+            },
+            "retrieved_by": admin_user
+        }
+    except Exception as e:
+        logger.error(f"Error retrieving LLM stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
