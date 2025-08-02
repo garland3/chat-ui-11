@@ -240,6 +240,15 @@
                 <br>
                 <button class="btn" onclick="checkHealth()">Check Health</button>
                 <button class="btn btn-secondary" onclick="triggerHealthCheck()">Trigger Health Check</button>
+                <button class="btn btn-secondary" onclick="viewMCPHealth()">MCP Server Health</button>
+            </div>
+            
+            <div class="card">
+                <h2>🔄 Configuration</h2>
+                <p>Reload configurations and manage system settings.</p>
+                <div id="config-status" class="status">Ready</div>
+                <br>
+                <button class="btn" onclick="reloadConfiguration()">Reload Config</button>
             </div>
         </div>
         
@@ -476,13 +485,97 @@
             try {
                 const response = await fetch('/admin/trigger-health-check', { method: 'POST' });
                 const data = await response.json();
-                showSuccess('Health check triggered: ' + data.message);
+                
+                if (data.summary) {
+                    showSuccess(`Health check completed: ${data.summary.healthy_count}/${data.summary.total_count} servers healthy`);
+                } else {
+                    showSuccess('Health check triggered: ' + data.message);
+                }
                 
                 // Refresh system status after a moment
                 setTimeout(loadSystemStatus, 2000);
                 
             } catch (error) {
                 showError('Error triggering health check: ' + error.message);
+            }
+        }
+        
+        async function viewMCPHealth() {
+            try {
+                const response = await fetch('/admin/mcp-health');
+                const data = await response.json();
+                
+                document.getElementById('modal-title').textContent = 'MCP Server Health Status';
+                
+                let healthHTML = `
+                    <div class="form-group">
+                        <label>MCP Server Health Summary</label>
+                        <div style="margin-top: 15px;">
+                `;
+                
+                const summary = data.health_summary;
+                healthHTML += `
+                    <div style="margin-bottom: 15px; padding: 15px; border: 1px solid #ddd; border-radius: 4px;">
+                        <strong>Overall Status:</strong> 
+                        <span class="status ${summary.overall_status}">${summary.overall_status}</span><br>
+                        <strong>Servers:</strong> ${summary.healthy_count}/${summary.total_count} healthy<br>
+                        <strong>Last Check:</strong> ${summary.last_check ? new Date(summary.last_check * 1000).toLocaleString() : 'Never'}<br>
+                        <strong>Check Interval:</strong> ${summary.check_interval} seconds
+                    </div>
+                `;
+                
+                if (summary.servers) {
+                    Object.entries(summary.servers).forEach(([serverName, serverInfo]) => {
+                        healthHTML += `
+                            <div style="margin-bottom: 10px; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
+                                <strong>${serverName}:</strong> 
+                                <span class="status ${serverInfo.status}">${serverInfo.status}</span><br>
+                                <small>
+                                    Last Check: ${new Date(serverInfo.last_check * 1000).toLocaleString()}<br>
+                                    ${serverInfo.response_time_ms ? `Response Time: ${serverInfo.response_time_ms.toFixed(1)}ms<br>` : ''}
+                                    ${serverInfo.error_message ? `Error: ${serverInfo.error_message}<br>` : ''}
+                                    Running: ${serverInfo.is_running ? 'Yes' : 'No'}
+                                </small>
+                            </div>
+                        `;
+                    });
+                }
+                
+                healthHTML += '</div></div>';
+                
+                document.getElementById('modal-content').innerHTML = healthHTML;
+                
+                // Hide save button for health check (read-only)
+                document.querySelector('#edit-modal button.btn:not(.btn-secondary)').style.display = 'none';
+                document.getElementById('edit-modal').style.display = 'block';
+                
+            } catch (error) {
+                showError('Error getting MCP health status: ' + error.message);
+            }
+        }
+        
+        async function reloadConfiguration() {
+            try {
+                const response = await fetch('/admin/reload-config', { method: 'POST' });
+                const data = await response.json();
+                
+                if (data.validation_status) {
+                    const validCount = Object.values(data.validation_status).filter(v => v).length;
+                    const totalCount = Object.keys(data.validation_status).length;
+                    showSuccess(`Configuration reloaded: ${validCount}/${totalCount} configs valid. ${data.llm_models_count} LLM models, ${data.mcp_servers_count} MCP servers.`);
+                } else {
+                    showSuccess('Configuration reloaded: ' + data.message);
+                }
+                
+                // Update config status
+                updateStatusElement('config-status', 'healthy');
+                
+                // Refresh system status
+                setTimeout(loadSystemStatus, 1000);
+                
+            } catch (error) {
+                showError('Error reloading configuration: ' + error.message);
+                updateStatusElement('config-status', 'error');
             }
         }
         

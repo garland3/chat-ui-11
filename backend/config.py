@@ -100,6 +100,9 @@ class AppSettings(BaseSettings):
     # LLM Health Check settings
     llm_health_check_interval: int = 5  # minutes
     
+    # MCP Health Check settings  
+    mcp_health_check_interval: int = 300  # seconds (5 minutes)
+    
     model_config = {
         "env_file": "../.env", 
         "env_file_encoding": "utf-8", 
@@ -117,10 +120,14 @@ class ConfigManager:
         self._mcp_config: Optional[MCPConfig] = None
     
     def _search_paths(self, file_name: str) -> List[Path]:
-        """Generate common search paths for a configuration file."""
+        """Generate common search paths for a configuration file.
+        
+        Prioritizes configfilesadmin (admin-managed) over configfiles (default).
+        """
         current_dir = Path(__file__).parent
         return [
-            current_dir / "configfiles" / file_name,  # New configfiles location
+            current_dir / "configfilesadmin" / file_name,  # Admin-managed configs (highest priority)
+            current_dir / "configfiles" / file_name,        # Default configs
             Path(file_name),
             Path(f"../{file_name}"),
             current_dir.parent / file_name,

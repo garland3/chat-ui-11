@@ -23,6 +23,7 @@ from pydantic import BaseModel
 from auth import is_user_in_group
 from utils import get_current_user
 from config import config_manager
+from mcp_health_check import mcp_health_monitor, get_mcp_health_status, trigger_mcp_health_check
 
 
 logger = logging.getLogger(__name__)
@@ -152,7 +153,10 @@ async def admin_dashboard(admin_user: str = Depends(require_admin)):
             "/admin/llm-config",
             "/admin/help-config",
             "/admin/logs",
-            "/admin/system-status"
+            "/admin/system-status",
+            "/admin/mcp-health",
+            "/admin/trigger-health-check",
+            "/admin/reload-config"
         ]
     }
 
@@ -395,6 +399,20 @@ async def get_system_status(admin_user: str = Depends(require_admin)):
             }
         ))
         
+        # Check MCP server health
+        mcp_health = get_mcp_health_status()
+        mcp_status = mcp_health.get("overall_status", "unknown")
+        status_info.append(SystemStatus(
+            component="MCP Servers",
+            status=mcp_status,
+            details={
+                "healthy_count": mcp_health.get("healthy_count", 0),
+                "total_count": mcp_health.get("total_count", 0),
+                "last_check": mcp_health.get("last_check"),
+                "check_interval": mcp_health.get("check_interval", 300)
+            }
+        ))
+        
         return {
             "overall_status": "healthy" if all(s.status == "healthy" for s in status_info) else "warning",
             "components": [s.model_dump() for s in status_info],
@@ -408,33 +426,78 @@ async def get_system_status(admin_user: str = Depends(require_admin)):
 
 # --- Health Check Trigger ---
 
+@admin_router.get("/mcp-health")
+async def get_mcp_health(admin_user: str = Depends(require_admin)):
+    """Get detailed MCP server health information."""
+    try:
+        health_summary = get_mcp_health_status()
+        return {
+            "health_summary": health_summary,
+            "checked_by": admin_user
+        }
+    except Exception as e:
+        logger.error(f"Error getting MCP health: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @admin_router.post("/trigger-health-check")
 async def trigger_health_check(admin_user: str = Depends(require_admin)):
     """Manually trigger MCP server health checks."""
     try:
-        # This would trigger a health check of all MCP servers
-        # For now, return placeholder response
+        # Try to get the MCP manager from main application state
+        mcp_manager = None
+        try:
+            from main import mcp_manager as main_mcp_manager
+            mcp_manager = main_mcp_manager
+        except ImportError:
+            # In test environment, mcp_manager might not be available
+            logger.warning("MCP manager not available for health check")
+        
+        # Trigger health check
+        health_results = await trigger_mcp_health_check(mcp_manager)
+        
+        # Get summary
+        health_summary = get_mcp_health_status()
+        
+        logger.info(f"Health check triggered by {admin_user}")
         return {
-            "message": "Health check triggered",
+            "message": "MCP server health check completed",
             "triggered_by": admin_user,
-            "note": "MCP health checking functionality to be implemented"
+            "summary": health_summary,
+            "details": health_results
         }
     except Exception as e:
         logger.error(f"Error triggering health check: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Error triggering health check: {str(e)}")
 
 
 @admin_router.post("/reload-config")
 async def reload_configuration(admin_user: str = Depends(require_admin)):
     """Reload configuration from configfilesadmin files."""
     try:
-        # This would trigger a reload of all configuration
-        # For now, return placeholder response 
+        # Reload configuration from files
+        config_manager.reload_configs()
+        
+        # Validate the reloaded configurations
+        validation_status = config_manager.validate_config()
+        
+        # Get the updated configurations for verification
+        llm_models = list(config_manager.llm_config.models.keys())
+        mcp_servers = list(config_manager.mcp_config.servers.keys())
+        
+        logger.info(f"Configuration reloaded by {admin_user}")
+        logger.info(f"Reloaded LLM models: {llm_models}")
+        logger.info(f"Reloaded MCP servers: {mcp_servers}")
+        
         return {
-            "message": "Configuration reload triggered",
+            "message": "Configuration reloaded successfully",
             "reloaded_by": admin_user,
-            "note": "Dynamic configuration reloading to be implemented"
+            "validation_status": validation_status,
+            "llm_models_count": len(llm_models),
+            "mcp_servers_count": len(mcp_servers),
+            "llm_models": llm_models,
+            "mcp_servers": mcp_servers
         }
     except Exception as e:
         logger.error(f"Error reloading config: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Error reloading configuration: {str(e)}")
