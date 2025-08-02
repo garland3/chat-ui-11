@@ -16,7 +16,7 @@ def is_user_in_group(user_id: str, group_id: str) -> bool:
     """
     # Mock implementation - in production this would query actual auth system
     mock_groups = {
-        "test@test.com": ["users", "mcp_basic"],
+        "test@test.com": ["users", "mcp_basic", "admin"],
         "user@example.com": ["users", "mcp_basic"],
         "admin@example.com": ["admin", "users", "mcp_basic", "mcp_advanced"]
     }
