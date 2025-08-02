@@ -40,8 +40,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
         # Check authentication
         user_email = None
         if self.debug_mode:
-            user_email = "test@test.com"
-            logger.info("Debug mode: using test user")
+            # In debug mode, honor X-User-Email header if provided, otherwise use default
+            x_email_header = request.headers.get('X-User-Email')
+            user_email = get_user_from_header(x_email_header) if x_email_header else "test@test.com"
+            logger.info(f"Debug mode: using user {user_email}")
         else:
             x_email_header = request.headers.get('X-User-Email')
             user_email = get_user_from_header(x_email_header)

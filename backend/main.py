@@ -68,6 +68,7 @@ from rag_client import initialize_rag_client
 import banner_client
 from banner_client import initialize_banner_client
 from llm_health_check import health_checker, get_llm_health_status
+from admin_routes import admin_router, setup_configfilesadmin
 
 mcp_manager: Optional[MCPToolManager] = None
 session_manager: Optional[SessionManager] = None
@@ -107,6 +108,10 @@ async def lifespan(app: FastAPI):
     
     # Startup
     logger.info("Starting Chat UI backend")
+    
+    # Setup admin configuration directory
+    setup_configfilesadmin()
+    
     mcp_manager = MCPToolManager()
     await mcp_manager.initialize_clients()
     await mcp_manager.discover_tools()
@@ -145,6 +150,9 @@ app = FastAPI(title=app_settings.app_name, lifespan=lifespan)
 
 # Add middleware
 app.add_middleware(AuthMiddleware, debug_mode=DEBUG_MODE)
+
+# Include admin router
+app.include_router(admin_router)
 
 # Serve static files
 app.mount("/static", StaticFiles(directory="../frontend/dist"), name="static")
