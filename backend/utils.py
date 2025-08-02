@@ -1,4 +1,4 @@
-import asyncio
+﻿import asyncio
 import json
 import logging
 import os
@@ -432,7 +432,7 @@ async def call_llm_with_tools(
                     server_name = mapping["server"]
                     tool_name = mapping["tool_name"]
                     
-                    logger.info(f"🔧 TOOL MAPPING: {function_name} -> server: {server_name}, tool: {tool_name}")
+                    logger.info(f"ðŸ TOOL MAPPING: {function_name} -> server: {server_name}, tool: {tool_name}")
                     
                     # Send tool call notification to UI
                     if session:
@@ -569,7 +569,7 @@ async def call_llm_with_tools(
                         )
                 else:
                     # Tool not found in mapping
-                    logger.error(f"🔧 TOOL NOT FOUND: {function_name} not in tool mapping. Available tools: {list(tool_mapping.keys())}")
+                    logger.error(f"ðŸ TOOL NOT FOUND: {function_name} not in tool mapping. Available tools: {list(tool_mapping.keys())}")
                     error_message = f"Unknown tool: {function_name}. Available tools: {', '.join(tool_mapping.keys())}"
                     
                     # Send tool error notification to UI
@@ -631,3 +631,4 @@ async def call_llm_with_tools(
     except KeyError as exc:
         logger.error("Invalid response format from LLM: %s", exc, exc_info=True)
         raise Exception("Invalid response format from LLM")
+

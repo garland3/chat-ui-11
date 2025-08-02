@@ -17,7 +17,7 @@ from typing import Dict, List, Any, Optional
 
 import yaml
 from fastapi import APIRouter, HTTPException, Depends, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from auth import is_user_in_group
@@ -89,13 +89,19 @@ def get_admin_config_path(filename: str) -> Path:
 
 
 def get_file_content(file_path: Path) -> str:
-    """Read file content safely."""
+    """Read file content safely with encoding error handling."""
     try:
         if not file_path.exists():
             raise HTTPException(status_code=404, detail=f"File {file_path.name} not found")
         
-        with open(file_path, 'r', encoding='utf-8') as f:
-            return f.read()
+        # Try UTF-8 first, then fall back to UTF-8 with error handling
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                return f.read()
+        except UnicodeDecodeError:
+            # Fall back to UTF-8 with error replacement
+            with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
+                return f.read()
     except Exception as e:
         logger.error(f"Error reading file {file_path}: {e}")
         raise HTTPException(status_code=500, detail=f"Error reading file: {str(e)}")
@@ -112,8 +118,18 @@ def write_file_content(file_path: Path, content: str, file_type: str = "text"):
         
         # Write to temporary file first, then rename for atomic operation
         temp_path = file_path.with_suffix(file_path.suffix + ".tmp")
+        
+        # Remove temporary file if it already exists
+        if temp_path.exists():
+            temp_path.unlink()
+        
         with open(temp_path, 'w', encoding='utf-8') as f:
             f.write(content)
+        
+        # On Windows, we need to remove the target file before rename
+        # to avoid "file already exists" error
+        if os.name == 'nt' and file_path.exists():
+            file_path.unlink()
         
         # Atomic rename
         temp_path.rename(file_path)
@@ -130,17 +146,6 @@ def write_file_content(file_path: Path, content: str, file_type: str = "text"):
 
 # --- Admin Dashboard Routes ---
 
-@admin_router.get("/dashboard", response_class=HTMLResponse)
-async def admin_dashboard_page(admin_user: str = Depends(require_admin)):
-    """Serve the admin dashboard HTML interface."""
-    try:
-        with open("admin.html", "r", encoding="utf-8") as f:
-            html_content = f.read()
-        return HTMLResponse(content=html_content)
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="Admin dashboard HTML not found")
-
-
 @admin_router.get("/")
 async def admin_dashboard(admin_user: str = Depends(require_admin)):
     """Get admin dashboard overview."""
@@ -153,6 +158,7 @@ async def admin_dashboard(admin_user: str = Depends(require_admin)):
             "/admin/llm-config",
             "/admin/help-config",
             "/admin/logs",
+            "/admin/logs/download",
             "/admin/system-status",
             "/admin/mcp-health",
             "/admin/trigger-health-check",
@@ -335,7 +341,7 @@ async def update_help_config(
 
 @admin_router.get("/logs")
 async def get_app_logs(
-    lines: int = 100,
+    lines: int = 500,
     admin_user: str = Depends(require_admin)
 ):
     """Get application logs."""
@@ -349,10 +355,16 @@ async def get_app_logs(
                 "file_path": str(log_file)
             }
         
-        # Read last N lines
-        with open(log_file, 'r', encoding='utf-8') as f:
-            all_lines = f.readlines()
-            recent_lines = all_lines[-lines:] if len(all_lines) > lines else all_lines
+        # Read last N lines with encoding error handling
+        try:
+            with open(log_file, 'r', encoding='utf-8') as f:
+                all_lines = f.readlines()
+        except UnicodeDecodeError:
+            # Fall back to UTF-8 with error replacement
+            with open(log_file, 'r', encoding='utf-8', errors='replace') as f:
+                all_lines = f.readlines()
+        
+        recent_lines = all_lines[-lines:] if len(all_lines) > lines else all_lines
         
         return {
             "content": "".join(recent_lines),
@@ -363,6 +375,28 @@ async def get_app_logs(
         }
     except Exception as e:
         logger.error(f"Error getting logs: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@admin_router.get("/logs/download")
+async def download_app_logs(admin_user: str = Depends(require_admin)):
+    """Download the complete application log file."""
+    try:
+        log_file = Path("logs/app.log")
+        
+        if not log_file.exists():
+            raise HTTPException(status_code=404, detail="Log file not found")
+        
+        # Import FileResponse here to avoid circular imports
+        from fastapi.responses import FileResponse
+        
+        return FileResponse(
+            path=str(log_file),
+            filename=f"app_log_{log_file.stat().st_mtime}.log",
+            media_type="text/plain"
+        )
+    except Exception as e:
+        logger.error(f"Error downloading logs: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

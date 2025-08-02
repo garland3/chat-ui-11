@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useChat } from '../contexts/ChatContext'
 import { useWS } from '../contexts/WSContext'
-import { Menu, ChevronDown, Settings, Bot, Download, Plus, HelpCircle } from 'lucide-react'
+import { Menu, ChevronDown, Settings, Bot, Download, Plus, HelpCircle, Shield } from 'lucide-react'
 
 const Header = ({ onToggleRag, onToggleTools, onToggleAgent, onCloseCanvas }) => {
   const navigate = useNavigate()
@@ -181,6 +181,15 @@ const Header = ({ onToggleRag, onToggleTools, onToggleAgent, onCloseCanvas }) =>
             <Bot className="w-5 h-5" />
           </button>
         )}
+
+        {/* Admin Button */}
+        <button
+          onClick={() => navigate('/admin')}
+          className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
+          title="Admin Dashboard"
+        >
+          <Shield className="w-5 h-5" />
+        </button>
 
         {/* Help Button */}
         <button

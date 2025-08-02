@@ -1,17 +1,6 @@
 {
 
-  "calculator": {
-    "command": ["python", "mcp/calculator/main.py"],
-    "cwd": "backend",
-    "groups": ["users"],
-    "is_exclusive": false,
-    "description": "Basic mathematical calculations",
-    "author": "Chat UI Team",
-    "short_description": "Perform basic math operations",
-    "help_email": "support@chatui.example.com"
-  },
 
-  
   "thinking": {
     "command": ["python", "mcp/thinking/main.py"],
     "cwd": "backend",

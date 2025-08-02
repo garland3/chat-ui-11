@@ -1,4 +1,4 @@
-"""
+﻿"""
 Message processing module containing the core chat message handling logic.
 
 This module contains the MessageProcessor class which handles the most critical
@@ -405,11 +405,11 @@ class MessageProcessor:
             # List top documents with confidence scores
             for i, doc in enumerate(metadata.documents_found[:3]):  # Show top 3 documents
                 confidence_percent = int(doc.confidence_score * 100)
-                summary_parts.append(f"  • {doc.source} ({confidence_percent}% relevance, {doc.content_type})")
+                summary_parts.append(f"  â {doc.source} ({confidence_percent}% relevance, {doc.content_type})")
             
             if len(metadata.documents_found) > 3:
                 remaining = len(metadata.documents_found) - 3
-                summary_parts.append(f"  • ... and {remaining} more document(s)")
+                summary_parts.append(f"  â ... and {remaining} more document(s)")
         
         # Add retrieval method
         summary_parts.append(f" **Retrieval Method:** {metadata.retrieval_method}")

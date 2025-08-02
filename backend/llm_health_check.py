@@ -1,4 +1,4 @@
-"""
+﻿"""
 LLM Health Check Module
 
 Provides simple health check functionality for LLM services by:
@@ -73,7 +73,7 @@ class LLMHealthChecker:
             
             logger.info(
                 f"Health check for model '{model_name}': "
-                f"{'✓ HEALTHY' if is_healthy else '✗ UNHEALTHY'} "
+                f"{'âœ HEALTHY' if is_healthy else 'âœ UNHEALTHY'} "
                 f"({response_time_ms:.1f}ms)"
             )
             
@@ -92,7 +92,7 @@ class LLMHealthChecker:
             )
             
             logger.error(
-                f"Health check for model '{model_name}': ✗ FAILED "
+                f"Health check for model '{model_name}': âœ FAILED "
                 f"({response_time_ms:.1f}ms) - {e}"
             )
             
