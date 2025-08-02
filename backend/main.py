@@ -77,22 +77,15 @@ session_manager: Optional[SessionManager] = None
 # Load environment variables from the parent directory
 load_dotenv(dotenv_path="../.env")
 
+# Setup comprehensive logging
+from logging_config import setup_logging
+setup_logging()
+
 # Initialize RAG client after environment variables are loaded
 initialize_rag_client()
 
 # Initialize Banner client after environment variables are loaded
 initialize_banner_client()
-
-# Setup logging
-os.makedirs("logs", exist_ok=True)
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('logs/app.log'),
-        logging.StreamHandler()
-    ]
-)
 
 logger = logging.getLogger(__name__)
 

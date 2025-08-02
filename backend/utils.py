@@ -62,11 +62,27 @@ async def validate_selected_tools(
         return []
 
 
-async def call_llm(model_name: str, messages: List[Dict[str, str]]) -> str:
+async def call_llm(model_name: str, messages: List[Dict[str, str]], user_email: str = "unknown", session_id: str = None) -> str:
     """Call an OpenAI-compliant LLM API using requests."""
+    import time
+    from logging_config import get_llm_call_logger
+    
+    start_time = time.time()
+    llm_logger = get_llm_call_logger()
+    
     llm_config = config_manager.llm_config
     if model_name not in llm_config.models:
-        raise ValueError(f"Model {model_name} not found in configuration")
+        error_msg = f"Model {model_name} not found in configuration"
+        if llm_logger:
+            llm_logger.log_llm_call(
+                user_email=user_email,
+                model_name=model_name,
+                input_messages=messages,
+                output_response="",
+                session_id=session_id,
+                error_message=error_msg
+            )
+        raise ValueError(error_msg)
 
     model_config = llm_config.models[model_name]
     api_url = model_config.model_url
@@ -81,17 +97,84 @@ async def call_llm(model_name: str, messages: List[Dict[str, str]]) -> str:
         response = await loop.run_in_executor(
             None, lambda: requests.post(api_url, headers=headers, json=payload, timeout=30)
         )
+        
+        processing_time_ms = int((time.time() - start_time) * 1000)
+        
         if response.status_code == 200:
             result = response.json()
-            return result["choices"][0]["message"]["content"]
+            response_content = result["choices"][0]["message"]["content"]
+            
+            # Log successful LLM call
+            if llm_logger:
+                llm_logger.log_llm_call(
+                    user_email=user_email,
+                    model_name=model_name,
+                    input_messages=messages,
+                    output_response=response_content,
+                    session_id=session_id,
+                    processing_time_ms=processing_time_ms,
+                    api_endpoint=api_url
+                )
+            
+            return response_content
+            
+        error_msg = f"LLM API error: {response.status_code}"
         logger.error("LLM API error %s: %s", response.status_code, response.text, exc_info=True)
-        raise Exception(f"LLM API error: {response.status_code}")
+        
+        # Log failed LLM call
+        if llm_logger:
+            llm_logger.log_llm_call(
+                user_email=user_email,
+                model_name=model_name,
+                input_messages=messages,
+                output_response="",
+                session_id=session_id,
+                processing_time_ms=processing_time_ms,
+                error_message=f"API Error {response.status_code}: {response.text}",
+                api_endpoint=api_url
+            )
+        
+        raise Exception(error_msg)
+        
     except requests.RequestException as exc:
+        processing_time_ms = int((time.time() - start_time) * 1000)
+        error_msg = f"Failed to call LLM: {exc}"
         logger.error("Request error calling LLM: %s", exc, exc_info=True)
-        raise Exception(f"Failed to call LLM: {exc}")
+        
+        # Log failed LLM call
+        if llm_logger:
+            llm_logger.log_llm_call(
+                user_email=user_email,
+                model_name=model_name,
+                input_messages=messages,
+                output_response="",
+                session_id=session_id,
+                processing_time_ms=processing_time_ms,
+                error_message=str(exc),
+                api_endpoint=api_url
+            )
+        
+        raise Exception(error_msg)
+        
     except KeyError as exc:
+        processing_time_ms = int((time.time() - start_time) * 1000)
+        error_msg = "Invalid response format from LLM"
         logger.error("Invalid response format from LLM: %s", exc, exc_info=True)
-        raise Exception("Invalid response format from LLM")
+        
+        # Log failed LLM call
+        if llm_logger:
+            llm_logger.log_llm_call(
+                user_email=user_email,
+                model_name=model_name,
+                input_messages=messages,
+                output_response="",
+                session_id=session_id,
+                processing_time_ms=processing_time_ms,
+                error_message=error_msg,
+                api_endpoint=api_url
+            )
+        
+        raise Exception(error_msg)
 
 
 async def _save_tool_files_to_session(tool_result: Dict[str, Any], session, tool_name: str) -> None:
@@ -308,8 +391,10 @@ async def call_llm_with_tools(
     selected_tools: List[str] = None,  # New parameter for selected tools
 ) -> str:
     """Call LLM with tool-calling support."""
+    session_id = getattr(session, 'session_id', None) if session else None
+    
     if not validated_servers:
-        return await call_llm(model_name, messages)
+        return await call_llm(model_name, messages, user_email, session_id)
 
     # Get all available tools from validated servers
     tools_data = mcp_manager.get_tools_for_servers(validated_servers)
@@ -354,7 +439,7 @@ async def call_llm_with_tools(
         }
 
     if not tools_schema:
-        return await call_llm(model_name, messages)
+        return await call_llm(model_name, messages, user_email, session_id)
 
     llm_config = config_manager.llm_config
     if model_name not in llm_config.models:
@@ -379,13 +464,38 @@ async def call_llm_with_tools(
     }
 
     try:
+        import time
+        from logging_config import get_llm_call_logger
+        
+        start_time = time.time()
+        llm_logger = get_llm_call_logger()
+        
         loop = asyncio.get_event_loop()
         response = await loop.run_in_executor(
             None, lambda: requests.post(api_url, headers=headers, json=payload, timeout=30)
         )
+        
+        processing_time_ms = int((time.time() - start_time) * 1000)
+        
         if response.status_code != 200:
+            error_msg = f"LLM API error: {response.status_code}"
             logger.error("LLM API error %s: %s", response.status_code, response.text, exc_info=True)
-            raise Exception(f"LLM API error: {response.status_code}")
+            
+            # Log failed LLM call with tools
+            if llm_logger:
+                llm_logger.log_llm_call(
+                    user_email=user_email,
+                    model_name=model_name,
+                    input_messages=messages,
+                    output_response="",
+                    session_id=session_id,
+                    selected_tools=[tool['function']['name'] for tool in tools_schema],
+                    processing_time_ms=processing_time_ms,
+                    error_message=f"API Error {response.status_code}: {response.text}",
+                    api_endpoint=api_url
+                )
+            
+            raise Exception(error_msg)
 
         result = response.json()
         choice = result["choices"][0]
@@ -617,18 +727,95 @@ async def call_llm_with_tools(
                 )
                 if follow_up_response.status_code == 200:
                     follow_up_result = follow_up_response.json()
-                    return follow_up_result["choices"][0]["message"]["content"]
+                    final_response = follow_up_result["choices"][0]["message"]["content"]
+                    
+                    # Log successful LLM call with tools and follow-up
+                    if llm_logger:
+                        llm_logger.log_llm_call(
+                            user_email=user_email,
+                            model_name=model_name,
+                            input_messages=messages,
+                            output_response=final_response,
+                            session_id=session_id,
+                            tool_calls=str(message.get("tool_calls", [])),
+                            selected_tools=[tool['function']['name'] for tool in tools_schema],
+                            processing_time_ms=processing_time_ms,
+                            api_endpoint=api_url
+                        )
+                    
+                    return final_response
                 logger.error(
                     "Follow-up LLM call failed: %s", follow_up_response.status_code, exc_info=True
                 )
-                return message.get(
+                fallback_response = message.get(
                     "content", "Tool execution completed but failed to generate response."
                 )
-        return message.get("content", "")
+                
+                # Log partial success (tools worked but follow-up failed)
+                if llm_logger:
+                    llm_logger.log_llm_call(
+                        user_email=user_email,
+                        model_name=model_name,
+                        input_messages=messages,
+                        output_response=fallback_response,
+                        session_id=session_id,
+                        tool_calls=str(message.get("tool_calls", [])),
+                        selected_tools=[tool['function']['name'] for tool in tools_schema],
+                        processing_time_ms=processing_time_ms,
+                        error_message="Follow-up call failed",
+                        api_endpoint=api_url
+                    )
+                
+                return fallback_response
+        final_response = message.get("content", "")
+        
+        # Log successful LLM call
+        if llm_logger:
+            llm_logger.log_llm_call(
+                user_email=user_email,
+                model_name=model_name,
+                input_messages=messages,
+                output_response=final_response,
+                session_id=session_id,
+                tool_calls=str(message.get("tool_calls", [])) if message.get("tool_calls") else None,
+                selected_tools=[tool['function']['name'] for tool in tools_schema],
+                processing_time_ms=processing_time_ms,
+                api_endpoint=api_url
+            )
+        
+        return final_response
     except requests.RequestException as exc:
         logger.error("Request error calling LLM with tools: %s", exc, exc_info=True)
+        
+        # Log failed LLM call
+        if 'llm_logger' in locals() and llm_logger:
+            llm_logger.log_llm_call(
+                user_email=user_email,
+                model_name=model_name,
+                input_messages=messages,
+                output_response="",
+                session_id=session_id,
+                selected_tools=[tool['function']['name'] for tool in tools_schema],
+                error_message=f"Request error: {exc}",
+                api_endpoint=api_url
+            )
+        
         raise Exception(f"Failed to call LLM: {exc}")
     except KeyError as exc:
         logger.error("Invalid response format from LLM: %s", exc, exc_info=True)
+        
+        # Log failed LLM call
+        if 'llm_logger' in locals() and llm_logger:
+            llm_logger.log_llm_call(
+                user_email=user_email,
+                model_name=model_name,
+                input_messages=messages,
+                output_response="",
+                session_id=session_id,
+                selected_tools=[tool['function']['name'] for tool in tools_schema],
+                error_message=f"Invalid response format: {exc}",
+                api_endpoint=api_url
+            )
+        
         raise Exception("Invalid response format from LLM")
 
