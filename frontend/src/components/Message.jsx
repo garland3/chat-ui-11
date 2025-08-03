@@ -2,6 +2,7 @@ import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { useChat } from '../contexts/ChatContext'
 import { useState, memo, useEffect } from 'react'
+import { Copy } from 'lucide-react'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github-dark.css'
 
@@ -195,12 +196,15 @@ const copyCodeBlock = (button) => {
 // Show copy success feedback
 const showCopySuccess = (button) => {
   const originalText = button.textContent
-  button.textContent = 'Copied!'
+  const originalHTML = button.innerHTML
+  
+  // Update button to show success state
+  button.innerHTML = '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>'
   button.classList.add('bg-green-600', 'border-green-500')
   button.classList.remove('bg-gray-700', 'border-gray-600')
   
   setTimeout(() => {
-    button.textContent = originalText
+    button.innerHTML = originalHTML
     button.classList.remove('bg-green-600', 'border-green-500')
     button.classList.add('bg-gray-700', 'border-gray-600')
   }, 2000)
@@ -228,6 +232,42 @@ const fallbackCopy = (text, button) => {
     }
   } catch (err) {
     console.error('Fallback copy error: ', err)
+  }
+}
+
+// Copy function for entire message content
+const copyMessageContent = (content, button) => {
+  try {
+    // Get the raw text content, stripping any HTML/markdown formatting
+    let textToCopy = ''
+    
+    if (typeof content === 'string') {
+      textToCopy = content
+    } else if (content && typeof content === 'object') {
+      if (content.raw && typeof content.raw === 'string') {
+        textToCopy = content.raw
+      } else if (content.text && typeof content.text === 'string') {
+        textToCopy = content.text
+      } else {
+        textToCopy = JSON.stringify(content, null, 2)
+      }
+    } else {
+      textToCopy = String(content || '')
+    }
+    
+    // Copy to clipboard
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(textToCopy).then(() => {
+        showCopySuccess(button)
+      }).catch(err => {
+        console.error('Failed to copy message with Clipboard API: ', err)
+        fallbackCopy(textToCopy, button)
+      })
+    } else {
+      fallbackCopy(textToCopy, button)
+    }
+  } catch (err) {
+    console.error('Error in copyMessageContent: ', err)
   }
 }
 
@@ -416,6 +456,9 @@ const Message = ({ message }) => {
       if (event.target.matches('[data-action="copy-code"]')) {
         event.preventDefault()
         copyCodeBlock(event.target)
+      } else if (event.target.matches('[data-action="copy-message"]')) {
+        event.preventDefault()
+        copyMessageContent(message.content, event.target)
       }
     }
 
@@ -423,7 +466,7 @@ const Message = ({ message }) => {
     return () => {
       document.removeEventListener('click', handleCopyClick)
     }
-  }, [])
+  }, [message.content])
   
   const avatarBg = isUser ? 'bg-green-600' : isSystem ? 'bg-yellow-600' : 'bg-blue-600'
   const avatarText = isUser ? 'Y' : isSystem ? 'S' : 'A'
@@ -606,7 +649,7 @@ const Message = ({ message }) => {
   }
 
   return (
-    <div className={`flex items-start gap-3 max-w-4xl mx-auto ${isUser ? 'flex-row-reverse' : ''}`}>
+    <div className={`flex items-start gap-3 max-w-4xl mx-auto group ${isUser ? 'flex-row-reverse' : ''}`}>
       {/* Avatar */}
       <div className={`w-8 h-8 rounded-full ${avatarBg} flex items-center justify-center text-white text-sm font-medium flex-shrink-0`}>
         {avatarText}
@@ -614,8 +657,21 @@ const Message = ({ message }) => {
       
       {/* Message Content */}
       <div className={`max-w-[70%] ${isUser ? 'bg-blue-600' : 'bg-gray-800'} rounded-lg p-4`}>
-        <div className="text-sm font-medium text-gray-300 mb-2">
-          {authorName}
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-sm font-medium text-gray-300">
+            {authorName}
+          </div>
+          {/* Copy button for assistant messages only */}
+          {!isUser && !isSystem && (
+            <button
+              data-action="copy-message"
+              className="copy-message-button opacity-0 group-hover:opacity-100 bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 p-1.5 rounded text-xs transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 ml-2"
+              title="Copy message to clipboard"
+              type="button"
+            >
+              <Copy className="w-3 h-3" />
+            </button>
+          )}
         </div>
         {renderContent()}
       </div>

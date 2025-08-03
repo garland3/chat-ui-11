@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Copy Message Demo</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #111827;
+            color: #f3f4f6;
+            padding: 20px;
+            margin: 0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .message {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            max-width: 100%;
+            margin: 20px auto;
+        }
+        .message.group:hover .copy-message-button {
+            opacity: 1;
+        }
+        .avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #3b82f6;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 14px;
+            font-weight: 500;
+            flex-shrink: 0;
+        }
+        .message-content {
+            max-width: 70%;
+            background: #374151;
+            border-radius: 8px;
+            padding: 16px;
+        }
+        .message-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        .message-author {
+            font-weight: 600;
+            font-size: 14px;
+            color: #d1d5db;
+        }
+        .copy-message-button {
+            opacity: 0;
+            background: #4b5563;
+            border: 1px solid #6b7280;
+            color: #f3f4f6;
+            padding: 6px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-left: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .copy-message-button:hover {
+            background: #6b7280;
+        }
+        .copy-message-button:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px #3b82f6;
+        }
+        .copy-message-button.bg-green-600 {
+            background: #059669;
+            border-color: #10b981;
+        }
+        .message-text {
+            line-height: 1.6;
+            white-space: pre-wrap;
+        }
+        .demo-info {
+            background: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 30px;
+        }
+        .demo-info h2 {
+            margin: 0 0 12px 0;
+            color: #60a5fa;
+        }
+        .success-message {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #059669;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            transform: translateX(400px);
+            transition: transform 0.3s ease;
+        }
+        .success-message.show {
+            transform: translateX(0);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="demo-info">
+            <h2>Copy Message Functionality Demo</h2>
+            <p>This demonstrates the copy icon functionality added to LLM message responses. Hover over the assistant messages below to see the copy icon appear, then click it to copy the message content to your clipboard.</p>
+        </div>
+
+        <!-- User Message -->
+        <div class="message">
+            <div class="avatar" style="background: #059669;">Y</div>
+            <div class="message-content">
+                <div class="message-header">
+                    <div class="message-author">You</div>
+                </div>
+                <div class="message-text">Hello, can you help me with React?</div>
+            </div>
+        </div>
+
+        <!-- Assistant Message 1 -->
+        <div class="message group">
+            <div class="avatar" style="background: #3b82f6;">A</div>
+            <div class="message-content">
+                <div class="message-header">
+                    <div class="message-author">Chat UI</div>
+                    <button class="copy-message-button" onclick="copyMessage(this)" title="Copy message to clipboard" type="button">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" width="12" height="12">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div class="message-text">Of course! I'd be happy to help you with React. React is a popular JavaScript library for building user interfaces, particularly web applications.
+
+Here are some key concepts:
+
+## Core Concepts
+
+1. **Components** - Reusable pieces of UI
+2. **JSX** - JavaScript syntax extension for writing HTML-like code
+3. **Props** - Data passed to components
+4. **State** - Internal component data that can change
+
+```javascript
+function MyComponent({ name }) {
+  const [count, setCount] = useState(0);
+  
+  return (
+    <div>
+      <h1>Hello, {name}!</h1>
+      <button onClick={() => setCount(count + 1)}>
+        Count: {count}
+      </button>
+    </div>
+  );
+}
+```
+
+What specific aspect of React would you like to learn more about?</div>
+            </div>
+        </div>
+
+        <!-- Assistant Message 2 -->
+        <div class="message group">
+            <div class="avatar" style="background: #3b82f6;">A</div>
+            <div class="message-content">
+                <div class="message-header">
+                    <div class="message-author">Chat UI</div>
+                    <button class="copy-message-button" onclick="copyMessage(this)" title="Copy message to clipboard" type="button">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" width="12" height="12">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                        </svg>
+                    </button>
+                </div>
+                <div class="message-text">Here's a simple example of a React component with state:
+
+```jsx
+import React, { useState } from 'react';
+
+function Counter() {
+  const [count, setCount] = useState(0);
+
+  return (
+    <div>
+      <p>You clicked {count} times</p>
+      <button onClick={() => setCount(count + 1)}>
+        Click me
+      </button>
+    </div>
+  );
+}
+
+export default Counter;
+```
+
+This demonstrates the basic hook pattern in React!</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="successMessage" class="success-message">
+        Message copied to clipboard!
+    </div>
+
+    <script>
+        function copyMessage(button) {
+            try {
+                // Find the message content
+                const messageContent = button.closest('.message-content').querySelector('.message-text');
+                const text = messageContent.textContent.trim();
+                
+                // Copy to clipboard
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(text).then(() => {
+                        showCopySuccess(button);
+                        showSuccessMessage();
+                    }).catch(err => {
+                        console.error('Failed to copy: ', err);
+                        fallbackCopy(text, button);
+                    });
+                } else {
+                    fallbackCopy(text, button);
+                }
+            } catch (err) {
+                console.error('Error copying message: ', err);
+            }
+        }
+
+        function showCopySuccess(button) {
+            const originalHTML = button.innerHTML;
+            
+            // Change to check icon
+            button.innerHTML = '<svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" width="12" height="12"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>';
+            button.classList.add('bg-green-600');
+            button.classList.remove('bg-gray-700');
+            
+            setTimeout(() => {
+                button.innerHTML = originalHTML;
+                button.classList.remove('bg-green-600');
+                button.classList.add('bg-gray-700');
+            }, 2000);
+        }
+
+        function showSuccessMessage() {
+            const msg = document.getElementById('successMessage');
+            msg.classList.add('show');
+            setTimeout(() => {
+                msg.classList.remove('show');
+            }, 3000);
+        }
+
+        function fallbackCopy(text, button) {
+            try {
+                const textArea = document.createElement('textarea');
+                textArea.value = text;
+                textArea.style.position = 'fixed';
+                textArea.style.left = '-999999px';
+                textArea.style.top = '-999999px';
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                
+                const successful = document.execCommand('copy');
+                document.body.removeChild(textArea);
+                
+                if (successful) {
+                    showCopySuccess(button);
+                    showSuccessMessage();
+                } else {
+                    console.error('Fallback copy failed');
+                }
+            } catch (err) {
+                console.error('Fallback copy error: ', err);
+            }
+        }
+    </script>
+</body>
+</html>
