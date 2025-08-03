@@ -42,6 +42,7 @@ import logging
 import os
 from contextlib import asynccontextmanager
 from typing import Optional
+from pathlib import Path
 
 from fastapi import FastAPI, WebSocket, HTTPException, Depends
 from fastapi.staticfiles import StaticFiles
@@ -158,9 +159,14 @@ app.add_middleware(AuthMiddleware, debug_mode=DEBUG_MODE)
 # Include admin router
 app.include_router(admin_router)
 
-# Serve static files (comment out for testing without frontend)
-# app.mount("/static", StaticFiles(directory="../frontend/dist"), name="static")
-# app.mount("/", StaticFiles(directory="../frontend/dist", html=True), name="root")
+# Serve static files (only if frontend is built)
+frontend_dist = Path("../frontend/dist")
+if frontend_dist.exists():
+    app.mount("/static", StaticFiles(directory="../frontend/dist"), name="static")
+    # Mount frontend files at root for direct serving (must be last to avoid conflicts)
+    app.mount("/", StaticFiles(directory="../frontend/dist", html=True), name="root")
+else:
+    logger.warning("Frontend dist directory not found. Skipping static file mounting.")
 # app.mount("/vendor", StaticFiles(directory="../_old_frontend/vendor"), name="vendor")
 # app.mount("/fonts", StaticFiles(directory="../_old_frontend/fonts"), name="fonts")
 
@@ -369,8 +375,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
 
 # Mount frontend files at root for direct serving (must be last to avoid conflicts)
-# Commented out for testing without frontend
-# app.mount("/", StaticFiles(directory="../frontend/dist", html=True), name="root")
+# Handled above with frontend_dist check
 
 if __name__ == "__main__":
     import uvicorn
