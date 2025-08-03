@@ -46,6 +46,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, WebSocket, HTTPException, Depends
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 
 from middleware import AuthMiddleware
@@ -156,15 +157,20 @@ otel_config.instrument_httpx()
 # Add middleware
 app.add_middleware(AuthMiddleware, debug_mode=DEBUG_MODE)
 
+# Serve admin frontend (before admin API router)
+@app.get("/admin")
+async def admin_frontend():
+    if frontend_dist.exists():
+        return FileResponse(frontend_dist / "index.html")
+    raise HTTPException(404)
+
 # Include admin router
 app.include_router(admin_router)
 
-# Serve static files (only if frontend is built)
+# Serve static files (only if frontend is built) - moved to after routes
 frontend_dist = Path("../frontend/dist")
 if frontend_dist.exists():
     app.mount("/static", StaticFiles(directory="../frontend/dist"), name="static")
-    # Mount frontend files at root for direct serving (must be last to avoid conflicts)
-    app.mount("/", StaticFiles(directory="../frontend/dist", html=True), name="root")
 else:
     logger.warning("Frontend dist directory not found. Skipping static file mounting.")
 # app.mount("/vendor", StaticFiles(directory="../_old_frontend/vendor"), name="vendor")
@@ -374,8 +380,10 @@ async def websocket_endpoint(websocket: WebSocket):
         session_manager.disconnect(websocket)
 
 
-# Mount frontend files at root for direct serving (must be last to avoid conflicts)
-# Handled above with frontend_dist check
+
+# Mount frontend files at root for direct serving (must be last to avoid conflicts)  
+if frontend_dist.exists():
+    app.mount("/", StaticFiles(directory="../frontend/dist", html=True), name="root")
 
 if __name__ == "__main__":
     import uvicorn

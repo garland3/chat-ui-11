@@ -156,11 +156,16 @@ const AdminDashboard = () => {
       const response = await fetch('/admin/logs?lines=500')
       const data = await response.json()
       
+      // Format JSON logs for display
+      const formattedLogs = data.logs?.map(log => 
+        `${log.timestamp} [${log.level}] ${log.logger}: ${log.message}`
+      ).join('\n') || 'No log entries available'
+      
       openModal('Application Logs', {
         type: 'logs',
-        content: data.content || 'No log content available',
-        lines: data.lines,
-        totalLines: data.total_lines,
+        content: formattedLogs,
+        lines: data.total_logs || 0,
+        totalLines: data.stats?.line_count || 0,
         readonly: true
       })
     } catch (err) {
@@ -524,6 +529,14 @@ const AdminDashboard = () => {
 const AdminModal = ({ data, onClose, onSave, onDownload }) => {
   const [content, setContent] = useState(data.content?.value || '')
   const [saving, setSaving] = useState(false)
+  const logContainerRef = React.useRef(null)
+
+  // Auto-scroll to bottom when logs are loaded
+  useEffect(() => {
+    if (data.content?.type === 'logs' && logContainerRef.current) {
+      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight
+    }
+  }, [data.content])
 
   const handleSave = async () => {
     setSaving(true)
@@ -573,7 +586,7 @@ const AdminModal = ({ data, onClose, onSave, onDownload }) => {
                 Download Full Log
               </button>
             </div>
-            <div className="bg-black text-green-400 p-4 rounded-lg font-mono text-sm max-h-96 overflow-y-auto whitespace-pre-wrap">
+            <div ref={logContainerRef} className="bg-black text-green-400 p-4 rounded-lg font-mono text-sm overflow-y-auto whitespace-pre-wrap" style={{height: 'calc(100vh - 200px)'}}>
               {data.content.content}
             </div>
             <p className="text-sm text-gray-400">
@@ -664,8 +677,14 @@ const AdminModal = ({ data, onClose, onSave, onDownload }) => {
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4 overflow-y-auto">
-      <div className="bg-gray-800 rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto my-8">
+    <div className={`fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center overflow-y-auto ${
+      data.content?.type === 'logs' ? 'p-0' : 'p-4'
+    }`}>
+      <div className={`bg-gray-800 rounded-lg w-full overflow-y-auto my-8 ${
+        data.content?.type === 'logs' 
+          ? 'max-w-none max-h-none h-full m-0 rounded-none' 
+          : 'max-w-4xl max-h-[90vh]'
+      }`}>
         <div className="p-6">
           <h2 className="text-xl font-bold mb-4">{data.title}</h2>
           

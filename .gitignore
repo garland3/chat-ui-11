@@ -1,3 +1,5 @@
+*.jsonl
+
 # Environment variables
 .env
 .claude

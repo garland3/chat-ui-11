@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest.mock import Mock
 
 # Add backend directory to Python path  
-sys.path.insert(0, '/home/runner/work/chat-ui-11/chat-ui-11/backend')
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from otel_config import setup_opentelemetry, get_otel_config
 import admin_routes

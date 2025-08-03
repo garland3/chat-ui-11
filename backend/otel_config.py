@@ -139,20 +139,32 @@ class OpenTelemetryConfig:
         file_handler.setFormatter(json_formatter)
         file_handler.setLevel(self.log_level)
         
+        # Add file handler to root (gets everything)
+        root_logger.addHandler(file_handler)
+        root_logger.setLevel(self.log_level)
+        
         # Console handler for development
+        console_handler = None
         if self.is_development:
-            # In development, also show human-readable logs on console
+            # In development, show human-readable logs on console with higher threshold
             console_handler = logging.StreamHandler()
             console_formatter = logging.Formatter(
                 '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
             )
             console_handler.setFormatter(console_formatter)
-            console_handler.setLevel(self.log_level)
+            console_handler.setLevel(logging.WARNING)  # Only warnings+ to console
             root_logger.addHandler(console_handler)
-        
-        # Add file handler
-        root_logger.addHandler(file_handler)
-        root_logger.setLevel(self.log_level)
+            
+            # Configure specific noisy loggers to be even quieter on console
+            noisy_loggers = [
+                'httpx', 'urllib3.connectionpool', 'auth_utils', 'message_processor',
+                'session', 'callbacks', 'utils', 'banner_client', 'middleware', 'mcp_client'
+            ]
+            
+            for logger_name in noisy_loggers:
+                logger = logging.getLogger(logger_name)
+                logger.setLevel(logging.DEBUG)  # Accept all for file logging
+                # Don't add handlers - let them propagate to root for file, but filter console
         
         # Instrument logging with OpenTelemetry
         LoggingInstrumentor().instrument(set_logging_format=False)
