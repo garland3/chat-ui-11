@@ -235,6 +235,46 @@ const fallbackCopy = (text, button) => {
   }
 }
 
+// Show copy success feedback for message copy button
+const showMessageCopySuccess = (button) => {
+  // Store original classes
+  const originalClasses = button.className
+  
+  // Update button to show success state
+  button.classList.remove('bg-gray-700', 'hover:bg-gray-600', 'border-gray-600', 'text-gray-200')
+  button.classList.add('bg-green-600', 'hover:bg-green-700', 'border-green-500', 'text-white')
+  
+  setTimeout(() => {
+    // Restore original classes
+    button.className = originalClasses
+  }, 2000)
+}
+
+// Fallback copy method for message content
+const fallbackMessageCopy = (text, button) => {
+  try {
+    const textArea = document.createElement('textarea')
+    textArea.value = text
+    textArea.style.position = 'fixed'
+    textArea.style.left = '-999999px'
+    textArea.style.top = '-999999px'
+    document.body.appendChild(textArea)
+    textArea.focus()
+    textArea.select()
+    
+    const successful = document.execCommand('copy')
+    document.body.removeChild(textArea)
+    
+    if (successful) {
+      showMessageCopySuccess(button)
+    } else {
+      console.error('Fallback message copy failed')
+    }
+  } catch (err) {
+    console.error('Fallback message copy error: ', err)
+  }
+}
+
 // Copy function for entire message content
 const copyMessageContent = (content, button) => {
   try {
@@ -258,13 +298,13 @@ const copyMessageContent = (content, button) => {
     // Copy to clipboard
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(textToCopy).then(() => {
-        showCopySuccess(button)
+        showMessageCopySuccess(button)
       }).catch(err => {
         console.error('Failed to copy message with Clipboard API: ', err)
-        fallbackCopy(textToCopy, button)
+        fallbackMessageCopy(textToCopy, button)
       })
     } else {
-      fallbackCopy(textToCopy, button)
+      fallbackMessageCopy(textToCopy, button)
     }
   } catch (err) {
     console.error('Error in copyMessageContent: ', err)
@@ -450,23 +490,30 @@ const Message = ({ message }) => {
   const isUser = message.role === 'user'
   const isSystem = message.role === 'system'
 
-  // Handle copy button clicks using event delegation
+  // Handle copy message button click
+  const handleCopyMessage = (event) => {
+    event.preventDefault()
+    copyMessageContent(message.content, event.currentTarget)
+  }
+
+  // Handle code block copy buttons using event delegation for this message
   useEffect(() => {
-    const handleCopyClick = (event) => {
-      if (event.target.matches('[data-action="copy-code"]')) {
+    const handleCodeCopyClick = (event) => {
+      if (event.target.matches('[data-action="copy-code"]') || 
+          event.target.closest('[data-action="copy-code"]')) {
         event.preventDefault()
-        copyCodeBlock(event.target)
-      } else if (event.target.matches('[data-action="copy-message"]')) {
-        event.preventDefault()
-        copyMessageContent(message.content, event.target)
+        const button = event.target.matches('[data-action="copy-code"]') 
+          ? event.target 
+          : event.target.closest('[data-action="copy-code"]')
+        copyCodeBlock(button)
       }
     }
 
-    document.addEventListener('click', handleCopyClick)
+    document.addEventListener('click', handleCodeCopyClick)
     return () => {
-      document.removeEventListener('click', handleCopyClick)
+      document.removeEventListener('click', handleCodeCopyClick)
     }
-  }, [message.content])
+  }, [])
   
   const avatarBg = isUser ? 'bg-green-600' : isSystem ? 'bg-yellow-600' : 'bg-blue-600'
   const avatarText = isUser ? 'Y' : isSystem ? 'S' : 'A'
@@ -661,10 +708,10 @@ const Message = ({ message }) => {
           <div className="text-sm font-medium text-gray-300">
             {authorName}
           </div>
-          {/* Copy button for assistant messages only */}
-          {!isUser && !isSystem && (
+          {/* Copy button for user and assistant messages */}
+          {!isSystem && (
             <button
-              data-action="copy-message"
+              onClick={handleCopyMessage}
               className="copy-message-button opacity-0 group-hover:opacity-100 bg-gray-700 hover:bg-gray-600 border border-gray-600 text-gray-200 p-1.5 rounded text-xs transition-all duration-200 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500 ml-2"
               title="Copy message to clipboard"
               type="button"
