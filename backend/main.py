@@ -53,6 +53,7 @@ from auth import is_user_in_group
 from session import SessionManager
 from config import config_manager
 from utils import get_current_user
+from otel_config import setup_opentelemetry
 from callbacks import (
     log_session_events_callback,
     log_llm_call_callback,
@@ -77,22 +78,14 @@ session_manager: Optional[SessionManager] = None
 # Load environment variables from the parent directory
 load_dotenv(dotenv_path="../.env")
 
+# Setup OpenTelemetry logging (replaces traditional logging setup)
+otel_config = setup_opentelemetry("chat-ui-backend", "1.0.0")
+
 # Initialize RAG client after environment variables are loaded
 initialize_rag_client()
 
 # Initialize Banner client after environment variables are loaded
 initialize_banner_client()
-
-# Setup logging
-os.makedirs("logs", exist_ok=True)
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('logs/app.log'),
-        logging.StreamHandler()
-    ]
-)
 
 logger = logging.getLogger(__name__)
 
@@ -155,14 +148,19 @@ app_settings = config_manager.app_settings
 DEBUG_MODE = app_settings.debug_mode
 app = FastAPI(title=app_settings.app_name, lifespan=lifespan)
 
+# Instrument FastAPI with OpenTelemetry
+otel_config.instrument_fastapi(app)
+otel_config.instrument_httpx()
+
 # Add middleware
 app.add_middleware(AuthMiddleware, debug_mode=DEBUG_MODE)
 
 # Include admin router
 app.include_router(admin_router)
 
-# Serve static files
-app.mount("/static", StaticFiles(directory="../frontend/dist"), name="static")
+# Serve static files (comment out for testing without frontend)
+# app.mount("/static", StaticFiles(directory="../frontend/dist"), name="static")
+# app.mount("/", StaticFiles(directory="../frontend/dist", html=True), name="root")
 # app.mount("/vendor", StaticFiles(directory="../_old_frontend/vendor"), name="vendor")
 # app.mount("/fonts", StaticFiles(directory="../_old_frontend/fonts"), name="fonts")
 
@@ -371,7 +369,8 @@ async def websocket_endpoint(websocket: WebSocket):
 
 
 # Mount frontend files at root for direct serving (must be last to avoid conflicts)
-app.mount("/", StaticFiles(directory="../frontend/dist", html=True), name="root")
+# Commented out for testing without frontend
+# app.mount("/", StaticFiles(directory="../frontend/dist", html=True), name="root")
 
 if __name__ == "__main__":
     import uvicorn

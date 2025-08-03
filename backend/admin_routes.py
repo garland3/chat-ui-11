@@ -24,6 +24,7 @@ from auth import is_user_in_group
 from utils import get_current_user
 from config import config_manager
 from mcp_health_check import mcp_health_monitor, get_mcp_health_status, trigger_mcp_health_check
+from otel_config import get_otel_config
 
 
 logger = logging.getLogger(__name__)
@@ -159,6 +160,7 @@ async def admin_dashboard(admin_user: str = Depends(require_admin)):
             "/admin/help-config",
             "/admin/logs",
             "/admin/logs/download",
+            "/admin/logs/stats",
             "/admin/system-status",
             "/admin/mcp-health",
             "/admin/trigger-health-check",
@@ -344,34 +346,23 @@ async def get_app_logs(
     lines: int = 500,
     admin_user: str = Depends(require_admin)
 ):
-    """Get application logs."""
+    """Get application logs in structured JSON format."""
     try:
-        log_file = Path("logs/app.log")
+        otel_config = get_otel_config()
+        if not otel_config:
+            raise HTTPException(status_code=500, detail="OpenTelemetry configuration not available")
         
-        if not log_file.exists():
-            return {
-                "content": "No log file found",
-                "lines": 0,
-                "file_path": str(log_file)
-            }
-        
-        # Read last N lines with encoding error handling
-        try:
-            with open(log_file, 'r', encoding='utf-8') as f:
-                all_lines = f.readlines()
-        except UnicodeDecodeError:
-            # Fall back to UTF-8 with error replacement
-            with open(log_file, 'r', encoding='utf-8', errors='replace') as f:
-                all_lines = f.readlines()
-        
-        recent_lines = all_lines[-lines:] if len(all_lines) > lines else all_lines
+        # Get structured logs from OpenTelemetry
+        logs = otel_config.read_logs(lines)
+        stats = otel_config.get_log_stats()
         
         return {
-            "content": "".join(recent_lines),
-            "lines": len(recent_lines),
-            "total_lines": len(all_lines),
-            "file_path": str(log_file),
-            "last_modified": log_file.stat().st_mtime
+            "logs": logs,
+            "stats": stats,
+            "format": "json",
+            "total_logs": len(logs),
+            "requested_lines": lines,
+            "log_file": str(otel_config.get_log_file_path())
         }
     except Exception as e:
         logger.error(f"Error getting logs: {e}")
@@ -380,9 +371,13 @@ async def get_app_logs(
 
 @admin_router.get("/logs/download")
 async def download_app_logs(admin_user: str = Depends(require_admin)):
-    """Download the complete application log file."""
+    """Download the complete OpenTelemetry log file."""
     try:
-        log_file = Path("logs/app.log")
+        otel_config = get_otel_config()
+        if not otel_config:
+            raise HTTPException(status_code=500, detail="OpenTelemetry configuration not available")
+        
+        log_file = otel_config.get_log_file_path()
         
         if not log_file.exists():
             raise HTTPException(status_code=404, detail="Log file not found")
@@ -392,11 +387,43 @@ async def download_app_logs(admin_user: str = Depends(require_admin)):
         
         return FileResponse(
             path=str(log_file),
-            filename=f"app_log_{log_file.stat().st_mtime}.log",
-            media_type="text/plain"
+            filename=f"otel_logs_{log_file.stat().st_mtime}.jsonl",
+            media_type="application/x-ndjson"  # JSON Lines format
         )
     except Exception as e:
         logger.error(f"Error downloading logs: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@admin_router.get("/logs/stats")
+async def get_log_stats(admin_user: str = Depends(require_admin)):
+    """Get OpenTelemetry log file statistics and configuration."""
+    try:
+        otel_config = get_otel_config()
+        if not otel_config:
+            raise HTTPException(status_code=500, detail="OpenTelemetry configuration not available")
+        
+        stats = otel_config.get_log_stats()
+        
+        return {
+            "otel_config": {
+                "service_name": otel_config.service_name,
+                "service_version": otel_config.service_version,
+                "is_development": otel_config.is_development,
+                "log_level": logging.getLevelName(otel_config.log_level),
+                "log_file_path": str(otel_config.log_file)
+            },
+            "file_stats": stats,
+            "logging_format": "JSON Lines (JSONL)",
+            "features": [
+                "Structured JSON logging",
+                "OpenTelemetry trace correlation",
+                "Environment-based log levels",
+                "Ready for OTLP export"
+            ]
+        }
+    except Exception as e:
+        logger.error(f"Error getting log stats: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
