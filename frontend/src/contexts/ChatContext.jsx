@@ -29,6 +29,7 @@ export const ChatProvider = ({ children }) => {
   const [selectedDataSources, setSelectedDataSources] = useState(new Set())
   const [onlyRag, setOnlyRag] = useState(true)
   const [toolChoiceRequired, setToolChoiceRequired] = useState(false)
+  const [temperature, setTemperature] = useState(0.7)
   
   // Agent mode
   const [agentModeEnabled, setAgentModeEnabled] = useState(false)
@@ -59,6 +60,7 @@ export const ChatProvider = ({ children }) => {
     loadToolSelections()
     loadPromptSelections()
     loadToolChoiceRequired()
+    loadTemperature()
   }, [])
 
   // WebSocket message handler
@@ -214,6 +216,28 @@ export const ChatProvider = ({ children }) => {
       localStorage.setItem('chatui-tool-choice-required', JSON.stringify(value))
     } catch (error) {
       console.warn('Failed to save tool choice required setting:', error)
+    }
+  }
+
+  const loadTemperature = () => {
+    try {
+      const saved = localStorage.getItem('chatui-temperature')
+      if (saved !== null) {
+        const parsedTemp = parseFloat(saved)
+        if (!isNaN(parsedTemp) && parsedTemp >= 0 && parsedTemp <= 2) {
+          setTemperature(parsedTemp)
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to load temperature setting:', error)
+    }
+  }
+
+  const saveTemperature = (value) => {
+    try {
+      localStorage.setItem('chatui-temperature', value.toString())
+    } catch (error) {
+      console.warn('Failed to save temperature setting:', error)
     }
   }
 
@@ -377,6 +401,7 @@ export const ChatProvider = ({ children }) => {
       type: 'chat',
       content,
       model: currentModel,
+      temperature,
       selected_tools: selectedToolsArray,
       selected_prompts: selectedPromptsArray,
       selected_data_sources: Array.from(selectedDataSources),
@@ -720,6 +745,11 @@ export const ChatProvider = ({ children }) => {
     setToolChoiceRequired: (value) => {
       setToolChoiceRequired(value)
       saveToolChoiceRequired(value)
+    },
+    temperature,
+    setTemperature: (value) => {
+      setTemperature(value)
+      saveTemperature(value)
     },
     
     // Agent mode

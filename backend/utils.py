@@ -62,7 +62,7 @@ async def validate_selected_tools(
         return []
 
 
-async def call_llm(model_name: str, messages: List[Dict[str, str]]) -> str:
+async def call_llm(model_name: str, messages: List[Dict[str, str]], temperature: float = None) -> str:
     """Call an OpenAI-compliant LLM API using requests."""
     llm_config = config_manager.llm_config
     if model_name not in llm_config.models:
@@ -73,8 +73,12 @@ async def call_llm(model_name: str, messages: List[Dict[str, str]]) -> str:
     api_key = os.path.expandvars(model_config.api_key)
     model_id = model_config.model_name
 
+    # Use provided temperature, fallback to model config, then to default
+    if temperature is None:
+        temperature = model_config.temperature if model_config.temperature is not None else 0.7
+
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-    payload = {"model": model_id, "messages": messages, "max_tokens": 1000, "temperature": 0.7}
+    payload = {"model": model_id, "messages": messages, "max_tokens": 1000, "temperature": temperature}
 
     try:
         loop = asyncio.get_event_loop()
@@ -306,10 +310,11 @@ async def call_llm_with_tools(
     agent_mode: bool = False,  # New parameter for agent mode
     tool_choice_required: bool = False,  # New parameter for tool choice preference
     selected_tools: List[str] = None,  # New parameter for selected tools
+    temperature: float = None,  # New parameter for temperature control
 ) -> str:
     """Call LLM with tool-calling support."""
     if not validated_servers:
-        return await call_llm(model_name, messages)
+        return await call_llm(model_name, messages, temperature)
 
     # Get all available tools from validated servers
     tools_data = mcp_manager.get_tools_for_servers(validated_servers)
@@ -369,13 +374,18 @@ async def call_llm_with_tools(
     # Use user's tool choice preference, but fallback to exclusive server logic if not explicitly set
     is_exclusive = any(mcp_manager.is_server_exclusive(s) for s in validated_servers)
     tool_choice = "required" if (tool_choice_required or is_exclusive) else "auto"
+    
+    # Use provided temperature, fallback to model config, then to default
+    if temperature is None:
+        temperature = model_config.temperature if model_config.temperature is not None else 0.7
+    
     payload = {
         "model": model_id,
         "messages": messages,
         "tools": tools_schema,
         "tool_choice": tool_choice,
         "max_tokens": 1000,
-        "temperature": 0.7,
+        "temperature": temperature,
     }
 
     try:
@@ -609,7 +619,7 @@ async def call_llm_with_tools(
                     "model": model_id,
                     "messages": follow_up_messages,
                     "max_tokens": 1000,
-                    "temperature": 0.7,
+                    "temperature": temperature,
                 }
                 follow_up_response = await loop.run_in_executor(
                     None,

@@ -192,6 +192,7 @@ class MessageProcessor:
 
             content = message.get("content", "")
             self.session.model_name = message.get("model", "")
+            self.session.temperature = message.get("temperature", 0.7)
             self.session.selected_tools = message.get("selected_tools", [])
             self.session.selected_prompts = message.get("selected_prompts", [])
             self.session.selected_data_sources = message.get("selected_data_sources", [])
@@ -321,6 +322,7 @@ class MessageProcessor:
                         agent_mode,  # Pass agent mode flag
                         self.session.tool_choice_required,  # Pass tool choice preference
                         self.session.selected_tools,  # Pass selected tools for filtering
+                        self.session.temperature,  # Pass temperature setting
                     )
                     
                 await self.session._trigger_callbacks("after_llm_call", llm_response=llm_response)
@@ -431,6 +433,7 @@ class MessageProcessor:
                 False,  # agent_mode
                 self.session.tool_choice_required,  # Pass tool choice preference
                 self.session.selected_tools,  # Pass selected tools for filtering
+                self.session.temperature,  # Pass temperature setting
             )
         
         # Get RAG context from the first data source
@@ -467,6 +470,7 @@ class MessageProcessor:
                 False,  # agent_mode
                 self.session.tool_choice_required,  # Pass tool choice preference
                 self.session.selected_tools,  # Pass selected tools for filtering
+                self.session.temperature,  # Pass temperature setting
             )
             
             # Append metadata to the LLM response if available
@@ -490,6 +494,7 @@ class MessageProcessor:
                 False,  # agent_mode
                 self.session.tool_choice_required,  # Pass tool choice preference
                 self.session.selected_tools,  # Pass selected tools for filtering
+                self.session.temperature,  # Pass temperature setting
             )
 
     def _build_content_with_files(self, content: str) -> str:

@@ -16,7 +16,9 @@ const Header = ({ onToggleRag, onToggleTools, onToggleAgent, onCloseCanvas }) =>
     downloadChat,
     downloadChatAsText,
     messages,
-    clearChat
+    clearChat,
+    temperature,
+    setTemperature
   } = useChat()
   const { connectionStatus, isConnected } = useWS()
   const [dropdownOpen, setDropdownOpen] = useState(false)
@@ -119,6 +121,22 @@ const Header = ({ onToggleRag, onToggleTools, onToggleAgent, onCloseCanvas }) =>
               )}
             </div>
           )}
+        </div>
+
+        {/* Temperature Control */}
+        <div className="flex items-center gap-2 px-3 py-2 bg-gray-700 rounded-lg">
+          <span className="text-xs text-gray-300 whitespace-nowrap">Temp:</span>
+          <input
+            type="range"
+            min="0"
+            max="2"
+            step="0.1"
+            value={temperature}
+            onChange={(e) => setTemperature(parseFloat(e.target.value))}
+            className="w-16 h-1 bg-gray-600 rounded-lg appearance-none cursor-pointer"
+            title={`Temperature: ${temperature} (0=deterministic, 2=creative)`}
+          />
+          <span className="text-xs text-gray-300 w-8 text-center">{temperature}</span>
         </div>
 
         {/* User Info */}
