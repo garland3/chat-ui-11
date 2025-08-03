@@ -185,7 +185,7 @@ class TestAdminRoutes:
             assert data["updated_by"] == "admin@example.com"
     
     def test_get_app_logs(self):
-        """Test getting application logs."""
+        """Test getting application logs with OpenTelemetry."""
         app = create_test_app()
         
         def mock_require_admin():
@@ -195,19 +195,34 @@ class TestAdminRoutes:
         app.dependency_overrides[require_admin] = mock_require_admin
         client = TestClient(app)
         
-        # Mock log file
-        test_log_content = "2024-01-01 10:00:00 - INFO - Test log entry\n"
-        with patch('builtins.open', mock_open(read_data=test_log_content)):
-            with patch('pathlib.Path.exists', return_value=True):
-                with patch('pathlib.Path.stat') as mock_stat:
-                    mock_stat.return_value.st_mtime = 1640995200
-                    
-                    response = client.get("/admin/logs?lines=50")
-                    assert response.status_code == 200
-                    data = response.json()
-                    assert "content" in data
-                    assert "lines" in data
-                    assert data["content"] == test_log_content
+        # Setup OpenTelemetry for testing
+        from otel_config import setup_opentelemetry
+        otel_config = setup_opentelemetry("test-admin-logs", "1.0.0")
+        
+        # Add some test logs
+        import logging
+        logger = logging.getLogger("test_admin_logs")
+        logger.info("Test log entry for admin interface")
+        logger.warning("Test warning for admin interface")
+        
+        response = client.get("/admin/logs?lines=50")
+        assert response.status_code == 200
+        data = response.json()
+        
+        # Check new OpenTelemetry format
+        assert "logs" in data
+        assert "stats" in data
+        assert "format" in data
+        assert data["format"] == "json"
+        assert isinstance(data["logs"], list)
+        
+        # Verify log structure if we have logs
+        if data["logs"]:
+            log_entry = data["logs"][0]
+            assert "timestamp" in log_entry
+            assert "level" in log_entry
+            assert "logger" in log_entry
+            assert "message" in log_entry
     
     def test_get_system_status(self):
         """Test getting system status."""

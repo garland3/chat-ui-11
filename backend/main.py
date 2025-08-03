@@ -42,9 +42,11 @@ import logging
 import os
 from contextlib import asynccontextmanager
 from typing import Optional
+from pathlib import Path
 
 from fastapi import FastAPI, WebSocket, HTTPException, Depends
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 
 from middleware import AuthMiddleware
@@ -53,6 +55,7 @@ from auth import is_user_in_group
 from session import SessionManager
 from config import config_manager
 from utils import get_current_user
+from otel_config import setup_opentelemetry
 from callbacks import (
     log_session_events_callback,
     log_llm_call_callback,
@@ -77,22 +80,14 @@ session_manager: Optional[SessionManager] = None
 # Load environment variables from the parent directory
 load_dotenv(dotenv_path="../.env")
 
+# Setup OpenTelemetry logging (replaces traditional logging setup)
+otel_config = setup_opentelemetry("chat-ui-backend", "1.0.0")
+
 # Initialize RAG client after environment variables are loaded
 initialize_rag_client()
 
 # Initialize Banner client after environment variables are loaded
 initialize_banner_client()
-
-# Setup logging
-os.makedirs("logs", exist_ok=True)
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler('logs/app.log'),
-        logging.StreamHandler()
-    ]
-)
 
 logger = logging.getLogger(__name__)
 
@@ -155,14 +150,29 @@ app_settings = config_manager.app_settings
 DEBUG_MODE = app_settings.debug_mode
 app = FastAPI(title=app_settings.app_name, lifespan=lifespan)
 
+# Instrument FastAPI with OpenTelemetry
+otel_config.instrument_fastapi(app)
+otel_config.instrument_httpx()
+
 # Add middleware
 app.add_middleware(AuthMiddleware, debug_mode=DEBUG_MODE)
+
+# Serve admin frontend (before admin API router)
+@app.get("/admin")
+async def admin_frontend():
+    if frontend_dist.exists():
+        return FileResponse(frontend_dist / "index.html")
+    raise HTTPException(404)
 
 # Include admin router
 app.include_router(admin_router)
 
-# Serve static files
-app.mount("/static", StaticFiles(directory="../frontend/dist"), name="static")
+# Serve static files (only if frontend is built) - moved to after routes
+frontend_dist = Path("../frontend/dist")
+if frontend_dist.exists():
+    app.mount("/static", StaticFiles(directory="../frontend/dist"), name="static")
+else:
+    logger.warning("Frontend dist directory not found. Skipping static file mounting.")
 # app.mount("/vendor", StaticFiles(directory="../_old_frontend/vendor"), name="vendor")
 # app.mount("/fonts", StaticFiles(directory="../_old_frontend/fonts"), name="fonts")
 
@@ -370,8 +380,10 @@ async def websocket_endpoint(websocket: WebSocket):
         session_manager.disconnect(websocket)
 
 
-# Mount frontend files at root for direct serving (must be last to avoid conflicts)
-app.mount("/", StaticFiles(directory="../frontend/dist", html=True), name="root")
+
+# Mount frontend files at root for direct serving (must be last to avoid conflicts)  
+if frontend_dist.exists():
+    app.mount("/", StaticFiles(directory="../frontend/dist", html=True), name="root")
 
 if __name__ == "__main__":
     import uvicorn
