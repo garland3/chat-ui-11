@@ -3,6 +3,7 @@ import DOMPurify from 'dompurify'
 import { useChat } from '../contexts/ChatContext'
 import { useState, memo, useEffect } from 'react'
 import { Copy } from 'lucide-react'
+import AgentAction from './AgentAction'
 import hljs from 'highlight.js'
 import 'highlight.js/styles/github-dark.css'
 
@@ -520,11 +521,21 @@ const Message = ({ message }) => {
   const authorName = isUser ? 'You' : isSystem ? 'System' : appName
   
   const renderContent = () => {
-    // Handle tool call messages specially
+    // Handle agent mode tool calls with special UI
+    if (message.type === 'tool_call' && message.agent_mode) {
+      return <AgentAction message={message} />
+    }
+    
+    // Handle regular tool call messages
     if (message.type === 'tool_call') {
       return (
         <div className="text-gray-200">
           <div className="flex items-center gap-2 mb-3">
+            {message.agent_mode && (
+              <span className="px-2 py-1 rounded text-xs font-medium bg-purple-600 text-white">
+                AGENT
+              </span>
+            )}
             <span className={`px-2 py-1 rounded text-xs font-medium ${
               message.status === 'calling' ? 'bg-blue-600' : 
               message.status === 'completed' ? 'bg-green-600' : 'bg-red-600'

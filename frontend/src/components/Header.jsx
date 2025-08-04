@@ -4,7 +4,7 @@ import { useChat } from '../contexts/ChatContext'
 import { useWS } from '../contexts/WSContext'
 import { Menu, ChevronDown, Settings, Bot, Download, Plus, HelpCircle, Shield } from 'lucide-react'
 
-const Header = ({ onToggleRag, onToggleTools, onToggleAgent, onCloseCanvas }) => {
+const Header = ({ onToggleRag, onToggleTools, onCloseCanvas }) => {
   const navigate = useNavigate()
   const { 
     user, 
@@ -12,6 +12,8 @@ const Header = ({ onToggleRag, onToggleTools, onToggleAgent, onCloseCanvas }) =>
     currentModel, 
     setCurrentModel, 
     agentModeAvailable,
+    agentModeEnabled,
+    setAgentModeEnabled,
     selectedTools,
     downloadChat,
     downloadChatAsText,
@@ -171,12 +173,16 @@ const Header = ({ onToggleRag, onToggleTools, onToggleAgent, onCloseCanvas }) =>
           )}
         </div>
 
-        {/* Agent Settings Button */}
+        {/* Agent Mode Toggle Button */}
         {agentModeAvailable && (
           <button
-            onClick={onToggleAgent}
-            className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
-            title="Agent Settings"
+            onClick={() => setAgentModeEnabled(!agentModeEnabled)}
+            className={`p-2 rounded-lg transition-colors ${
+              agentModeEnabled 
+                ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                : 'bg-gray-700 hover:bg-gray-600 text-gray-200'
+            }`}
+            title={agentModeEnabled ? "Agent Mode: ON (click to disable)" : "Agent Mode: OFF (click to enable)"}
           >
             <Bot className="w-5 h-5" />
           </button>

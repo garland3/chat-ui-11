@@ -401,6 +401,35 @@ async def call_llm_with_tools(
                 if function_name == "all_work_is_done":
                     logger.info("Agent completion tool called by user %s", user_email)
                     summary = function_args.get("summary", "Work completed")
+                    
+                    # Enhanced logging for agent mode
+                    if agent_mode:
+                        logger.info("AGENT MODE: Work completion tool called")
+                        logger.info(f"AGENT MODE: Completion summary: {summary}")
+                    
+                    # Send tool call notification to UI for completion
+                    if session:
+                        await session.send_update_to_ui("tool_call", {
+                            "tool_name": "all_work_is_done",
+                            "server_name": "agent_completion",
+                            "function_name": "all_work_is_done",
+                            "parameters": function_args,
+                            "tool_call_id": tool_call["id"],
+                            "agent_mode": agent_mode
+                        })
+                    
+                    # Send tool result notification to UI for completion
+                    if session:
+                        await session.send_update_to_ui("tool_result", {
+                            "tool_name": "all_work_is_done",
+                            "server_name": "agent_completion",
+                            "function_name": "all_work_is_done",
+                            "tool_call_id": tool_call["id"],
+                            "result": f"Agent completion acknowledged: {summary}",
+                            "success": True,
+                            "agent_mode": agent_mode
+                        })
+                    
                     tool_results.append({
                         "tool_call_id": tool_call["id"],
                         "role": "tool",
@@ -432,7 +461,12 @@ async def call_llm_with_tools(
                     server_name = mapping["server"]
                     tool_name = mapping["tool_name"]
                     
-                    logger.info(f"ðŸ TOOL MAPPING: {function_name} -> server: {server_name}, tool: {tool_name}")
+                    logger.info(f"TOOL MAPPING: {function_name} -> server: {server_name}, tool: {tool_name}")
+                    
+                    # Enhanced logging for agent mode
+                    if agent_mode:
+                        logger.info(f"AGENT MODE: Executing tool {tool_name} on server {server_name}")
+                        logger.info(f"AGENT MODE: Tool parameters: {function_args}")
                     
                     # Send tool call notification to UI
                     if session:
@@ -441,7 +475,8 @@ async def call_llm_with_tools(
                             "server_name": server_name,
                             "function_name": function_name,
                             "parameters": function_args,
-                            "tool_call_id": tool_call["id"]
+                            "tool_call_id": tool_call["id"],
+                            "agent_mode": agent_mode  # Add agent mode flag to UI update
                         })
                     
                     try:
@@ -458,6 +493,11 @@ async def call_llm_with_tools(
                         logger.info(f"Enhanced tool arguments: {list(enhanced_args.keys())}")
                         
                         tool_result = await mcp_manager.call_tool(server_name, tool_name, enhanced_args)
+                        
+                        # Enhanced logging for agent mode
+                        if agent_mode:
+                            logger.info(f"AGENT MODE: Tool {tool_name} executed successfully")
+                            logger.info(f"AGENT MODE: Tool result preview: {str(tool_result)[:200]}...")
                         
                         
                         # Parse the tool result to extract custom_html if present
@@ -532,7 +572,8 @@ async def call_llm_with_tools(
                                 "function_name": function_name,
                                 "tool_call_id": tool_call["id"],
                                 "result": content_text,  # Send unfiltered content to UI for downloads
-                                "success": True
+                                "success": True,
+                                "agent_mode": agent_mode  # Add agent mode flag to UI update
                             })
                         
                         # Filter out large base64 content from tool results for LLM context only
@@ -556,7 +597,8 @@ async def call_llm_with_tools(
                                 "tool_call_id": tool_call["id"],
                                 "result": error_message,
                                 "success": False,
-                                "error": str(exc)
+                                "error": str(exc),
+                                "agent_mode": agent_mode  # Add agent mode flag to UI update
                             })
                         
                         error_content = json.dumps({"error": error_message})
@@ -569,8 +611,12 @@ async def call_llm_with_tools(
                         )
                 else:
                     # Tool not found in mapping
-                    logger.error(f"ðŸ TOOL NOT FOUND: {function_name} not in tool mapping. Available tools: {list(tool_mapping.keys())}")
+                    logger.error(f"TOOL NOT FOUND: {function_name} not in tool mapping. Available tools: {list(tool_mapping.keys())}")
                     error_message = f"Unknown tool: {function_name}. Available tools: {', '.join(tool_mapping.keys())}"
+                    
+                    # Enhanced logging for agent mode
+                    if agent_mode:
+                        logger.error(f"AGENT MODE: Tool {function_name} not found in mapping")
                     
                     # Send tool error notification to UI
                     if session:
@@ -581,7 +627,8 @@ async def call_llm_with_tools(
                             "tool_call_id": tool_call["id"],
                             "result": error_message,
                             "success": False,
-                            "error": f"Tool {function_name} not found"
+                            "error": f"Tool {function_name} not found",
+                            "agent_mode": agent_mode  # Add agent mode flag to UI update
                         })
                     
                     error_content = json.dumps({"error": error_message})

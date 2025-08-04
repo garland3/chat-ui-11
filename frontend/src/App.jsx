@@ -9,7 +9,6 @@ import ChatArea from './components/ChatArea'
 import ToolsPanel from './components/ToolsPanel'
 import RagPanel from './components/RagPanel'
 import CanvasPanel from './components/CanvasPanel'
-import AgentModal from './components/AgentModal'
 import MarketplacePanel from './components/MarketplacePanel'
 import BannerPanel from './components/BannerPanel'
 import HelpPage from './components/HelpPage'
@@ -20,7 +19,6 @@ function ChatInterface() {
   const [toolsPanelOpen, setToolsPanelOpen] = useState(false)
   const [ragPanelOpen, setRagPanelOpen] = useState(false)
   const [canvasPanelOpen, setCanvasPanelOpen] = useState(false)
-  const [agentModalOpen, setAgentModalOpen] = useState(false)
   const [canvasPanelWidth, setCanvasPanelWidth] = useState(0)
   const { canvasContent, customUIContent } = useChat()
 
@@ -64,7 +62,6 @@ function ChatInterface() {
         <Header 
           onToggleRag={() => setRagPanelOpen(!ragPanelOpen)}
           onToggleTools={() => setToolsPanelOpen(!toolsPanelOpen)}
-          onToggleAgent={() => setAgentModalOpen(!agentModalOpen)}
           onCloseCanvas={() => setCanvasPanelOpen(false)}
         />
 
@@ -86,12 +83,6 @@ function ChatInterface() {
       <ToolsPanel 
         isOpen={toolsPanelOpen} 
         onClose={() => setToolsPanelOpen(false)} 
-      />
-
-      {/* Agent Settings Modal */}
-      <AgentModal 
-        isOpen={agentModalOpen}
-        onClose={() => setAgentModalOpen(false)}
       />
 
       {/* Feedback Button */}

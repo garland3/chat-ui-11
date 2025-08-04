@@ -470,7 +470,8 @@ export const ChatProvider = ({ children }) => {
             server_name: updateData.server_name,
             arguments: updateData.parameters || updateData.arguments || {},
             status: 'calling',
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            agent_mode: updateData.agent_mode || false  // Include agent mode flag
           }
           setMessages(prev => [...prev, toolCallMessage])
           break
