@@ -72,9 +72,11 @@ async def call_llm(model_name: str, messages: List[Dict[str, str]]) -> str:
     api_url = model_config.model_url
     api_key = os.path.expandvars(model_config.api_key)
     model_id = model_config.model_name
+    # log the number of chars in the messages. 
+    logger.info(f"Calling LLM {model_id} with {len(messages)} messages, total chars: {sum(len(m['content']) for m in messages)}")
 
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-    payload = {"model": model_id, "messages": messages, "max_tokens": 1000, "temperature": 0.7}
+    payload = {"model": model_id, "messages": messages, "max_tokens": 3000, "temperature": 0.7}
 
     try:
         loop = asyncio.get_event_loop()
@@ -379,6 +381,8 @@ async def call_llm_with_tools(
     }
 
     try:
+        # log the number of chars in the messages.
+        logger.info(f"Calling LLM maybe with tools {model_id} with {len(messages)} messages, total chars: {sum(len(m['content']) for m in messages)}")
         loop = asyncio.get_event_loop()
         response = await loop.run_in_executor(
             None, lambda: requests.post(api_url, headers=headers, json=payload, timeout=30)
