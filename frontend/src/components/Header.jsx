@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useChat } from '../contexts/ChatContext'
 import { useWS } from '../contexts/WSContext'
-import { Menu, ChevronDown, Settings, Bot, Download, Plus, HelpCircle, Shield } from 'lucide-react'
+import { Menu, ChevronDown, Settings, Bot, Download, Plus, HelpCircle, Shield, FolderOpen } from 'lucide-react'
 
-const Header = ({ onToggleRag, onToggleTools, onCloseCanvas }) => {
+const Header = ({ onToggleRag, onToggleTools, onToggleFiles, onCloseCanvas }) => {
   const navigate = useNavigate()
   const { 
     user, 
@@ -213,6 +213,15 @@ const Header = ({ onToggleRag, onToggleTools, onCloseCanvas }) => {
           title="Toggle Tools"
         >
           <Settings className="w-5 h-5" />
+        </button>
+        
+        {/* File Manager Panel Toggle */}
+        <button
+          onClick={onToggleFiles}
+          className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
+          title="Toggle File Manager"
+        >
+          <FolderOpen className="w-5 h-5" />
         </button>
       </div>
 

@@ -2,6 +2,7 @@ import { X, Settings, Trash2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useChat } from '../contexts/ChatContext'
 import { useMarketplace } from '../contexts/MarketplaceContext'
+import ResizablePanel from './ResizablePanel'
 
 const ToolsPanel = ({ isOpen, onClose }) => {
   const navigate = useNavigate()
@@ -146,32 +147,23 @@ const ToolsPanel = ({ isOpen, onClose }) => {
   }
 
   return (
-    <>
-      {/* Overlay */}
-      {isOpen && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+    <ResizablePanel
+      isOpen={isOpen}
+      onClose={onClose}
+      defaultWidth={448}
+      minWidth={320}
+      maxWidth={800}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 border-b border-gray-700 flex-shrink-0">
+        <h2 className="text-lg font-semibold text-gray-100">Tools & Integrations</h2>
+        <button
           onClick={onClose}
-        />
-      )}
-      
-      {/* Panel */}
-      <aside className={`
-        fixed right-0 top-0 h-full w-80 bg-gray-800 border-l border-gray-700 z-50 transform transition-transform duration-300 ease-in-out flex flex-col
-        ${isOpen ? 'translate-x-0' : 'translate-x-full'}
-        lg:relative lg:translate-x-0 lg:w-96
-        ${!isOpen ? 'lg:hidden' : ''}
-      `}>
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-700 flex-shrink-0">
-          <h2 className="text-lg font-semibold text-gray-100">Tools & Integrations</h2>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
+          className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
 
         {/* Tool Choice Controls */}
         <div className="p-4 border-b border-gray-700 flex-shrink-0">
@@ -312,8 +304,7 @@ const ToolsPanel = ({ isOpen, onClose }) => {
             </div>
           )}
         </div>
-      </aside>
-    </>
+    </ResizablePanel>
   )
 }
 

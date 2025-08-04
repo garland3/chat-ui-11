@@ -47,6 +47,19 @@ export const ChatProvider = ({ children }) => {
   // Custom UI state
   const [customUIContent, setCustomUIContent] = useState(null)
   
+  // Files state
+  const [sessionFiles, setSessionFiles] = useState({
+    total_files: 0,
+    files: [],
+    categories: {
+      code: [],
+      image: [],
+      data: [],
+      document: [],
+      other: []
+    }
+  })
+  
   const { sendMessage, addMessageHandler } = useWS()
 
   // Load configuration on mount
@@ -529,6 +542,29 @@ export const ChatProvider = ({ children }) => {
           }
           break
 
+        case 'files_update':
+          try {
+            console.log('Received files update:', updateData)
+            if (updateData) {
+              setSessionFiles(updateData)
+            }
+          } catch (filesError) {
+            console.error('Error handling files update:', filesError, updateData)
+          }
+          break
+
+        case 'file_download':
+          try {
+            console.log('Received file download:', updateData)
+            if (updateData && updateData.filename && updateData.content_base64) {
+              // Trigger actual file download
+              triggerFileDownload(updateData.filename, updateData.content_base64)
+            }
+          } catch (downloadError) {
+            console.error('Error handling file download:', downloadError, updateData)
+          }
+          break
+
         default:
           console.warn('Unknown intermediate update type:', updateType)
       }
@@ -537,11 +573,129 @@ export const ChatProvider = ({ children }) => {
     }
   }
 
+  const triggerFileDownload = (filename, base64Content) => {
+    try {
+      // Convert base64 to blob
+      const byteCharacters = atob(base64Content)
+      const byteNumbers = new Array(byteCharacters.length)
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i)
+      }
+      const byteArray = new Uint8Array(byteNumbers)
+      
+      // Determine MIME type based on file extension
+      const extension = filename.split('.').pop()?.toLowerCase()
+      let mimeType = 'application/octet-stream'
+      
+      const mimeTypes = {
+        'pdf': 'application/pdf',
+        'txt': 'text/plain',
+        'json': 'application/json',
+        'csv': 'text/csv',
+        'png': 'image/png',
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'gif': 'image/gif',
+        'doc': 'application/msword',
+        'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'py': 'text/x-python',
+        'js': 'text/javascript',
+        'html': 'text/html',
+        'css': 'text/css',
+        'xml': 'application/xml'
+      }
+      
+      if (extension && mimeTypes[extension]) {
+        mimeType = mimeTypes[extension]
+      }
+      
+      const blob = new Blob([byteArray], { type: mimeType })
+      
+      // Create download link and trigger download
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = filename
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      
+      // Clean up
+      setTimeout(() => URL.revokeObjectURL(url), 100)
+      
+      console.log(`Downloaded file: ${filename}`)
+      
+    } catch (error) {
+      console.error('Error downloading file:', error)
+      alert('Failed to download file. Please try again.')
+    }
+  }
+
   const clearChat = () => {
     setMessages([])
     setIsWelcomeVisible(true)
     setCanvasContent('')
     setCustomUIContent(null)
+    setSessionFiles({
+      total_files: 0,
+      files: [],
+      categories: {
+        code: [],
+        image: [],
+        data: [],
+        document: [],
+        other: []
+      }
+    })
+  }
+
+  const downloadFile = (filename) => {
+    try {
+      // Find the file in session files
+      const file = sessionFiles.files.find(f => f.filename === filename)
+      if (!file) {
+        console.error('File not found:', filename)
+        return
+      }
+
+      // Send WebSocket message to request file download
+      sendMessage({
+        type: 'download_file',
+        filename: filename
+      })
+      
+    } catch (error) {
+      console.error('Error downloading file:', error)
+    }
+  }
+
+  const deleteFile = (filename) => {
+    try {
+      if (confirm(`Are you sure you want to delete ${filename}?`)) {
+        // TODO: Send WebSocket message to delete file from session
+        console.log('Would delete file:', filename)
+        
+        // For now, just remove from local state
+        setSessionFiles(prev => {
+          const newFiles = prev.files.filter(f => f.filename !== filename)
+          const newCategories = {}
+          
+          // Rebuild categories
+          Object.keys(prev.categories).forEach(category => {
+            newCategories[category] = newFiles.filter(f => f.type === category)
+          })
+          
+          return {
+            total_files: newFiles.length,
+            files: newFiles,
+            categories: newCategories
+          }
+        })
+      }
+    } catch (error) {
+      console.error('Error deleting file:', error)
+    }
   }
 
   const clearToolsAndPrompts = () => {
@@ -747,7 +901,12 @@ export const ChatProvider = ({ children }) => {
     
     // Custom UI
     customUIContent,
-    setCustomUIContent
+    setCustomUIContent,
+    
+    // Files
+    sessionFiles,
+    downloadFile,
+    deleteFile
   }
 
   return (

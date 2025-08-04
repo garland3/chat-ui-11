@@ -14,12 +14,14 @@ import BannerPanel from './components/BannerPanel'
 import HelpPage from './components/HelpPage'
 import AdminDashboard from './components/AdminDashboard'
 import FeedbackButton from './components/FeedbackButton'
+import FileManagerPanel from './components/FileManagerPanel'
 
 function ChatInterface() {
   const [toolsPanelOpen, setToolsPanelOpen] = useState(false)
   const [ragPanelOpen, setRagPanelOpen] = useState(false)
   const [canvasPanelOpen, setCanvasPanelOpen] = useState(false)
   const [canvasPanelWidth, setCanvasPanelWidth] = useState(0)
+  const [filesPanelOpen, setFilesPanelOpen] = useState(false)
   const { canvasContent, customUIContent } = useChat()
 
   // Auto-open tools panel when returning from marketplace
@@ -62,6 +64,7 @@ function ChatInterface() {
         <Header 
           onToggleRag={() => setRagPanelOpen(!ragPanelOpen)}
           onToggleTools={() => setToolsPanelOpen(!toolsPanelOpen)}
+          onToggleFiles={() => setFilesPanelOpen(!filesPanelOpen)}
           onCloseCanvas={() => setCanvasPanelOpen(false)}
         />
 
@@ -83,6 +86,12 @@ function ChatInterface() {
       <ToolsPanel 
         isOpen={toolsPanelOpen} 
         onClose={() => setToolsPanelOpen(false)} 
+      />
+      
+      {/* File Manager Panel */}
+      <FileManagerPanel 
+        isOpen={filesPanelOpen} 
+        onClose={() => setFilesPanelOpen(false)} 
       />
 
       {/* Feedback Button */}

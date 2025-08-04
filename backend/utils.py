@@ -130,6 +130,11 @@ async def _save_tool_files_to_session(tool_result: Dict[str, Any], session, tool
     
     if files_saved > 0:
         logger.info(f"Tool {tool_name} generated {files_saved} files now available for other tools in session")
+        # Send file update to UI
+        try:
+            await session.send_files_update()
+        except Exception as e:
+            logger.warning(f"Failed to send files update to UI: {e}")
 
 
 def _filter_large_base64_from_tool_result(content_text: str) -> str:
@@ -564,14 +569,22 @@ async def call_llm_with_tools(
                                 if file_size > 100000:  # Log warning for files over 100KB
                                     logger.warning(f"Large file {filename} ({file_size} bytes) may cause LLM context issues")
                         
-                        # Send tool result notification to UI (with unfiltered content for downloads)
+                        # Send tool result notification to UI
                         if session:
+                            # For agent mode, filter base64 content to improve UI experience
+                            if agent_mode:
+                                ui_content = _filter_large_base64_from_tool_result(content_text)
+                                if len(ui_content) != len(content_text):
+                                    logger.info(f"AGENT MODE: Filtered base64 content from UI update: {len(content_text)} -> {len(ui_content)} chars")
+                            else:
+                                ui_content = content_text
+                            
                             await session.send_update_to_ui("tool_result", {
                                 "tool_name": tool_name,
                                 "server_name": server_name,
                                 "function_name": function_name,
                                 "tool_call_id": tool_call["id"],
-                                "result": content_text,  # Send unfiltered content to UI for downloads
+                                "result": ui_content,
                                 "success": True,
                                 "agent_mode": agent_mode  # Add agent mode flag to UI update
                             })

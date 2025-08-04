@@ -14,11 +14,13 @@ async def log_session_events_callback(session: ChatSession, **kwargs) -> None:
 
 async def log_llm_call_callback(session: ChatSession, **kwargs) -> None:
     """Simple logging callback for LLM calls."""
+    total_chars = sum(len(msg.get("content", "")) for msg in session.messages)
     logger.info(
-        "[CALLBACK] User %s is calling model %s with %d total messages.",
+        "[CALLBACK] User %s is calling model %s with %d total messages (%d chars).",
         session.user_email,
         session.model_name,
         len(session.messages),
+        total_chars,
     )
 
 

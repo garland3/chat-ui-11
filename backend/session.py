@@ -74,6 +74,8 @@ class ChatSession:
 
                 if message.get("type") == "chat":
                     await self.handle_chat_message(message)
+                elif message.get("type") == "download_file":
+                    await self.handle_download_request(message)
                 else:
                     await self.send_error(f"Unknown message type: {message.get('type')}")
         except WebSocketDisconnect:
@@ -110,8 +112,8 @@ class ChatSession:
         if "files" in message:
             # logging the files for debugging
             logger.info("Received files for session %s: %s", self.session_id, message["files"])
-            # Update the session's file mapping
-            self.update_files(message["files"])
+            # Update the session's file mapping and send UI update
+            await self.update_files_async(message["files"])
         
         if message.get("agent_mode", False):
             await self.message_processor.handle_agent_mode_message(message)
@@ -135,6 +137,35 @@ class ChatSession:
             # use fstring. 
             for filename, base64_data in self.uploaded_files.items():
                 logger.info(f"\t{filename}: {len(base64_data)} bytes")
+
+    async def update_files_async(self, files: Dict[str, str]) -> None:
+        """Update the session's file mapping and send UI update"""
+        self.update_files(files)
+        await self.send_files_update()
+
+    async def handle_download_request(self, message: Dict[str, Any]) -> None:
+        """Handle file download requests from the client."""
+        try:
+            filename = message.get("filename")
+            if not filename:
+                await self.send_error("No filename provided for download")
+                return
+            
+            if filename not in self.uploaded_files:
+                await self.send_error(f"File '{filename}' not found in session")
+                return
+            
+            # Send the file content back to the client
+            await self.send_update_to_ui("file_download", {
+                "filename": filename,
+                "content_base64": self.uploaded_files[filename]
+            })
+            
+            logger.info(f"Sent file download for '{filename}' to user {self.user_email}")
+            
+        except Exception as exc:
+            logger.error("Error handling download request: %s", exc)
+            await self.send_error("Failed to process download request")
 
     async def send_json(self, data: Dict[str, Any]) -> None:
         """Send JSON data to the WebSocket if connection is still open."""
@@ -172,6 +203,69 @@ class ChatSession:
             logger.info(f"Sent {update_type} update to user {self.user_email}")
         except Exception as exc:
             logger.error("Error sending update to UI for user %s: %s", self.user_email, exc)
+
+    def _categorize_file_type(self, filename: str) -> str:
+        """Categorize file based on extension."""
+        extension = filename.lower().split('.')[-1] if '.' in filename else ''
+        
+        code_extensions = {'py', 'js', 'jsx', 'ts', 'tsx', 'html', 'css', 'java', 'cpp', 'c', 'rs', 'go', 'php', 'rb', 'swift'}
+        image_extensions = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'svg', 'webp'}
+        data_extensions = {'csv', 'json', 'xlsx', 'xls', 'xml'}
+        document_extensions = {'pdf', 'doc', 'docx', 'txt', 'md', 'rtf'}
+        
+        if extension in code_extensions:
+            return 'code'
+        elif extension in image_extensions:
+            return 'image'
+        elif extension in data_extensions:
+            return 'data'
+        elif extension in document_extensions:
+            return 'document'
+        else:
+            return 'other'
+
+    def _get_file_metadata(self) -> Dict[str, Any]:
+        """Get metadata for all files in the session."""
+        files_metadata = []
+        
+        for filename, base64_content in self.uploaded_files.items():
+            # Determine if file was uploaded or generated
+            # Files with tool prefixes are generated (except for data files which keep original names)
+            is_generated = '_' in filename and not filename.endswith(('.csv', '.json', '.txt', '.xlsx'))
+            source_tool = filename.split('_')[0] if is_generated else None
+            
+            file_info = {
+                'filename': filename,
+                'size': len(base64_content),
+                'type': self._categorize_file_type(filename),
+                'source': 'generated' if is_generated else 'uploaded',
+                'source_tool': source_tool,
+                'extension': filename.split('.')[-1] if '.' in filename else ''
+            }
+            files_metadata.append(file_info)
+        
+        # Group by category
+        categorized = {
+            'code': [f for f in files_metadata if f['type'] == 'code'],
+            'image': [f for f in files_metadata if f['type'] == 'image'], 
+            'data': [f for f in files_metadata if f['type'] == 'data'],
+            'document': [f for f in files_metadata if f['type'] == 'document'],
+            'other': [f for f in files_metadata if f['type'] == 'other']
+        }
+        
+        return {
+            'total_files': len(files_metadata),
+            'files': files_metadata,
+            'categories': categorized
+        }
+
+    async def send_files_update(self) -> None:
+        """Send updated file list to the UI."""
+        try:
+            files_metadata = self._get_file_metadata()
+            await self.send_update_to_ui("files_update", files_metadata)
+        except Exception as exc:
+            logger.error("Error sending files update to UI for user %s: %s", self.user_email, exc)
 
 
 class SessionManager:
