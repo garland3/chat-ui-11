@@ -141,7 +141,7 @@ const CanvasPanel = ({ isOpen, onClose, onWidthChange }) => {
 
   return (
     <aside
-      className={`fixed right-0 top-0 h-full bg-gray-800 border-l border-gray-700 z-30 transform transition-transform duration-300 ease-in-out ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}
+      className={`bg-gray-800 border-l border-gray-700 transform transition-all duration-300 ease-in-out ${isOpen ? 'flex flex-col' : 'hidden'}`}
       style={{
         width: isMobile ? '100vw' : `${width}px`,
         minWidth: isMobile ? '100vw' : `${MIN_WIDTH}px`,
@@ -187,7 +187,7 @@ const CanvasPanel = ({ isOpen, onClose, onWidthChange }) => {
         </button>
       </div>
       {/* Content */}
-      <div className="flex-1 overflow-y-auto custom-scrollbar" style={{ height: 'calc(100vh - 73px)' }}>
+      <div className="flex-1 overflow-y-auto custom-scrollbar">
         {renderContent()}
       </div>
     </aside>

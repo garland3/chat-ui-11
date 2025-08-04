@@ -58,13 +58,6 @@ function ChatInterface() {
       <div className="flex flex-col flex-1 relative">
         {/* Banner Panel - positioned at the very top */}
         <BannerPanel />
-        
-        {/* Canvas Panel */}
-        <CanvasPanel 
-          isOpen={canvasPanelOpen}
-          onClose={() => setCanvasPanelOpen(false)}
-          onWidthChange={setCanvasPanelWidth}
-        />
 
         {/* Header */}
         <Header 
@@ -74,11 +67,18 @@ function ChatInterface() {
           onCloseCanvas={() => setCanvasPanelOpen(false)}
         />
 
-        {/* Chat Area */}
-        <ChatArea 
-          canvasPanelOpen={canvasPanelOpen} 
-          canvasPanelWidth={canvasPanelWidth}
-        />
+        {/* Content Area - Chat and Canvas side by side */}
+        <div className="flex flex-1 overflow-hidden">
+          {/* Chat Area */}
+          <ChatArea />
+
+          {/* Canvas Panel */}
+          <CanvasPanel 
+            isOpen={canvasPanelOpen}
+            onClose={() => setCanvasPanelOpen(false)}
+            onWidthChange={setCanvasPanelWidth}
+          />
+        </div>
       </div>
 
       {/* Tools Panel */}
