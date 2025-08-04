@@ -14,6 +14,7 @@ import MarketplacePanel from './components/MarketplacePanel'
 import BannerPanel from './components/BannerPanel'
 import HelpPage from './components/HelpPage'
 import AdminDashboard from './components/AdminDashboard'
+import FeedbackButton from './components/FeedbackButton'
 
 function ChatInterface() {
   const [toolsPanelOpen, setToolsPanelOpen] = useState(false)
@@ -92,6 +93,9 @@ function ChatInterface() {
         isOpen={agentModalOpen}
         onClose={() => setAgentModalOpen(false)}
       />
+
+      {/* Feedback Button */}
+      <FeedbackButton />
     </div>
   )
 }

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { 
   ArrowLeft, Settings, Database, FileText, Activity, 
   Download, Save, X, Check, RefreshCw, Shield,
-  MessageSquare, Heart, RotateCcw, Eye
+  MessageSquare, Heart, RotateCcw, Eye, ThumbsUp, ThumbsDown, Minus
 } from 'lucide-react'
 
 const AdminDashboard = () => {
@@ -255,6 +255,23 @@ const AdminDashboard = () => {
     }
   }
 
+  const viewFeedback = async () => {
+    try {
+      const response = await fetch('/api/feedback?limit=100')
+      const data = await response.json()
+      
+      openModal('User Feedback', {
+        type: 'feedback',
+        feedback: data.feedback,
+        statistics: data.statistics,
+        pagination: data.pagination,
+        readonly: true
+      })
+    } catch (err) {
+      addNotification('Error loading feedback: ' + err.message, 'error')
+    }
+  }
+
   const saveConfig = async (content) => {
     if (!currentEndpoint) return
     
@@ -487,6 +504,24 @@ const AdminDashboard = () => {
               Reload Config
             </button>
           </div>
+
+          {/* User Feedback */}
+          <div className="bg-gray-800 rounded-lg p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <Heart className="w-6 h-6 text-pink-400" />
+              <h2 className="text-lg font-semibold">User Feedback</h2>
+            </div>
+            <p className="text-gray-400 mb-4">View user feedback and ratings collected from the chat interface.</p>
+            <div className={`px-3 py-1 rounded text-sm font-medium mb-4 ${getStatusColor('healthy')}`}>
+              Ready
+            </div>
+            <button 
+              onClick={viewFeedback}
+              className="w-full px-4 py-2 bg-pink-600 hover:bg-pink-700 rounded-lg transition-colors"
+            >
+              View Feedback
+            </button>
+          </div>
         </div>
       </div>
 
@@ -667,6 +702,104 @@ const AdminModal = ({ data, onClose, onSave, onDownload }) => {
                 ))}
               </div>
             )}
+          </div>
+        )
+      }
+
+      case 'feedback': {
+        const feedback = data.content.feedback || []
+        const stats = data.content.statistics || {}
+        
+        const getRatingIcon = (rating) => {
+          switch (rating) {
+            case 1: return <ThumbsUp className="w-4 h-4 text-green-400" />
+            case 0: return <Minus className="w-4 h-4 text-yellow-400" />
+            case -1: return <ThumbsDown className="w-4 h-4 text-red-400" />
+            default: return null
+          }
+        }
+
+        const getRatingLabel = (rating) => {
+          switch (rating) {
+            case 1: return 'Positive'
+            case 0: return 'Neutral'
+            case -1: return 'Negative'
+            default: return 'Unknown'
+          }
+        }
+
+        return (
+          <div className="space-y-4">
+            {/* Statistics Summary */}
+            <div className="p-4 bg-gray-700 rounded-lg">
+              <h4 className="font-medium mb-3">Feedback Statistics</h4>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-1 text-green-400 mb-1">
+                    <ThumbsUp className="w-4 h-4" />
+                    <span className="font-medium">{stats.positive || 0}</span>
+                  </div>
+                  <div className="text-gray-400">Positive</div>
+                </div>
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-1 text-yellow-400 mb-1">
+                    <Minus className="w-4 h-4" />
+                    <span className="font-medium">{stats.neutral || 0}</span>
+                  </div>
+                  <div className="text-gray-400">Neutral</div>
+                </div>
+                <div className="text-center">
+                  <div className="flex items-center justify-center gap-1 text-red-400 mb-1">
+                    <ThumbsDown className="w-4 h-4" />
+                    <span className="font-medium">{stats.negative || 0}</span>
+                  </div>
+                  <div className="text-gray-400">Negative</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-lg font-medium text-blue-400 mb-1">{stats.total || 0}</div>
+                  <div className="text-gray-400">Total</div>
+                </div>
+              </div>
+              {stats.average !== undefined && (
+                <div className="mt-3 text-center">
+                  <span className="text-sm text-gray-400">Average Rating: </span>
+                  <span className="font-medium">{stats.average.toFixed(2)}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Feedback List */}
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {feedback.length === 0 ? (
+                <div className="text-center py-8 text-gray-400">
+                  <Heart className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>No feedback submitted yet</p>
+                </div>
+              ) : (
+                feedback.map((item, index) => (
+                  <div key={index} className="p-3 border border-gray-600 rounded-lg">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        {getRatingIcon(item.rating)}
+                        <span className="font-medium">{getRatingLabel(item.rating)}</span>
+                        <span className="text-sm text-gray-400">by {item.user}</span>
+                      </div>
+                      <span className="text-xs text-gray-400">
+                        {new Date(item.timestamp).toLocaleString()}
+                      </span>
+                    </div>
+                    {item.comment && (
+                      <div className="text-sm text-gray-300 bg-gray-800 p-2 rounded mt-2">
+                        "{item.comment}"
+                      </div>
+                    )}
+                    <div className="text-xs text-gray-500 mt-2">
+                      ID: {item.id}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         )
       }
