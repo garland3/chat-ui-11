@@ -170,11 +170,11 @@ const FileManager = ({ files, onDownloadFile, onDeleteFile }) => {
                       {getFileIcon(file)}
                       
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-sm text-gray-200 truncate font-mono">
+                        <div className="flex items-start gap-2 mb-1">
+                          <span className="text-sm text-gray-200 break-all font-mono">
                             {file.filename}
                           </span>
-                          {getSourceBadge(file)}
+                          <div className="flex-shrink-0">{getSourceBadge(file)}</div>
                         </div>
                         <div className="flex items-center gap-2 text-xs text-gray-400">
                           <span>{formatFileSize(file.size)}</span>

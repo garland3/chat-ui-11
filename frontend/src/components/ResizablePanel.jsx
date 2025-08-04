@@ -10,7 +10,7 @@ const ResizablePanel = ({
   className = "",
   onWidthChange
 }) => {
-  const [width, setWidth] = useState(defaultWidth)
+  const [width, setWidth] = useState(() => Math.min(defaultWidth, window.innerWidth))
   const [isResizing, setIsResizing] = useState(false)
   const resizeRef = useRef(null)
   const panelRef = useRef(null)
@@ -56,18 +56,31 @@ const ResizablePanel = ({
     }
   }, [isResizing, resize, stopResize])
 
+  // Adjust panel width when window is resized to ensure it fits within viewport
+  useEffect(() => {
+    const handleWindowResize = () => {
+      if (window.innerWidth < width) {
+        const clampedWidth = Math.min(Math.max(window.innerWidth, minWidth), maxWidth)
+        setWidth(clampedWidth)
+        onWidthChange?.(clampedWidth)
+      }
+    }
+    window.addEventListener('resize', handleWindowResize)
+    return () => window.removeEventListener('resize', handleWindowResize)
+  }, [width, minWidth, maxWidth, onWidthChange])
+
   return (
     <>
       {/* Overlay */}
       {isOpen && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
           onClick={onClose}
         />
       )}
-      
+
       {/* Panel */}
-      <aside 
+      <aside
         ref={panelRef}
         className={`
           fixed right-0 top-0 h-full bg-gray-800 border-l border-gray-700 z-50 transform transition-transform duration-300 ease-in-out flex flex-col
@@ -76,21 +89,23 @@ const ResizablePanel = ({
           ${!isOpen ? 'lg:hidden' : ''}
           ${className}
         `}
-        style={{ 
-          width: isOpen ? `${width}px` : '384px' // 24rem fallback for mobile
+        style={{
+          width: `${width}px`,
+          minWidth: `${minWidth}px`,
+          maxWidth: `${maxWidth}px`,
         }}
       >
         {/* Resize Handle */}
         {isOpen && (
           <div
             ref={resizeRef}
-            className="absolute left-0 top-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500/50 transition-colors group hidden lg:block"
+            className="absolute left-0 top-0 w-1 h-full cursor-col-resize bg-transparent hover:bg-blue-500/50 transition-colors group block"
             onMouseDown={startResize}
           >
             <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-12 bg-gray-600 group-hover:bg-blue-500 transition-colors rounded-r-sm" />
           </div>
         )}
-        
+
         {children}
       </aside>
     </>
