@@ -159,6 +159,7 @@ async def admin_dashboard(admin_user: str = Depends(require_admin)):
             "/admin/llm-config",
             "/admin/help-config",
             "/admin/logs",
+            "/admin/logs/viewer",
             "/admin/logs/download",
             "/admin/logs/stats",
             "/admin/system-status",
@@ -424,6 +425,98 @@ async def get_log_stats(admin_user: str = Depends(require_admin)):
         }
     except Exception as e:
         logger.error(f"Error getting log stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@admin_router.get("/logs/viewer")
+async def get_enhanced_logs(
+    lines: int = 500,
+    level_filter: str = None,
+    module_filter: str = None,
+    admin_user: str = Depends(require_admin)
+):
+    """Get enhanced logs with better structure for the React frontend."""
+    try:
+        # Read logs from the JSONL file directly for better performance
+        log_file = Path("backend/logs/app.jsonl")
+        if not log_file.exists():
+            raise HTTPException(status_code=404, detail="Log file not found")
+        
+        # Read last N lines efficiently
+        from collections import deque
+        with log_file.open("r", encoding="utf-8") as f:
+            lines_deque = deque(f, maxlen=lines + 1)  # +1 for potential "NEW LOG" line
+        
+        entries = []
+        modules = set()
+        levels = set()
+        
+        for line in lines_deque:
+            line = line.strip()
+            if line == "NEW LOG":
+                continue
+            
+            try:
+                entry = json.loads(line)
+                
+                # Extract key fields
+                processed_entry = {
+                    "timestamp": entry.get("timestamp", ""),
+                    "level": entry.get("level", "UNKNOWN"),
+                    "module": entry.get("module", entry.get("logger", "")),
+                    "function": entry.get("function", ""),
+                    "message": entry.get("message", ""),
+                    "trace_id": entry.get("trace_id", ""),
+                    "span_id": entry.get("span_id", ""),
+                    "line": entry.get("line", ""),
+                    "thread_name": entry.get("thread_name", ""),
+                    "extras": {k: v for k, v in entry.items() if k.startswith("extra_")}
+                }
+                
+                # Apply filters
+                if level_filter and processed_entry["level"] != level_filter:
+                    continue
+                if module_filter and processed_entry["module"] != module_filter:
+                    continue
+                
+                entries.append(processed_entry)
+                modules.add(processed_entry["module"])
+                levels.add(processed_entry["level"])
+                
+            except json.JSONDecodeError:
+                # Handle parse errors
+                entries.append({
+                    "timestamp": "",
+                    "level": "ERROR",
+                    "module": "parser",
+                    "function": "parse_log",
+                    "message": f"Failed to parse log line: {line}",
+                    "trace_id": "",
+                    "span_id": "",
+                    "line": "",
+                    "thread_name": "",
+                    "extras": {},
+                    "parse_error": True,
+                    "raw_line": line
+                })
+        
+        return {
+            "entries": entries,
+            "metadata": {
+                "total_entries": len(entries),
+                "unique_modules": sorted(list(modules)),
+                "unique_levels": sorted(list(levels)),
+                "log_file_path": str(log_file),
+                "requested_lines": lines,
+                "filters_applied": {
+                    "level": level_filter,
+                    "module": module_filter
+                }
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting enhanced logs: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

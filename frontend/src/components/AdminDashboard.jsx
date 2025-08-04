@@ -173,6 +173,22 @@ const AdminDashboard = () => {
     }
   }
 
+  const viewEnhancedLogs = async () => {
+    try {
+      const response = await fetch('/admin/logs/viewer?lines=500')
+      const data = await response.json()
+      
+      openModal('Enhanced Log Viewer', {
+        type: 'enhanced-logs',
+        entries: data.entries,
+        metadata: data.metadata,
+        readonly: true
+      })
+    } catch (err) {
+      addNotification('Error loading enhanced logs: ' + err.message, 'error')
+    }
+  }
+
   const downloadLogs = () => {
     try {
       const link = document.createElement('a')
@@ -443,16 +459,24 @@ const AdminDashboard = () => {
               <Eye className="w-6 h-6 text-cyan-400" />
               <h2 className="text-lg font-semibold">System Logs</h2>
             </div>
-            <p className="text-gray-400 mb-4">View application logs and system information.</p>
+            <p className="text-gray-400 mb-4">View application logs with enhanced filtering and better UX.</p>
             <div className={`px-3 py-1 rounded text-sm font-medium mb-4 ${getStatusColor('healthy')}`}>
               Ready
             </div>
-            <button 
-              onClick={viewLogs}
-              className="w-full px-4 py-2 bg-cyan-600 hover:bg-cyan-700 rounded-lg transition-colors"
-            >
-              View Logs
-            </button>
+            <div className="space-y-2">
+              <button 
+                onClick={viewEnhancedLogs}
+                className="w-full px-4 py-2 bg-cyan-600 hover:bg-cyan-700 rounded-lg transition-colors"
+              >
+                Enhanced Log Viewer
+              </button>
+              <button 
+                onClick={viewLogs}
+                className="w-full px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg transition-colors text-sm"
+              >
+                Basic Log View
+              </button>
+            </div>
           </div>
 
           {/* System Health */}
@@ -702,6 +726,143 @@ const AdminModal = ({ data, onClose, onSave, onDownload }) => {
                 ))}
               </div>
             )}
+          </div>
+        )
+      }
+
+      case 'enhanced-logs': {
+        const entries = data.content.entries || []
+        const metadata = data.content.metadata || {}
+        
+        const formatTimestamp = (timestamp) => {
+          try {
+            const date = new Date(timestamp)
+            return date.toLocaleTimeString('en-US', { 
+              hour12: false, 
+              hour: '2-digit', 
+              minute: '2-digit', 
+              second: '2-digit',
+              fractionalSecondDigits: 3 
+            })
+          } catch {
+            return timestamp
+          }
+        }
+
+        const getLevelColor = (level) => {
+          switch (level) {
+            case 'DEBUG': return 'bg-gray-600 text-gray-300'
+            case 'INFO': return 'bg-green-600 text-green-100'
+            case 'WARN': return 'bg-yellow-600 text-yellow-100'
+            case 'ERROR': return 'bg-red-600 text-red-100'
+            case 'CRITICAL': return 'bg-red-800 text-red-100'
+            default: return 'bg-gray-500 text-gray-100'
+          }
+        }
+
+        const copyToClipboard = (text) => {
+          navigator.clipboard.writeText(text).then(() => {
+            addNotification('Copied to clipboard', 'success')
+          }).catch(() => {
+            addNotification('Failed to copy', 'error')
+          })
+        }
+
+        return (
+          <div className="space-y-4">
+            {/* Metadata */}
+            <div className="p-4 bg-gray-700 rounded-lg">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <div className="text-gray-400">Total Entries</div>
+                  <div className="font-medium">{metadata.total_entries || 0}</div>
+                </div>
+                <div>
+                  <div className="text-gray-400">Unique Modules</div>
+                  <div className="font-medium">{metadata.unique_modules?.length || 0}</div>
+                </div>
+                <div>
+                  <div className="text-gray-400">Log Levels</div>
+                  <div className="font-medium">{metadata.unique_levels?.length || 0}</div>
+                </div>
+                <div>
+                  <div className="text-gray-400">Requested Lines</div>
+                  <div className="font-medium">{metadata.requested_lines || 0}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Log Entries */}
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {entries.length === 0 ? (
+                <div className="text-center py-8 text-gray-400">
+                  <Eye className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>No log entries found</p>
+                </div>
+              ) : (
+                entries.map((entry, index) => (
+                  <div key={index} className="p-3 border border-gray-600 rounded-lg hover:bg-gray-750 transition-colors">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0">
+                        <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${getLevelColor(entry.level)}`}>
+                          {entry.level}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-sm font-mono text-gray-400">
+                            {formatTimestamp(entry.timestamp)}
+                          </span>
+                          <span className="text-sm font-medium text-blue-400">
+                            {entry.module}
+                          </span>
+                          {entry.function && (
+                            <span className="text-sm font-mono text-gray-500">
+                              {entry.function}()
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-sm text-gray-200 break-words">
+                          {entry.parse_error ? (
+                            <span className="text-red-400">Parse Error: {entry.raw_line}</span>
+                          ) : (
+                            entry.message
+                          )}
+                        </div>
+                        {entry.trace_id && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <span className="text-xs text-gray-500">Trace:</span>
+                            <button
+                              onClick={() => copyToClipboard(entry.trace_id)}
+                              className="text-xs font-mono bg-gray-600 hover:bg-gray-500 px-2 py-1 rounded transition-colors"
+                              title="Click to copy full trace ID"
+                            >
+                              {entry.trace_id.substring(0, 8)}...
+                            </button>
+                          </div>
+                        )}
+                        {Object.keys(entry.extras || {}).length > 0 && (
+                          <div className="mt-2">
+                            <details className="text-xs">
+                              <summary className="text-gray-500 cursor-pointer hover:text-gray-400">
+                                Extra Fields ({Object.keys(entry.extras).length})
+                              </summary>
+                              <div className="mt-1 bg-gray-800 p-2 rounded text-gray-400 font-mono">
+                                {Object.entries(entry.extras).map(([key, value]) => (
+                                  <div key={key}>
+                                    <span className="text-blue-400">{key.replace('extra_', '')}:</span> {JSON.stringify(value)}
+                                  </div>
+                                ))}
+                              </div>
+                            </details>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         )
       }
