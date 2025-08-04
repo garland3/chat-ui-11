@@ -17,6 +17,7 @@ from pydantic import BaseModel
 
 from auth import is_user_in_group
 from utils import get_current_user
+from config import config_manager
 
 logger = logging.getLogger(__name__)
 
@@ -51,8 +52,7 @@ def get_feedback_directory() -> Path:
 
 def require_admin_for_feedback(current_user: str = Depends(get_current_user)) -> str:
     """Dependency to require admin group membership for feedback viewing."""
-    import os
-    admin_group = os.getenv("ADMIN_GROUP", "admin")
+    admin_group = config_manager.app_settings.admin_group
     if not is_user_in_group(current_user, admin_group):
         raise HTTPException(
             status_code=403, 

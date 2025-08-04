@@ -103,6 +103,9 @@ class AppSettings(BaseSettings):
     # MCP Health Check settings  
     mcp_health_check_interval: int = 300  # seconds (5 minutes)
     
+    # Admin settings
+    admin_group: str = "admin"
+    
     model_config = {
         "env_file": "../.env", 
         "env_file_encoding": "utf-8", 
