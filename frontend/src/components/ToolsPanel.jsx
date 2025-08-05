@@ -1,4 +1,4 @@
-import { X, Settings, Trash2 } from 'lucide-react'
+import { X, Trash2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useChat } from '../contexts/ChatContext'
 import { useMarketplace } from '../contexts/MarketplaceContext'

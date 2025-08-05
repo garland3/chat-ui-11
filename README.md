@@ -73,3 +73,6 @@ All documentation has been organized in the `docs/` folder:
 ## License
 
 MIT License
+
+
+make a csv with code of time and a sin(x). and y = x^3, then plot. do step by step. use 5 steps.

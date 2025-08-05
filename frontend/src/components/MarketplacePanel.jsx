@@ -64,17 +64,17 @@ const MarketplacePanel = () => {
       {/* Header */}
       <div className="bg-gray-800 border-b border-gray-700 p-4 flex-shrink-0">
         <div className="w-full px-6 flex items-center justify-between">
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-6">
             <button
               onClick={() => {
                 // Set a flag to auto-open tools panel when returning to chat
                 sessionStorage.setItem('openToolsPanel', 'true')
                 navigate('/')
               }}
-              className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
-              title="Back to Chat"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
+              Back to Chat
             </button>
             <div>
               <h1 className="text-2xl font-bold text-gray-100">MCP Marketplace</h1>

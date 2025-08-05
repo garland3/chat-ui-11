@@ -80,14 +80,45 @@ class AgentContext:
     
     def build_messages_for_step(self, content: str) -> List[Dict]:
         """Build messages for a single agent step."""
-        # Start with base conversation messages
+        # Start with base conversation messages but use agent-specific system prompt
         step_messages = self.messages.copy()
+        
+        # Replace system prompt with agent-specific prompt if this is the first step
+        if step_messages and step_messages[0]["role"] == "system":
+            agent_system_prompt = self._load_agent_system_prompt()
+            if agent_system_prompt:
+                step_messages[0] = {"role": "system", "content": agent_system_prompt}
         
         # Add the current input as user message
         user_message = {"role": "user", "content": content}
         step_messages.append(user_message)
         
         return step_messages
+    
+    def _load_agent_system_prompt(self) -> str:
+        """Load agent-specific system prompt from file."""
+        try:
+            import os
+            
+            # Get the directory where this script is located
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            prompt_file_path = os.path.join(current_dir, 'prompts', 'agent_system_prompt.md')
+            
+            # Read the agent system prompt template
+            with open(prompt_file_path, 'r', encoding='utf-8') as f:
+                prompt_template = f.read()
+            
+            # Format the template with user email
+            try:
+                return prompt_template.format(user_email=self.user_email)
+            except KeyError:
+                # If formatting fails, return the template as-is
+                return prompt_template
+            
+        except Exception as exc:
+            logger.warning(f"Failed to load agent system prompt from file: {exc}")
+            # Return None to use the default system prompt
+            return None
     
     def to_execution_context(self) -> ExecutionContext:
         """Convert to ToolExecutor execution context."""
@@ -452,21 +483,13 @@ Do not call this function if you need to continue thinking, gather more informat
             
             summary = "\n".join(summary_parts) if summary_parts else "No detailed steps recorded."
             
-            # Build final summary prompt
-            summary_prompt = f"""The user requested: "{original_prompt}"
-
-The agent completed {len(all_responses)} steps and performed the following actions:
-{summary}
-
-The agent's final response was: "{final_response}"
-
-Please provide a comprehensive summary for the user that includes:
-1. What was requested and what was accomplished
-2. Key results and findings from the agent's work
-3. The overall outcome and whether the task was completed successfully
-4. Any important details or next steps
-
-Make this response informative and well-organized."""
+            # Load the agent summary prompt from file
+            summary_prompt = self._load_agent_summary_prompt(
+                original_prompt=original_prompt,
+                step_count=len(all_responses),
+                summary=summary,
+                final_response=final_response
+            )
 
             # Use the LLM to generate a comprehensive summary
             summary_messages = [{"role": "user", "content": summary_prompt}]
@@ -497,6 +520,47 @@ The agent successfully processed your request using available tools and provided
         except Exception as exc:
             logger.error(f"Error generating final summary: {exc}")
             return final_response  # Return the raw final response as fallback
+    
+    def _load_agent_summary_prompt(self, original_prompt: str, step_count: int, summary: str, final_response: str) -> str:
+        """Load and format the agent summary prompt from file."""
+        try:
+            import os
+            
+            # Get the directory where this script is located
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            prompt_file_path = os.path.join(current_dir, 'prompts', 'agent_summary_prompt.md')
+            
+            # Read the prompt template
+            with open(prompt_file_path, 'r', encoding='utf-8') as f:
+                prompt_template = f.read()
+            
+            # Format the template with the provided values
+            formatted_prompt = prompt_template.format(
+                original_prompt=original_prompt,
+                step_count=step_count,
+                summary=summary,
+                final_response=final_response
+            )
+            
+            return formatted_prompt
+            
+        except Exception as exc:
+            logger.warning(f"Failed to load agent summary prompt from file: {exc}")
+            # Fallback to hardcoded prompt
+            return f"""The user requested: "{original_prompt}"
+
+The agent completed {step_count} steps and performed the following actions:
+{summary}
+
+The agent's final response was: "{final_response}"
+
+Please provide a comprehensive summary for the user that includes:
+1. What was requested and what was accomplished
+2. Key results and findings from the agent's work
+3. The overall outcome and whether the task was completed successfully
+4. Any important details or next steps
+
+Make this response informative and well-organized."""
 
 
 @dataclass
