@@ -72,6 +72,7 @@ export const ChatProvider = ({ children }) => {
     loadToolSelections()
     loadPromptSelections()
     loadToolChoiceRequired()
+    loadAgentModeSettings()
   }, [])
 
   // WebSocket message handler
@@ -228,6 +229,44 @@ export const ChatProvider = ({ children }) => {
     } catch (error) {
       console.warn('Failed to save tool choice required setting:', error)
     }
+  }
+
+  const loadAgentModeSettings = () => {
+    try {
+      const savedAgentMode = localStorage.getItem('chatui-agent-mode-enabled')
+      if (savedAgentMode !== null) {
+        setAgentModeEnabled(JSON.parse(savedAgentMode))
+      }
+      
+      const savedMaxSteps = localStorage.getItem('chatui-agent-max-steps')
+      if (savedMaxSteps !== null) {
+        setAgentMaxSteps(JSON.parse(savedMaxSteps))
+      }
+    } catch (error) {
+      console.warn('Failed to load agent mode settings:', error)
+    }
+  }
+
+  const saveAgentModeSettings = (enabled, maxSteps) => {
+    try {
+      localStorage.setItem('chatui-agent-mode-enabled', JSON.stringify(enabled))
+      if (maxSteps !== undefined) {
+        localStorage.setItem('chatui-agent-max-steps', JSON.stringify(maxSteps))
+      }
+    } catch (error) {
+      console.warn('Failed to save agent mode settings:', error)
+    }
+  }
+
+  // Wrapper function that updates state and saves to localStorage
+  const updateAgentModeEnabled = (enabled) => {
+    setAgentModeEnabled(enabled)
+    saveAgentModeSettings(enabled, agentMaxSteps)
+  }
+
+  const updateAgentMaxSteps = (steps) => {
+    setAgentMaxSteps(steps)
+    saveAgentModeSettings(agentModeEnabled, steps)
   }
 
   const toggleTool = (toolKey) => {
@@ -879,9 +918,9 @@ export const ChatProvider = ({ children }) => {
     
     // Agent mode
     agentModeEnabled,
-    setAgentModeEnabled,
+    setAgentModeEnabled: updateAgentModeEnabled,
     agentMaxSteps,
-    setAgentMaxSteps,
+    setAgentMaxSteps: updateAgentMaxSteps,
     agentModeAvailable,
     currentAgentStep,
     
