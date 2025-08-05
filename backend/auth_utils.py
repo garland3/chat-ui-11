@@ -109,7 +109,7 @@ class AuthorizationManager:
         for server_name in available_servers:
             try:
                 required_groups = get_server_groups_func(server_name)
-                logger.debug(f"Server {server_name} requires groups: {required_groups}")
+                # logger.debug(f"Server {server_name} requires groups: {required_groups}")
                 
                 if self.is_user_authorized_for_server(user_id, required_groups):
                     authorized_servers.append(server_name)

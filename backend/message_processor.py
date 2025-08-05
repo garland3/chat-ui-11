@@ -1,4 +1,4 @@
-﻿"""
+"""
 Message processing module containing the core chat message handling logic.
 
 This module contains the MessageProcessor class which handles the most critical
@@ -7,11 +7,13 @@ pipeline including RAG, tool validation, LLM calls, and callback coordination.
 """
 
 import logging
-import os
 from typing import Any, Dict, Optional
 
-from utils import call_llm_with_tools, validate_selected_tools
-import rag_client
+from llm_processor import LLMProcessor, ProcessingContext
+from agent_executor import AgentExecutor, AgentContext
+from llm_caller import LLMCaller
+from tool_executor import ToolExecutor
+from utils import validate_selected_tools
 
 logger = logging.getLogger(__name__)
 
@@ -36,75 +38,82 @@ class MessageProcessor:
             session: ChatSession instance that owns this processor
         """
         self.session = session
+        self.processor = LLMProcessor(session)
+        
+        # Create agent executor components
+        llm_caller = LLMCaller()
+        tool_executor = ToolExecutor(session.mcp_manager)
+        self.agent_executor = AgentExecutor(llm_caller, tool_executor)
         
     async def handle_agent_mode_message(self, message: Dict[str, Any]) -> None:
         """
-        Agent mode wrapper around handle_chat_message with step loop.
+        Agent mode with clean recursive execution - no loops, no artificial prompting.
         
-        Feeds LLM responses back as input until completion or max steps reached.
-        Uses minimal changes approach to reuse all existing logic.
+        Delegates to AgentExecutor which uses pure recursion where the LLM's response
+        becomes the input for the next step naturally.
         """
         try:
+            logger.info(f"Starting agent mode for user {self.session.user_email}")
+            
+            # Update session state from message first
+            self._update_session_state(message)
+            
+            # Build processing context
+            context = self._build_processing_context(message, agent_mode=True)
+            
+            # Create agent context
             from config import config_manager
             app_settings = config_manager.app_settings
-            max_steps = app_settings.agent_max_steps
-            step_count = 0
             
-            logger.info(
-                "Starting agent mode for user %s with max %d steps",
-                self.session.user_email,
-                max_steps
+            # Validate tools for agent mode
+            validated_servers = await validate_selected_tools(
+                context.selected_tools, 
+                context.user_email, 
+                self.session.mcp_manager
             )
             
-            # Initial user message
-            current_message = message.copy()
+            # Get tools data
+            tools_data = self.session.mcp_manager.get_tools_for_servers(validated_servers)
             
-            while step_count < max_steps:
-                step_count += 1
+            # Filter to selected tools if specified
+            if context.selected_tools:
+                tools_schema = []
+                tool_mapping = {}
+                selected_tools_set = set(context.selected_tools)
                 
-                # Send step update to frontend
-                await self._send_agent_step_update(step_count, max_steps, "processing")
-                
-                # Call existing handle_chat_message but capture response
-                response = await self.handle_chat_message(current_message, agent_mode=True)
-                
-                # Check if agent used completion tool (detected by tool call)
-                if self._agent_used_completion_tool(response):
-                    logger.info("Agent used completion tool after %d steps", step_count)
-                    await self._send_final_agent_response(response, step_count, max_steps)
-                    break
-                
-                if not response:
-                    logger.warning("Agent step %d returned empty response", step_count)
-                    break
-                
-                # Check if LLM wants to continue or is done
-                if self._is_agent_complete(response):
-                    logger.info("Agent completed after %d steps", step_count)
-                    await self._send_final_agent_response(response, step_count, max_steps)
-                    break
-                    
-                # Check if we're at max steps
-                if step_count >= max_steps:
-                    logger.info("Agent reached max steps (%d)", max_steps)
-                    await self._send_final_agent_response(
-                        f"{response}\n\n[Agent completed after reaching maximum {max_steps} steps]", 
-                        step_count, 
-                        max_steps
-                    )
-                    break
-                
-                # Prepare next iteration - feed response back as "user" input
-                current_message = {
-                    "content": f"Continue reasoning from your previous response. Previous response: {response}",
-                    "model": current_message["model"],
-                    "selected_tools": current_message.get("selected_tools", []),
-                    "selected_data_sources": current_message.get("selected_data_sources", []),
-                    "only_rag": current_message.get("only_rag", True)
-                }
-                
-                logger.info("Agent step %d completed, continuing to step %d", step_count, step_count + 1)
-                
+                for tool_schema in tools_data["tools"]:
+                    tool_function_name = tool_schema["function"]["name"]
+                    if tool_function_name in selected_tools_set:
+                        tools_schema.append(tool_schema)
+                        if tool_function_name in tools_data["mapping"]:
+                            tool_mapping[tool_function_name] = tools_data["mapping"][tool_function_name]
+            else:
+                tools_schema = tools_data["tools"]
+                tool_mapping = tools_data["mapping"]
+            
+            agent_context = AgentContext(
+                user_email=context.user_email,
+                model_name=context.model_name,
+                max_steps=app_settings.agent_max_steps,
+                tools_schema=tools_schema,
+                tool_mapping=tool_mapping,
+                session=context.session,
+                messages=context.messages.copy()
+            )
+            
+            # Execute recursively using new AgentExecutor
+            agent_result = await self.agent_executor.execute_recursively(
+                context.content,
+                agent_context
+            )
+            
+            # Send final response
+            await self._send_final_agent_response(
+                agent_result.final_response, 
+                agent_result.steps_taken, 
+                app_settings.agent_max_steps
+            )
+            
         except Exception as exc:
             logger.error("Error in agent mode for %s: %s", self.session.user_email, exc, exc_info=True)
             await self.session._trigger_callbacks("message_error", error=exc)
@@ -113,41 +122,6 @@ class MessageProcessor:
             except Exception as send_exc:
                 logger.error("Failed to send error message for agent mode to user %s: %s", self.session.user_email, send_exc)
 
-    def _agent_used_completion_tool(self, response: str) -> bool:
-        """Check if agent used the all_work_is_done tool."""
-        if not response:
-            return False
-        # The response will contain "Agent completion acknowledged:" if the tool was used
-        return "Agent completion acknowledged:" in response
-    
-    def _is_agent_complete(self, response: str) -> bool:
-        """Check if agent thinks it's done (fallback method)."""
-        if not response:
-            return True
-            
-        completion_indicators = [
-            "FINAL_ANSWER:",
-            "CONCLUSION:",
-            "COMPLETE:",
-            "FINAL RESPONSE:",
-            "I have completed",
-            "The task is finished",
-            "Task completed",
-            "Analysis complete"
-        ]
-        response_upper = response.upper()
-        return any(indicator in response_upper for indicator in completion_indicators)
-
-    async def _send_agent_step_update(self, current_step: int, max_steps: int, status: str) -> None:
-        """Send agent step progress update to frontend."""
-        payload = {
-            "type": "agent_step_update",
-            "current_step": current_step,
-            "max_steps": max_steps,
-            "status": status,
-            "user": self.session.user_email
-        }
-        await self.session.send_json(payload)
 
     async def _send_final_agent_response(self, response: str, steps_taken: int, max_steps: int) -> None:
         """Send final agent response with step summary."""
@@ -166,178 +140,57 @@ class MessageProcessor:
 
     async def handle_chat_message(self, message: Dict[str, Any], agent_mode: bool = False) -> Optional[str]:
         """
-        ********************************************************************
-        ====================================================================
-        IMPORTANT: This is the most critical function in the entire codebase.
-        It processes incoming chat messages through the complete pipeline:
-        - RAG integration (if applicable)
-        - Tool validation
-        - LLM calls with tools
-        - Callback coordination
-        ====================================================================
-        ********************************************************************
-
-
-        Process a chat message with LLM integration and tool calls.
+        Simplified chat message handler using the new modular architecture.
         
-        This is the most critical function in the entire codebase. It orchestrates
-        the complete message processing pipeline including RAG integration,
-        tool validation, LLM calls, and callback coordination.
+        Routes to appropriate processor based on message parameters and modes.
+        Much cleaner than the old 200+ line monolithic implementation.
         
         Args:
             message: The incoming chat message with content, model, tools, etc.
+            agent_mode: Whether this is being called from agent mode
         """
         try:
             await self.session._trigger_callbacks("before_message_processing", message=message)
 
+            # Update session state from message
+            self._update_session_state(message)
+            
+            # Log message details
+            self._log_message_details(message)
+
+            # Validate required fields
             content = message.get("content", "")
-            self.session.model_name = message.get("model", "")
-            self.session.selected_tools = message.get("selected_tools", [])
-            self.session.selected_prompts = message.get("selected_prompts", [])
-            self.session.selected_data_sources = message.get("selected_data_sources", [])
-            self.session.only_rag = message.get("only_rag", True)
-            self.session.tool_choice_required = message.get("tool_choice_required", False)
-            # Update uploaded files instead of replacing them (preserve tool-generated files)
-            new_files = message.get("files", {})
-            if new_files:
-                self.session.uploaded_files.update(new_files)
-
-            logger.info(
-                "------------\n"
-                f"Received chat message from {self.session.user_email}: \n"
-                f"\tcontent='{content[:50]}...', model='{self.session.model_name}', \n"
-                f"\ttools={self.session.selected_tools}, \n"
-                f"\tprompts={self.session.selected_prompts}, \n"
-                f"\tdata_sources={self.session.selected_data_sources}, \n"
-                f"\tonly_rag={self.session.only_rag}, uploaded_files={list(self.session.uploaded_files.keys())}\n"
-            )
-            
-            # Log file upload details for debugging
-            if self.session.uploaded_files:
-                logger.info(f"User {self.session.user_email} uploaded {len(self.session.uploaded_files)} files:")
-                for filename, file_data in self.session.uploaded_files.items():
-                    file_size = len(file_data) if file_data else 0
-                    logger.info(f"  - {filename} (size: {file_size} bytes)")
-                    
-                # Show potential file-related tools that could be used
-                available_file_tools = [tool for tool in self.session.selected_tools 
-                                       if any(keyword in tool.lower() 
-                                             for keyword in ['pdf', 'file', 'document', 'analyze'])]
-                if available_file_tools:
-                    logger.info(f"Available file processing tools: {available_file_tools}")
-                else:
-                    logger.warning(f"No file processing tools selected despite file upload")
-            
-            # Log file uploads more clearly
-            if self.session.uploaded_files:
-                logger.info(f"FILES UPLOADED: {len(self.session.uploaded_files)} files received:")
-                for filename in self.session.uploaded_files.keys():
-                    logger.info(f"  - {filename}")
-            else:
-                logger.info("No files uploaded in this message")
-
             if not content or not self.session.model_name:
                 raise ValueError("Message content and model name are required.")
 
             await self.session._trigger_callbacks("before_user_message_added", content=content)
 
-            # Append available files to content if any exist
-            enhanced_content = self._build_content_with_files(content)
+            # Build processing context
+            context = self._build_processing_context(message, agent_mode)
             
-            # Log content length to detect large file injection issues
-            if len(enhanced_content) > len(content) + 1000:  # Significant content addition
-                logger.info(f"Enhanced content is {len(enhanced_content)} chars (original: {len(content)} chars)")
-                if len(enhanced_content) > 100000:  # Over 100KB
-                    logger.warning(f"Very large enhanced content ({len(enhanced_content)} chars) may cause LLM issues")
+            # Apply custom system prompts if needed
+            await self._apply_custom_system_prompts()
             
-            user_message = {"role": "user", "content": enhanced_content}
+            # Add user message to conversation
+            self.session.messages.append({"role": "user", "content": context.content})
+            await self.session._trigger_callbacks("after_user_message_added", user_message={"role": "user", "content": context.content})
+
+            # Process the message using new modular architecture
+            result = await self.processor.process_message(context)
             
-            # Check if this is the first user message and if we should apply custom system prompts
-            custom_system_prompt = await self._get_custom_system_prompt()
-            user_messages_count = len([msg for msg in self.session.messages if msg["role"] == "user"])
-            
-            if custom_system_prompt and user_messages_count == 0:
-                # Replace the default system message with custom system prompt
-                if self.session.messages and self.session.messages[0]["role"] == "system":
-                    self.session.messages[0]["content"] = custom_system_prompt
-                    logger.info(f"Replaced default system prompt with custom prompt for user {self.session.user_email}")
-                else:
-                    # Add custom system prompt as the first message
-                    system_message = {"role": "system", "content": custom_system_prompt}
-                    self.session.messages.insert(0, system_message)
-                    logger.info(f"Added custom system prompt for user {self.session.user_email}")
-                
-                # Extract prompt names from selected prompts for detailed logging
-                active_prompts = [prompt.replace("prompts_", "") for prompt in self.session.selected_prompts if prompt.startswith("prompts_")]
-                logger.info(f"Applied custom system prompt for user {self.session.user_email} - Active prompts: {active_prompts}")
-            
-            self.session.messages.append(user_message)
-
-            await self.session._trigger_callbacks("after_user_message_added", user_message=user_message)
-
-            # Handle RAG-only mode vs normal processing pipeline
-            if self.session.only_rag and self.session.selected_data_sources:
-                # RAG-only mode: Skip tool calling and processing, query RAG directly
-                logger.info(
-                    "Using RAG-only mode for user %s with data sources: %s",
-                    self.session.user_email,
-                    self.session.selected_data_sources,
-                )
-                
-                await self.session._trigger_callbacks("before_rag_call", messages=self.session.messages)
-                llm_response = await self._handle_rag_only_query()
-                await self.session._trigger_callbacks("after_rag_call", llm_response=llm_response)
-            else:
-                # Normal processing pipeline with optional RAG integration
-                await self.session._trigger_callbacks("before_validation")
-                self.session.validated_servers = await validate_selected_tools(
-                    self.session.selected_tools, self.session.user_email, self.session.mcp_manager
-                )
-                await self.session._trigger_callbacks(
-                    "after_validation", validated_servers=self.session.validated_servers
-                )
-
-                logger.info(
-                    "Calling LLM %s for user %s with %d servers",
-                    self.session.model_name,
-                    self.session.user_email,
-                    len(self.session.validated_servers),
-                )
-
-                await self.session._trigger_callbacks("before_llm_call", messages=self.session.messages)
-                
-                # If data sources are selected, integrate RAG results into the normal pipeline
-                if self.session.selected_data_sources:
-                    llm_response = await self._handle_rag_integrated_query()
-                else:
-                    llm_response = await call_llm_with_tools(
-                        self.session.model_name,
-                        self.session.messages,
-                        self.session.validated_servers,
-                        self.session.user_email,
-                        self.session.websocket,
-                        self.session.mcp_manager,
-                        self.session,  # Pass session for UI updates
-                        agent_mode,  # Pass agent mode flag
-                        self.session.tool_choice_required,  # Pass tool choice preference
-                        self.session.selected_tools,  # Pass selected tools for filtering
-                    )
-                    
-                await self.session._trigger_callbacks("after_llm_call", llm_response=llm_response)
-
-            assistant_message = {"role": "assistant", "content": llm_response}
+            # Add assistant response to conversation
+            assistant_message = {"role": "assistant", "content": result.response}
             self.session.messages.append(assistant_message)
-            await self.session._trigger_callbacks(
-                "after_assistant_message_added", assistant_message=assistant_message
-            )
+            await self.session._trigger_callbacks("after_assistant_message_added", assistant_message=assistant_message)
 
             # In agent mode, return response instead of sending to WebSocket
             if agent_mode:
-                return llm_response
+                return result.response
 
+            # Send response to client
             payload = {
                 "type": "chat_response",
-                "message": llm_response,
+                "message": result.response,
                 "model": self.session.model_name,
                 "user": self.session.user_email,
             }
@@ -346,6 +199,7 @@ class MessageProcessor:
             await self.session.send_json(payload)
             await self.session._trigger_callbacks("after_response_send", payload=payload)
             logger.info("LLM response sent to user %s", self.session.user_email)
+
         except Exception as exc:  # pragma: no cover - unexpected errors
             logger.error("Error handling chat message for %s: %s", self.session.user_email, exc, exc_info=True)
             await self.session._trigger_callbacks("message_error", error=exc)
@@ -356,141 +210,6 @@ class MessageProcessor:
                 except Exception as send_exc:
                     logger.error("Failed to send error message for chat processing to user %s: %s", self.session.user_email, send_exc)
 
-    async def _handle_rag_only_query(self) -> str:
-        """Handle RAG-only queries by querying the first selected data source."""
-        if not self.session.selected_data_sources:
-            return "No data sources selected for RAG query."
-        
-        # Use the first selected data source for now
-        # In the future, this could be enhanced to query multiple sources
-        data_source = self.session.selected_data_sources[0]
-        
-        try:
-            rag_response = await rag_client.rag_client.query_rag(
-                self.session.user_email,
-                data_source,
-                self.session.messages
-            )
-            
-            # Format response with metadata if available
-            response_content = rag_response.content
-            
-            if rag_response.metadata:
-                metadata_summary = self._format_metadata_summary(rag_response.metadata)
-                response_content += f"\n\n---\n**Sources & Processing Info:**\n{metadata_summary}"
-            
-            return response_content
-            
-        except Exception as exc:
-            logger.error(f"Error in RAG-only query for {self.session.user_email}: {exc}")
-            return f"Error querying RAG system: {str(exc)}"
-    
-    def _format_metadata_summary(self, metadata) -> str:
-        """Format RAG metadata into a user-friendly summary."""
-        from rag_client import RAGMetadata
-        
-        if not isinstance(metadata, RAGMetadata):
-            return "Metadata unavailable"
-        
-        summary_parts = []
-        
-        # Add processing info
-        summary_parts.append(f" **Data Source:** {metadata.data_source_name}")
-        summary_parts.append(f" **Processing Time:** {metadata.query_processing_time_ms}ms")
-        
-        # Add document information
-        if metadata.documents_found:
-            summary_parts.append(f" **Documents Found:** {len(metadata.documents_found)} (searched {metadata.total_documents_searched})")
-
-            # List top documents with confidence scores
-            for i, doc in enumerate(metadata.documents_found[:3]):  # Show top 3 documents
-                confidence_percent = int(doc.confidence_score * 100)
-                summary_parts.append(f"  â {doc.source} ({confidence_percent}% relevance, {doc.content_type})")
-            
-            if len(metadata.documents_found) > 3:
-                remaining = len(metadata.documents_found) - 3
-                summary_parts.append(f"  â ... and {remaining} more document(s)")
-        
-        # Add retrieval method
-        summary_parts.append(f" **Retrieval Method:** {metadata.retrieval_method}")
-
-        return "\n".join(summary_parts)
-    
-    async def _handle_rag_integrated_query(self) -> str:
-        """Handle queries that integrate RAG with normal LLM processing."""
-        if not self.session.selected_data_sources:
-            # Fallback to normal LLM call if no data sources
-            return await call_llm_with_tools(
-                self.session.model_name,
-                self.session.messages,
-                self.session.validated_servers,
-                self.session.user_email,
-                self.session.websocket,
-                self.session.mcp_manager,
-                self.session,  # Pass session for UI updates
-                False,  # agent_mode
-                self.session.tool_choice_required,  # Pass tool choice preference
-                self.session.selected_tools,  # Pass selected tools for filtering
-            )
-        
-        # Get RAG context from the first data source
-        data_source = self.session.selected_data_sources[0]
-        
-        try:
-            # Query RAG for context
-            rag_response = await rag_client.rag_client.query_rag(
-                self.session.user_email,
-                data_source,
-                self.session.messages
-            )
-            
-            # Integrate RAG context into the conversation
-            # Add the RAG response as context for the LLM
-            messages_with_rag = self.session.messages.copy()
-            
-            # Add RAG context as a system message (use content only for LLM)
-            rag_context_message = {
-                "role": "system", 
-                "content": f"Retrieved context from {data_source}:\n\n{rag_response.content}\n\nUse this context to inform your response to the user's query."
-            }
-            messages_with_rag.insert(-1, rag_context_message)  # Insert before the last user message
-            
-            # Call LLM with the enriched context
-            llm_response = await call_llm_with_tools(
-                self.session.model_name,
-                messages_with_rag,
-                self.session.validated_servers,
-                self.session.user_email,
-                self.session.websocket,
-                self.session.mcp_manager,
-                self.session,  # Pass session for UI updates
-                False,  # agent_mode
-                self.session.tool_choice_required,  # Pass tool choice preference
-                self.session.selected_tools,  # Pass selected tools for filtering
-            )
-            
-            # Append metadata to the LLM response if available
-            if rag_response.metadata:
-                metadata_summary = self._format_metadata_summary(rag_response.metadata)
-                llm_response += f"\n\n---\n**RAG Sources & Processing Info:**\n{metadata_summary}"
-            
-            return llm_response
-            
-        except Exception as exc:
-            logger.error(f"Error in RAG-integrated query for {self.session.user_email}: {exc}")
-            # Fallback to normal LLM call on RAG error
-            return await call_llm_with_tools(
-                self.session.model_name,
-                self.session.messages,
-                self.session.validated_servers,
-                self.session.user_email,
-                self.session.websocket,
-                self.session.mcp_manager,
-                self.session,  # Pass session for UI updates
-                False,  # agent_mode
-                self.session.tool_choice_required,  # Pass tool choice preference
-                self.session.selected_tools,  # Pass selected tools for filtering
-            )
 
     def _build_content_with_files(self, content: str) -> str:
         """Append available files to user prompt if any exist, filtered by file policy"""
@@ -601,3 +320,100 @@ class MessageProcessor:
             logger.error(f"Error retrieving custom system prompt: {e}")
             
         return None
+    
+    def _update_session_state(self, message: Dict[str, Any]) -> None:
+        """Update session state from incoming message."""
+        self.session.model_name = message.get("model", "")
+        self.session.selected_tools = message.get("selected_tools", [])
+        self.session.selected_prompts = message.get("selected_prompts", [])
+        self.session.selected_data_sources = message.get("selected_data_sources", [])
+        self.session.only_rag = message.get("only_rag", True)
+        self.session.tool_choice_required = message.get("tool_choice_required", False)
+        
+        # Update uploaded files instead of replacing them (preserve tool-generated files)
+        new_files = message.get("files", {})
+        if new_files:
+            self.session.uploaded_files.update(new_files)
+    
+    def _log_message_details(self, message: Dict[str, Any]) -> None:
+        """Log incoming message details for debugging."""
+        content = message.get("content", "")
+        logger.info(
+            "------------\n"
+            f"Received chat message from {self.session.user_email}: \n"
+            f"\tcontent='{content[:50]}...', model='{self.session.model_name}', \n"
+            f"\ttools={self.session.selected_tools}, \n"
+            f"\tprompts={self.session.selected_prompts}, \n"
+            f"\tdata_sources={self.session.selected_data_sources}, \n"
+            f"\tonly_rag={self.session.only_rag}, uploaded_files={list(self.session.uploaded_files.keys())}\n"
+        )
+        
+        # Log file upload details for debugging
+        if self.session.uploaded_files:
+            logger.info(f"User {self.session.user_email} uploaded {len(self.session.uploaded_files)} files:")
+            for filename, file_data in self.session.uploaded_files.items():
+                file_size = len(file_data) if file_data else 0
+                logger.info(f"  - {filename} (size: {file_size} bytes)")
+                
+            # Show potential file-related tools that could be used
+            available_file_tools = [tool for tool in self.session.selected_tools 
+                                   if any(keyword in tool.lower() 
+                                         for keyword in ['pdf', 'file', 'document', 'analyze'])]
+            if available_file_tools:
+                logger.info(f"Available file processing tools: {available_file_tools}")
+            else:
+                logger.warning(f"No file processing tools selected despite file upload")
+        
+        # Log file uploads more clearly
+        if self.session.uploaded_files:
+            logger.info(f"FILES UPLOADED: {len(self.session.uploaded_files)} files received:")
+            for filename in self.session.uploaded_files.keys():
+                logger.info(f"  - {filename}")
+        else:
+            logger.info("No files uploaded in this message")
+    
+    def _build_processing_context(self, message: Dict[str, Any], agent_mode: bool = False) -> ProcessingContext:
+        """Build processing context from message and session state."""
+        content = message.get("content", "")
+        
+        # Append available files to content if any exist
+        enhanced_content = self._build_content_with_files(content)
+        
+        # Log content length to detect large file injection issues
+        if len(enhanced_content) > len(content) + 1000:
+            logger.info(f"Enhanced content is {len(enhanced_content)} chars (original: {len(content)} chars)")
+            if len(enhanced_content) > 100000:
+                logger.warning(f"Very large enhanced content ({len(enhanced_content)} chars) may cause LLM issues")
+        
+        return ProcessingContext(
+            user_email=self.session.user_email,
+            model_name=self.session.model_name,
+            content=enhanced_content,
+            messages=self.session.messages.copy(),
+            selected_tools=self.session.selected_tools,
+            selected_data_sources=self.session.selected_data_sources,
+            only_rag=self.session.only_rag,
+            tool_choice_required=self.session.tool_choice_required,
+            session=self.session,
+            agent_mode=agent_mode
+        )
+    
+    async def _apply_custom_system_prompts(self) -> None:
+        """Apply custom system prompts if this is the first user message."""
+        custom_system_prompt = await self._get_custom_system_prompt()
+        user_messages_count = len([msg for msg in self.session.messages if msg["role"] == "user"])
+        
+        if custom_system_prompt and user_messages_count == 0:
+            # Replace the default system message with custom system prompt
+            if self.session.messages and self.session.messages[0]["role"] == "system":
+                self.session.messages[0]["content"] = custom_system_prompt
+                logger.info(f"Replaced default system prompt with custom prompt for user {self.session.user_email}")
+            else:
+                # Add custom system prompt as the first message
+                system_message = {"role": "system", "content": custom_system_prompt}
+                self.session.messages.insert(0, system_message)
+                logger.info(f"Added custom system prompt for user {self.session.user_email}")
+            
+            # Extract prompt names from selected prompts for detailed logging
+            active_prompts = [prompt.replace("prompts_", "") for prompt in self.session.selected_prompts if prompt.startswith("prompts_")]
+            logger.info(f"Applied custom system prompt for user {self.session.user_email} - Active prompts: {active_prompts}")
