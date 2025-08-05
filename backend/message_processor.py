@@ -47,9 +47,9 @@ class MessageProcessor:
         
     async def handle_agent_mode_message(self, message: Dict[str, Any]) -> None:
         """
-        Agent mode with clean recursive execution - no loops, no artificial prompting.
+        Agent mode with clean loop-based execution - no recursion, no artificial prompting.
         
-        Delegates to AgentExecutor which uses pure recursion where the LLM's response
+        Delegates to AgentExecutor which uses a loop where the LLM's response
         becomes the input for the next step naturally.
         """
         try:
@@ -101,8 +101,8 @@ class MessageProcessor:
                 messages=context.messages.copy()
             )
             
-            # Execute recursively using new AgentExecutor
-            agent_result = await self.agent_executor.execute_recursively(
+            # Execute using loop-based AgentExecutor
+            agent_result = await self.agent_executor.execute_agent_loop(
                 context.content,
                 agent_context
             )

@@ -219,7 +219,7 @@ class ToolExecutor:
         logger.info(f"Processing tool call: {function_name} with args: {function_args}")
         
         # Handle special tools
-        if function_name == "all_work_is_done":
+        if function_name == "all_work_done":
             return await self._handle_completion_tool(tool_call, function_args, context)
         
         if function_name == "canvas_canvas":
@@ -255,36 +255,34 @@ class ToolExecutor:
     async def _handle_completion_tool(self, tool_call: Dict, function_args: Dict, context: ExecutionContext) -> ToolResult:
         """Handle the agent completion tool call."""
         logger.info("Agent completion tool called by user %s", context.user_email)
-        summary = function_args.get("summary", "Work completed")
         
         if context.agent_mode:
             logger.info("AGENT MODE: Work completion tool called")
-            logger.info(f"AGENT MODE: Completion summary: {summary}")
         
         # Send UI updates if session available
         if context.should_send_ui_updates():
             await context.session.send_update_to_ui("tool_call", {
-                "tool_name": "all_work_is_done",
+                "tool_name": "all_work_done",
                 "server_name": "agent_completion",
-                "function_name": "all_work_is_done",
+                "function_name": "all_work_done",
                 "parameters": function_args,
                 "tool_call_id": tool_call["id"],
                 "agent_mode": context.agent_mode
             })
             
             await context.session.send_update_to_ui("tool_result", {
-                "tool_name": "all_work_is_done",
+                "tool_name": "all_work_done",
                 "server_name": "agent_completion",
-                "function_name": "all_work_is_done",
+                "function_name": "all_work_done",
                 "tool_call_id": tool_call["id"],
-                "result": f"Agent completion acknowledged: {summary}",
+                "result": "Agent completion acknowledged: Work completed",
                 "success": True,
                 "agent_mode": context.agent_mode
             })
         
         return ToolResult(
             tool_call_id=tool_call["id"],
-            content=f"Agent completion acknowledged: {summary}",
+            content="Agent completion acknowledged: Work completed",
             success=True
         )
     
