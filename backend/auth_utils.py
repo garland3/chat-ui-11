@@ -1,3 +1,5 @@
+verbose = False
+
 """
 Authorization utilities for MCP server access control.
 
@@ -63,16 +65,19 @@ class AuthorizationManager:
         """
         if not required_groups:
             # No group restrictions
-            logger.debug(f"Server has no group restrictions - authorizing user {user_id}")
+            if verbose:
+                logger.debug(f"Server has no group restrictions - authorizing user {user_id}")
             return True
         
         try:
             for group in required_groups:
                 if self.auth_check_func(user_id, group):
-                    logger.debug(f"User {user_id} authorized via group '{group}'")
+                    if verbose:
+                        logger.debug(f"User {user_id} authorized via group '{group}'")
                     return True
             
-            logger.debug(f"User {user_id} not authorized - not in any required groups: {required_groups}")
+            if verbose:
+                logger.debug(f"User {user_id} not authorized - not in any required groups: {required_groups}")
             return False
             
         except Exception as e:
@@ -108,14 +113,14 @@ class AuthorizationManager:
                 
                 if self.is_user_authorized_for_server(user_id, required_groups):
                     authorized_servers.append(server_name)
-                    logger.debug(f"User {user_id} authorized for server {server_name}")
-                else:
-                    logger.debug(f"User {user_id} NOT authorized for server {server_name}")
+                #     logger.debug(f"User {user_id} authorized for server {server_name}")
+                # else:
+                #     logger.debug(f"User {user_id} NOT authorized for server {server_name}")
                     
             except Exception as e:
                 logger.error(f"Error checking authorization for server {server_name}: {e}", exc_info=True)
         
-        logger.info(f"User {user_id} authorized for {len(authorized_servers)} servers: {authorized_servers}")
+        # logger.info(f"User {user_id} authorized for {len(authorized_servers)} servers: {authorized_servers}")
         return authorized_servers
     
     def validate_tool_access(
@@ -157,11 +162,13 @@ class AuthorizationManager:
                         requested_servers.add(server_name)
                     else:
                         warning_msg = f"User {user_id} attempted to access unauthorized server: {server_name}"
-                        logger.warning(warning_msg)
+                        if verbose:
+                            logger.warning(warning_msg)
                         warnings.append(warning_msg)
             
             if not requested_servers:
-                logger.info(f"No authorized servers requested by user {user_id}")
+                if verbose:
+                    logger.info(f"No authorized servers requested by user {user_id}")
                 return set(), warnings
             
             return requested_servers, warnings
@@ -200,9 +207,11 @@ class AuthorizationManager:
             
             if exclusive_servers:
                 if len(exclusive_servers) > 1:
-                    logger.warning(f"Multiple exclusive servers selected, using only {exclusive_servers[0]}")
+                    if verbose:
+                        logger.warning(f"Multiple exclusive servers selected, using only {exclusive_servers[0]}")
                 final_servers = {exclusive_servers[0]}
-                logger.info(f"Exclusive mode enabled for server: {exclusive_servers[0]}")
+                if verbose:
+                    logger.info(f"Exclusive mode enabled for server: {exclusive_servers[0]}")
             else:
                 final_servers = set(regular_servers)
             
