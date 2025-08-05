@@ -36,6 +36,9 @@ function ChatInterface() {
   // Auto-open canvas panel when content is received
   useEffect(() => {
     if (canvasContent && canvasContent.trim()) {
+      // Close other panels when canvas opens
+      setToolsPanelOpen(false)
+      setFilesPanelOpen(false)
       setCanvasPanelOpen(true)
     }
   }, [canvasContent])
@@ -43,12 +46,15 @@ function ChatInterface() {
   // Auto-open canvas panel when custom UI content is received
   useEffect(() => {
     if (customUIContent) {
+      // Close other panels when canvas opens
+      setToolsPanelOpen(false)
+      setFilesPanelOpen(false)
       setCanvasPanelOpen(true)
     }
   }, [customUIContent])
 
   return (
-    <div className="flex h-screen w-full bg-gray-900 text-gray-200">
+    <div className="flex h-screen w-full bg-gray-900 text-gray-200 overflow-hidden">
       {/* RAG Data Sources Panel */}
       <RagPanel 
         isOpen={ragPanelOpen} 
@@ -56,20 +62,42 @@ function ChatInterface() {
       />
 
       {/* Main Content Area */}
-      <div className="flex flex-col flex-1 relative">
+      <div className="flex flex-col flex-1 min-w-0 relative">
         {/* Banner Panel - positioned at the very top */}
         <BannerPanel />
 
         {/* Header */}
         <Header 
           onToggleRag={() => setRagPanelOpen(!ragPanelOpen)}
-          onToggleTools={() => setToolsPanelOpen(!toolsPanelOpen)}
-          onToggleFiles={() => setFilesPanelOpen(!filesPanelOpen)}
+          onToggleTools={() => {
+            // If tools panel is opening, close other panels
+            if (!toolsPanelOpen) {
+              setCanvasPanelOpen(false)
+              setFilesPanelOpen(false)
+            }
+            setToolsPanelOpen(!toolsPanelOpen)
+          }}
+          onToggleFiles={() => {
+            // If files panel is opening, close other panels
+            if (!filesPanelOpen) {
+              setCanvasPanelOpen(false)
+              setToolsPanelOpen(false)
+            }
+            setFilesPanelOpen(!filesPanelOpen)
+          }}
+          onToggleCanvas={() => {
+            // If canvas panel is opening, close other panels
+            if (!canvasPanelOpen) {
+              setToolsPanelOpen(false)
+              setFilesPanelOpen(false)
+            }
+            setCanvasPanelOpen(!canvasPanelOpen)
+          }}
           onCloseCanvas={() => setCanvasPanelOpen(false)}
         />
 
         {/* Content Area - Chat and Canvas side by side */}
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 overflow-hidden min-h-0">
           {/* Chat Area */}
           <ChatArea />
 
@@ -82,17 +110,20 @@ function ChatInterface() {
         </div>
       </div>
 
-      {/* Tools Panel */}
-      <ToolsPanel 
-        isOpen={toolsPanelOpen} 
-        onClose={() => setToolsPanelOpen(false)} 
-      />
-      
-      {/* File Manager Panel */}
-      <FileManagerPanel 
-        isOpen={filesPanelOpen} 
-        onClose={() => setFilesPanelOpen(false)} 
-      />
+      {/* Right Side Panels Container */}
+      <div className="relative flex-shrink-0">
+        {/* Tools Panel */}
+        <ToolsPanel 
+          isOpen={toolsPanelOpen} 
+          onClose={() => setToolsPanelOpen(false)} 
+        />
+        
+        {/* File Manager Panel */}
+        <FileManagerPanel 
+          isOpen={filesPanelOpen} 
+          onClose={() => setFilesPanelOpen(false)} 
+        />
+      </div>
 
       {/* Feedback Button */}
       <FeedbackButton />

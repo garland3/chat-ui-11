@@ -83,15 +83,13 @@ const ResizablePanel = ({
       <aside
         ref={panelRef}
         className={`
-          fixed right-0 top-0 h-full bg-gray-800 border-l border-gray-700 z-50 transform transition-transform duration-300 ease-in-out flex flex-col
+          absolute right-0 top-0 h-full bg-gray-800 border-l border-gray-700 z-50 transform transition-transform duration-300 ease-in-out flex flex-col
           ${isOpen ? 'translate-x-0' : 'translate-x-full'}
-          lg:relative lg:translate-x-0
-          ${!isOpen ? 'lg:hidden' : ''}
           ${className}
         `}
         style={{
-          width: `${width}px`,
-          minWidth: `${minWidth}px`,
+          width: isOpen ? `${width}px` : '0px',
+          minWidth: isOpen ? `${minWidth}px` : '0px',
           maxWidth: `${maxWidth}px`,
         }}
       >
