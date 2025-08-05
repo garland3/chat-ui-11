@@ -134,7 +134,7 @@ Do not call this function if you need to continue thinking, gather more informat
         depth: int = 0
     ) -> AgentResult:
         """
-        Loop-based agent execution - clean iterative approach without recursion.
+        Enhanced loop-based agent execution with real-time updates and better error handling.
         
         Args:
             message_content: The content to process (user message or LLM response)
@@ -144,42 +144,126 @@ Do not call this function if you need to continue thinking, gather more informat
         Returns:
             AgentResult with final response and metadata
         """
+        logger.info(f"Starting agent loop for user {context.user_email}")
+        logger.info(f"Initial prompt: {message_content[:100]}...")
+        logger.info(f"Available tools: {len(context.tools_schema)} tools")
+        
+        # Send initial update
+        if context.session:
+            await self._send_agent_update(context.session, {
+                "type": "agent_start",
+                "message": f"Starting agent execution with {len(context.tools_schema)} tools",
+                "max_steps": context.max_steps,
+                "user": context.user_email
+            })
+        
         current_content = message_content
         current_step = depth
+        all_responses = []
         
         while current_step < context.max_steps:
-            logger.info(f"Agent step {current_step + 1}/{context.max_steps} starting for user {context.user_email}")
+            turn_number = current_step + 1
+            logger.info(f"Agent step {turn_number}/{context.max_steps} starting for user {context.user_email}")
             
-            # Send step update to frontend if session available
+            # Send turn start update
             if context.session:
-                await self._send_agent_step_update(context.session, current_step + 1, context.max_steps, "processing")
+                await self._send_agent_update(context.session, {
+                    "type": "agent_turn_start", 
+                    "turn": turn_number,
+                    "max_steps": context.max_steps,
+                    "user": context.user_email
+                })
             
             try:
                 # Execute one complete step (LLM call + tool execution)
                 step_result = await self._execute_single_step(current_content, context, current_step)
                 
+                # Track this step's results
+                all_responses.append({
+                    "turn": turn_number,
+                    "type": "agent_step",
+                    "content": current_content[:200],
+                    "response": step_result.response[:200] if step_result.response else None,
+                    "used_completion": step_result.used_completion_tool
+                })
+                
                 # Check if step returned empty response
                 if not step_result.response or not step_result.response.strip():
-                    logger.warning(f"Agent step {current_step + 1} returned empty response")
-                    return AgentResult.empty_response(current_step + 1)
+                    logger.warning(f"Agent step {turn_number} returned empty response")
+                    if context.session:
+                        await self._send_agent_update(context.session, {
+                            "type": "agent_warning",
+                            "message": f"Step {turn_number} returned empty response",
+                            "turn": turn_number,
+                            "user": context.user_email
+                        })
+                    return AgentResult.empty_response(turn_number)
                 
                 # Check if completion tool was used
                 if step_result.used_completion_tool:
-                    logger.info(f"Agent used completion tool after {current_step + 1} steps")
-                    return AgentResult.completed(step_result.response, current_step + 1)
+                    logger.info(f"Agent used completion tool after {turn_number} steps")
+                    if context.session:
+                        await self._send_agent_update(context.session, {
+                            "type": "agent_completion",
+                            "message": "Agent marked task as complete",
+                            "turn": turn_number,
+                            "final_response": step_result.response,
+                            "total_steps": turn_number,
+                            "user": context.user_email
+                        })
+                    
+                    # Generate comprehensive final response
+                    final_response = await self._generate_final_summary(
+                        message_content, step_result.response, all_responses, context
+                    )
+                    
+                    return AgentResult.completed(final_response, turn_number)
                 
-                # Continue loop with LLM response as next input
-                # This is the key improvement - no artificial "continue reasoning" prompts!
-                current_content = step_result.response  # LLM's actual response becomes next input
+                # Send step completion update
+                if context.session:
+                    await self._send_agent_update(context.session, {
+                        "type": "agent_step_complete",
+                        "turn": turn_number,
+                        "response_preview": step_result.response[:100] + "..." if len(step_result.response) > 100 else step_result.response,
+                        "user": context.user_email
+                    })
+                
+                # Continue loop with step result as next input
+                current_content = step_result.response
                 current_step += 1
                 
             except Exception as exc:
-                logger.error(f"Error in agent step {current_step + 1}: {exc}", exc_info=True)
-                return AgentResult.error(str(exc), current_step + 1)
+                logger.error(f"Error in agent step {turn_number}: {exc}", exc_info=True)
+                
+                # Send error update to UI
+                if context.session:
+                    await self._send_agent_update(context.session, {
+                        "type": "agent_error",
+                        "message": f"Error in step {turn_number}: {str(exc)}",
+                        "turn": turn_number,
+                        "error": str(exc),
+                        "user": context.user_email
+                    })
+                
+                return AgentResult.error(str(exc), turn_number)
         
         # Max steps reached
         logger.info(f"Agent reached max steps ({context.max_steps})")
-        return AgentResult.max_steps(current_content, current_step)
+        if context.session:
+            await self._send_agent_update(context.session, {
+                "type": "agent_max_steps",
+                "message": f"Reached maximum {context.max_steps} steps",
+                "max_steps": context.max_steps,
+                "final_content": current_content,
+                "user": context.user_email
+            })
+        
+        # Generate summary even if max steps reached
+        final_response = await self._generate_final_summary(
+            message_content, current_content, all_responses, context
+        )
+        
+        return AgentResult.max_steps(final_response, current_step)
     
     async def _execute_single_step(self, content: str, context: AgentContext, depth: int) -> 'StepResult':
         """Execute one complete LLM+tools step."""
@@ -199,6 +283,16 @@ Do not call this function if you need to continue thinking, gather more informat
         
         logger.info(f"Agent step {depth + 1}: Calling LLM with {len(messages)} messages and {len(tools_with_completion)} tools")
         
+        # Send LLM call update
+        if context.session:
+            await self._send_agent_update(context.session, {
+                "type": "agent_llm_call",
+                "step": depth + 1,
+                "message_count": len(messages),
+                "tool_count": len(tools_with_completion),
+                "user": context.user_email
+            })
+        
         # Call LLM with tools (including completion tool)
         llm_response = await self.llm_caller.call_with_tools(
             context.model_name,
@@ -214,6 +308,15 @@ Do not call this function if you need to continue thinking, gather more informat
         if llm_response.has_tool_calls():
             logger.info(f"Agent step {depth + 1}: Processing {len(llm_response.tool_calls)} tool calls")
             
+            # Send tool calls start update
+            if context.session:
+                await self._send_agent_update(context.session, {
+                    "type": "agent_tool_calls_start",
+                    "step": depth + 1,
+                    "tool_count": len(llm_response.tool_calls),
+                    "user": context.user_email
+                })
+            
             # Log detailed information about each tool call
             for i, tool_call in enumerate(llm_response.tool_calls):
                 function_name = tool_call["function"]["name"]
@@ -222,8 +325,29 @@ Do not call this function if you need to continue thinking, gather more informat
                     function_args = json.loads(tool_call["function"]["arguments"])
                     logger.info(f"Agent step {depth + 1}: Tool call {i + 1}/{len(llm_response.tool_calls)}: {function_name}")
                     logger.info(f"Agent step {depth + 1}: Tool arguments: {function_args}")
+                    
+                    # Send individual tool call update
+                    if context.session:
+                        await self._send_agent_update(context.session, {
+                            "type": "agent_tool_call",
+                            "step": depth + 1,
+                            "tool_index": i + 1,
+                            "total_tools": len(llm_response.tool_calls),
+                            "function_name": function_name,
+                            "arguments": function_args,
+                            "user": context.user_email
+                        })
+                        
                 except Exception as e:
                     logger.warning(f"Agent step {depth + 1}: Could not parse tool arguments for {function_name}: {e}")
+                    if context.session:
+                        await self._send_agent_update(context.session, {
+                            "type": "agent_tool_call_error",
+                            "step": depth + 1,
+                            "function_name": function_name,
+                            "error": f"Could not parse arguments: {e}",
+                            "user": context.user_email
+                        })
             
             # Execute all tool calls
             execution_context = context.to_execution_context()
@@ -233,8 +357,19 @@ Do not call this function if you need to continue thinking, gather more informat
                 execution_context
             )
             
+            # Send tool results update
+            if context.session:
+                await self._send_agent_update(context.session, {
+                    "type": "agent_tool_results",
+                    "step": depth + 1,
+                    "results_count": len(tool_results),
+                    "results_preview": [result.content[:100] + "..." if len(result.content) > 100 
+                                      else result.content for result in tool_results[:3]],
+                    "user": context.user_email
+                })
+            
             # Check if completion tool was used
-            for tool_result in tool_results:
+            for i, tool_result in enumerate(tool_results):
                 if "Agent completion acknowledged:" in tool_result.content:
                     used_completion_tool = True
                     # For completion tool, make follow-up call to get final response
@@ -246,6 +381,15 @@ Do not call this function if you need to continue thinking, gather more informat
                     ]
                     
                     logger.info(f"Agent step {depth + 1}: Completion tool used, making follow-up call for final response")
+                    
+                    # Send completion detected update
+                    if context.session:
+                        await self._send_agent_update(context.session, {
+                            "type": "agent_completion_detected",
+                            "step": depth + 1,
+                            "message": "Agent marked task as complete, generating final response",
+                            "user": context.user_email
+                        })
                     
                     # Make follow-up call to get final response (no tools required)
                     follow_up_response = await self.llm_caller.call_with_tools(
@@ -275,7 +419,7 @@ Do not call this function if you need to continue thinking, gather more informat
         )
     
     async def _send_agent_step_update(self, session, current_step: int, max_steps: int, status: str) -> None:
-        """Send agent step progress update to frontend."""
+        """Send agent step progress update to frontend (legacy method)."""
         payload = {
             "type": "agent_step_update",
             "current_step": current_step,
@@ -284,6 +428,75 @@ Do not call this function if you need to continue thinking, gather more informat
             "user": session.user_email
         }
         await session.send_json(payload)
+    
+    async def _send_agent_update(self, session, update_data: dict) -> None:
+        """Send enhanced agent update to frontend."""
+        try:
+            # Use the existing send_update_to_ui method to ensure proper UI updates
+            await session.send_update_to_ui("agent_update", update_data)
+            logger.debug(f"Sent agent update: {update_data['type']}")
+        except Exception as exc:
+            logger.error(f"Failed to send agent update: {exc}")
+    
+    async def _generate_final_summary(self, original_prompt: str, final_response: str, all_responses: list, context: AgentContext) -> str:
+        """Generate a comprehensive final summary of the agent's work."""
+        try:
+            # Create summary of agent actions
+            summary_parts = []
+            tool_count = 0
+            
+            for response in all_responses:
+                if response.get("type") == "agent_step":
+                    summary_parts.append(f"Step {response['turn']}: {response.get('content', '')[:100]}...")
+                    tool_count += 1
+            
+            summary = "\n".join(summary_parts) if summary_parts else "No detailed steps recorded."
+            
+            # Build final summary prompt
+            summary_prompt = f"""The user requested: "{original_prompt}"
+
+The agent completed {len(all_responses)} steps and performed the following actions:
+{summary}
+
+The agent's final response was: "{final_response}"
+
+Please provide a comprehensive summary for the user that includes:
+1. What was requested and what was accomplished
+2. Key results and findings from the agent's work
+3. The overall outcome and whether the task was completed successfully
+4. Any important details or next steps
+
+Make this response informative and well-organized."""
+
+            # Use the LLM to generate a comprehensive summary
+            summary_messages = [{"role": "user", "content": summary_prompt}]
+            
+            try:
+                summary_response = await self.llm_caller.call_with_tools(
+                    context.model_name,
+                    summary_messages,
+                    [],  # No tools for summary generation
+                    tool_choice="none"
+                )
+                
+                if summary_response and summary_response.content:
+                    return summary_response.content.strip()
+                    
+            except Exception as summary_exc:
+                logger.warning(f"Failed to generate LLM summary: {summary_exc}")
+            
+            # Fallback to simple summary if LLM call fails
+            return f"""Task Summary:
+
+Original Request: {original_prompt}
+
+Agent completed {len(all_responses)} steps and finished with: {final_response}
+
+The agent successfully processed your request using available tools and provided the above response."""
+            
+        except Exception as exc:
+            logger.error(f"Error generating final summary: {exc}")
+            return final_response  # Return the raw final response as fallback
 
 
 @dataclass

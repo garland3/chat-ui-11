@@ -498,10 +498,129 @@ export const ChatProvider = ({ children }) => {
           break
 
         default:
-          console.warn('Unknown message type:', data.type)
+          // Check if it's an agent update wrapped in intermediate_update
+          if (data.update_type === 'agent_update' && data.data) {
+            handleAgentUpdate(data.data)
+          } else {
+            console.warn('Unknown message type:', data.type)
+          }
       }
     } catch (error) {
       console.error('Error handling WebSocket message:', error, data)
+    }
+  }
+
+  const handleAgentUpdate = (data) => {
+    console.log('Agent update received:', data.type, data)
+    try {
+      switch (data.type) {
+        case 'agent_start':
+          // Add a system message indicating agent mode started
+          const startMessage = {
+            role: 'system',
+            content: `**Agent Mode Started** - ${data.message}`,
+            type: 'agent_status',
+            timestamp: new Date().toISOString()
+          }
+          setMessages(prev => [...prev, startMessage])
+          break
+
+        case 'agent_turn_start':
+          // Update current step
+          setCurrentAgentStep(data.turn)
+          break
+
+        case 'agent_llm_call':
+          // Could show that LLM is being called
+          console.log(`Agent step ${data.step}: Calling LLM with ${data.tool_count} tools`)
+          break
+
+        case 'agent_tool_calls_start':
+          // Could show tool execution starting
+          console.log(`Agent step ${data.step}: Starting ${data.tool_count} tool calls`)
+          break
+
+        case 'agent_tool_call':
+          // Add tool call message for each individual tool
+          const toolCallMessage = {
+            role: 'system',
+            content: `**Agent Tool Call**: ${data.function_name}`,
+            type: 'tool_call', // Use the same type as regular tool calls for consistent UI
+            tool_call_id: `agent_${data.step}_${data.tool_index}`,
+            tool_name: data.function_name,
+            server_name: 'agent_step',
+            arguments: data.arguments,
+            step: data.step,
+            status: 'calling',
+            timestamp: new Date().toISOString(),
+            agent_mode: true
+          }
+          setMessages(prev => [...prev, toolCallMessage])
+          break
+
+        case 'agent_tool_results':
+          // Update any recent tool call messages with completion status
+          console.log(`Agent step ${data.step}: Received ${data.results_count} tool results`)
+          break
+
+        case 'agent_completion_detected':
+          const completionMessage = {
+            role: 'system',
+            content: `**Agent Completion** - ${data.message}`,
+            type: 'agent_status',
+            timestamp: new Date().toISOString()
+          }
+          setMessages(prev => [...prev, completionMessage])
+          break
+
+        case 'agent_completion':
+          setCurrentAgentStep(0)
+          setIsThinking(false)
+          const finalMessage = {
+            role: 'assistant',
+            content: `${data.final_response}\n\n*Agent completed task in ${data.total_steps} steps*`,
+            timestamp: new Date().toISOString()
+          }
+          setMessages(prev => [...prev, finalMessage])
+          break
+
+        case 'agent_step_complete':
+          console.log(`Agent step ${data.turn}: Completed`)
+          break
+
+        case 'agent_error':
+          const errorMessage = {
+            role: 'system',
+            content: `**Agent Error** (Step ${data.turn}): ${data.message}`,
+            type: 'agent_error',
+            timestamp: new Date().toISOString()
+          }
+          setMessages(prev => [...prev, errorMessage])
+          setIsThinking(false)
+          setCurrentAgentStep(0)
+          break
+
+        case 'agent_max_steps':
+          const maxStepsMessage = {
+            role: 'system',
+            content: `**Agent Max Steps Reached** - ${data.message}`,
+            type: 'agent_status',
+            timestamp: new Date().toISOString()
+          }
+          setMessages(prev => [...prev, maxStepsMessage])
+          setIsThinking(false)
+          setCurrentAgentStep(0)
+          break
+
+        case 'agent_warning':
+          console.warn(`Agent warning: ${data.message}`)
+          break
+
+        default:
+          console.log('Unknown agent update type:', data.type, data)
+      }
+    } catch (error) {
+      console.error('Error handling agent update:', error, data)
     }
   }
 
