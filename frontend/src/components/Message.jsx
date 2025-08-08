@@ -54,6 +54,12 @@ const processFileReferences = (content) => {
   )
 }
 
+// Helper function to convert bullet characters to proper markdown list syntax
+const convertBulletListsToMarkdown = (content) => {
+  // Convert lines starting with bullet characters (•, ◦, ▪, ▫, ‣) to markdown lists
+  return content.replace(/^(\s*)[•◦▪▫‣]\s+(.+)$/gm, '$1- $2')
+}
+
 // Configure marked with custom renderer for code blocks
 const renderer = new marked.Renderer()
 renderer.code = function(code, language) {
@@ -322,27 +328,35 @@ const copyMessageContent = (content, button) => {
 
 // Helper function to process message content (strings and structured objects)
 const processMessageContent = (content) => {
+  let processedContent = ''
+  
   if (typeof content === 'string') {
-    return processFileReferences(content)
+    processedContent = content
   } else if (content && typeof content === 'object') {
     // Handle structured content objects that might contain markdown
     if (content.raw && typeof content.raw === 'string') {
       // If there's a raw property, use it (likely contains markdown)
-      return processFileReferences(content.raw)
+      processedContent = content.raw
     } else if (content.text && typeof content.text === 'string') {
       // If there's a text property, use it
-      return processFileReferences(content.text)
+      processedContent = content.text
     } else {
       // Fallback to JSON for other objects
       try {
-        return JSON.stringify(content, null, 2)
+        processedContent = JSON.stringify(content, null, 2)
       } catch (e) {
-        return String(content || '')
+        processedContent = String(content || '')
       }
     }
   } else {
-    return String(content || '')
+    processedContent = String(content || '')
   }
+  
+  // Apply all content transformations in sequence
+  processedContent = convertBulletListsToMarkdown(processedContent)
+  processedContent = processFileReferences(processedContent)
+  
+  return processedContent
 }
 
 // Helper function to filter out base64 data from tool arguments for display
@@ -689,7 +703,7 @@ const Message = ({ message }) => {
       
       return (
         <div 
-          className="text-gray-200 prose prose-invert max-w-none group"
+          className="prose prose-invert max-w-none"
           dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
         />
       )
