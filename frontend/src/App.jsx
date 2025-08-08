@@ -15,6 +15,7 @@ import HelpPage from './components/HelpPage'
 import AdminDashboard from './components/AdminDashboard'
 import FeedbackButton from './components/FeedbackButton'
 import FileManagerPanel from './components/FileManagerPanel'
+import FilesPage from './components/FilesPage'
 
 function ChatInterface() {
   const [toolsPanelOpen, setToolsPanelOpen] = useState(false)
@@ -142,6 +143,7 @@ function App() {
               <Route path="/marketplace" element={<MarketplacePanel />} />
               <Route path="/help" element={<HelpPage />} />
               <Route path="/admin" element={<AdminDashboard />} />
+              <Route path="/files" element={<FilesPage />} />
             </Routes>
           </MarketplaceProvider>
         </ChatProvider>

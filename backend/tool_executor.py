@@ -49,7 +49,7 @@ class FileManager:
     """Handles file injection and extraction for tools."""
     
     @staticmethod
-    def inject_file_data(function_args: Dict, session) -> Dict:
+    async def inject_file_data(function_args: Dict, session) -> Dict:
         """Inject file data into tool arguments if tool expects it and files are available."""
         logger.info(f"inject_file_data called with args: {list(function_args.keys())}")
         
@@ -66,9 +66,13 @@ class FileManager:
             logger.info(f"Tool has filename parameter: {filename}")
             
             if filename and filename in session.uploaded_files:
-                file_data = session.uploaded_files[filename]
-                enhanced_args['file_data_base64'] = file_data
-                logger.info(f"Successfully injected file data for '{filename}' (data length: {len(file_data) if file_data else 0})")
+                # Get file content from S3
+                file_content = await session.get_file_content_by_name(filename)
+                if file_content:
+                    enhanced_args['file_data_base64'] = file_content
+                    logger.info(f"Successfully injected file data for '{filename}' (data length: {len(file_content)})")
+                else:
+                    logger.warning(f"Failed to retrieve file content from S3 for '{filename}'")
             else:
                 logger.warning(f"File '{filename}' not found in uploaded files. Available: {list(session.uploaded_files.keys())}")
         
@@ -76,7 +80,7 @@ class FileManager:
     
     @staticmethod
     async def save_tool_files_to_session(tool_result: Dict[str, Any], session, tool_name: str) -> int:
-        """Extract files from tool result and save them to the session."""
+        """Extract files from tool result and save them to the session via S3."""
         files_saved = 0
         
         # Check for returned_files array (preferred format)
@@ -88,9 +92,18 @@ class FileManager:
                         filename = file_info['filename']
                     else:
                         filename = f"{tool_name}_{file_info['filename']}"
-                    session.uploaded_files[filename] = file_info["content_base64"]
-                    files_saved += 1
-                    logger.info(f"Saved file {filename} from tool {tool_name} to session {session.session_id}")
+                    
+                    # Store file in S3
+                    try:
+                        await session.store_generated_file_in_s3(
+                            filename, 
+                            file_info["content_base64"],
+                            tool_name
+                        )
+                        files_saved += 1
+                        logger.info(f"Saved file {filename} from tool {tool_name} to S3 for session {session.session_id}")
+                    except Exception as e:
+                        logger.error(f"Failed to save file {filename} to S3: {e}")
         
         # Check for legacy single file format
         elif "returned_file_name" in tool_result and "returned_file_base64" in tool_result:
@@ -98,17 +111,21 @@ class FileManager:
                 filename = tool_result['returned_file_name']
             else:
                 filename = f"{tool_name}_{tool_result['returned_file_name']}"
-            session.uploaded_files[filename] = tool_result["returned_file_base64"]
-            files_saved += 1
-            logger.info(f"Saved file {filename} from tool {tool_name} to session {session.session_id}")
+            
+            # Store file in S3
+            try:
+                await session.store_generated_file_in_s3(
+                    filename,
+                    tool_result["returned_file_base64"],
+                    tool_name
+                )
+                files_saved += 1
+                logger.info(f"Saved file {filename} from tool {tool_name} to S3 for session {session.session_id}")
+            except Exception as e:
+                logger.error(f"Failed to save file {filename} to S3: {e}")
         
         if files_saved > 0:
             logger.info(f"Tool {tool_name} generated {files_saved} files now available for other tools in session")
-            # Send file update to UI
-            try:
-                await session.send_files_update()
-            except Exception as e:
-                logger.warning(f"Failed to send files update to UI: {e}")
         
         return files_saved
     
@@ -337,7 +354,7 @@ class ToolExecutor:
             logger.info(f"Original tool arguments: {function_args}")
             
             # Inject file data if tool expects it and session has uploaded files
-            enhanced_args = self.file_manager.inject_file_data(function_args, context.session)
+            enhanced_args = await self.file_manager.inject_file_data(function_args, context.session)
             logger.info(f"Enhanced tool arguments: {list(enhanced_args.keys())}")
             
             # Execute the tool

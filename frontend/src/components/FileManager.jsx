@@ -6,10 +6,11 @@ import {
   FileText, 
   Code, 
   Download, 
-  Trash2
+  Trash2,
+  Tag
 } from 'lucide-react'
 
-const FileManager = ({ files, onDownloadFile, onDeleteFile }) => {
+const FileManager = ({ files, onDownloadFile, onDeleteFile, taggedFiles, onToggleFileTag }) => {
 
 
   const getFileIcon = (file) => {
@@ -88,6 +89,17 @@ const FileManager = ({ files, onDownloadFile, onDeleteFile }) => {
             </div>
 
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                onClick={() => onToggleFileTag?.(file.filename)}
+                className={`p-1.5 rounded transition-colors ${
+                  taggedFiles?.has(file.filename)
+                    ? 'text-green-400 hover:text-green-300 bg-green-400/10'
+                    : 'text-gray-400 hover:text-green-400 hover:bg-green-400/10'
+                }`}
+                title={taggedFiles?.has(file.filename) ? "Remove from chat context" : "Tag for chat context"}
+              >
+                <Tag className="w-4 h-4" />
+              </button>
               <button
                 onClick={() => onDownloadFile?.(file.filename)}
                 className="p-1.5 text-gray-400 hover:text-blue-400 hover:bg-blue-400/10 rounded transition-colors"

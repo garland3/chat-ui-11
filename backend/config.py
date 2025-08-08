@@ -106,6 +106,11 @@ class AppSettings(BaseSettings):
     # Admin settings
     admin_group: str = "admin"
     
+    # S3 storage settings
+    s3_endpoint: str = "http://127.0.0.1:8003"
+    s3_use_mock: bool = True
+    s3_timeout: int = 30
+    
     model_config = {
         "env_file": "../.env", 
         "env_file_encoding": "utf-8", 

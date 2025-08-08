@@ -60,6 +60,9 @@ export const ChatProvider = ({ children }) => {
     }
   })
   
+  // Tagged files for context inclusion
+  const [taggedFiles, setTaggedFiles] = useState(new Set())
+  
   const { sendMessage, addMessageHandler } = useWS()
 
   // Load configuration on mount
@@ -73,6 +76,7 @@ export const ChatProvider = ({ children }) => {
     loadPromptSelections()
     loadToolChoiceRequired()
     loadAgentModeSettings()
+    loadTaggedFiles()
   }, [])
 
   // WebSocket message handler
@@ -397,7 +401,7 @@ export const ChatProvider = ({ children }) => {
     setSelectedDataSources(newSelected)
   }
 
-  const sendChatMessage = (content, files = {}) => {
+  const sendChatMessage = async (content, files = {}) => {
     if (!content.trim() || !currentModel) return
 
     // Hide welcome screen on first message
@@ -423,6 +427,16 @@ export const ChatProvider = ({ children }) => {
       message_preview: content.substring(0, 50) + '...'
     })
 
+    // Include tagged files in the files payload
+    const taggedFilesContent = await getTaggedFilesContent()
+    const allFiles = { ...files, ...taggedFilesContent }
+    
+    console.log('📁 [FILES DEBUG] Including files in message:', {
+      uploaded_files: Object.keys(files).length,
+      tagged_files: Object.keys(taggedFilesContent).length,
+      total_files: Object.keys(allFiles).length
+    })
+
     // Prepare payload
     const selectedPromptsArray = Array.from(selectedPrompts)
     const payload = {
@@ -435,7 +449,7 @@ export const ChatProvider = ({ children }) => {
       only_rag: onlyRag,
       tool_choice_required: toolChoiceRequired,
       user,
-      files // Add files to payload
+      files: allFiles // Add files to payload including tagged files
     }
 
     // Add agent mode parameters if available
@@ -856,6 +870,57 @@ export const ChatProvider = ({ children }) => {
     }
   }
 
+  const toggleFileTag = (filename) => {
+    setTaggedFiles(prev => {
+      const newTagged = new Set(prev)
+      if (newTagged.has(filename)) {
+        newTagged.delete(filename)
+      } else {
+        newTagged.add(filename)
+      }
+      
+      // Save to localStorage
+      localStorage.setItem('chatui-tagged-files', JSON.stringify(Array.from(newTagged)))
+      
+      console.log(`File "${filename}" ${newTagged.has(filename) ? 'tagged' : 'untagged'} for context`)
+      return newTagged
+    })
+  }
+
+  const clearTaggedFiles = () => {
+    setTaggedFiles(new Set())
+    localStorage.removeItem('chatui-tagged-files')
+    console.log('Cleared all tagged files')
+  }
+
+  const loadTaggedFiles = () => {
+    try {
+      const saved = localStorage.getItem('chatui-tagged-files')
+      if (saved) {
+        const taggedArray = JSON.parse(saved)
+        setTaggedFiles(new Set(taggedArray))
+        console.log('Loaded tagged files from localStorage:', taggedArray)
+      }
+    } catch (error) {
+      console.error('Error loading tagged files:', error)
+    }
+  }
+
+  const getTaggedFilesContent = async () => {
+    const taggedArray = Array.from(taggedFiles)
+    const fileContents = {}
+    
+    for (const filename of taggedArray) {
+      // Check if file exists in session files
+      const fileExists = sessionFiles.files.some(f => f.filename === filename)
+      if (fileExists) {
+        fileContents[filename] = `[File: ${filename} - included for context]`
+      }
+    }
+    
+    return fileContents
+  }
+
   const clearToolsAndPrompts = () => {
     // Clear selected tools and prompts
     setSelectedTools(new Set())
@@ -1064,7 +1129,12 @@ export const ChatProvider = ({ children }) => {
     // Files
     sessionFiles,
     downloadFile,
-    deleteFile
+    deleteFile,
+    
+    // File tagging
+    taggedFiles,
+    toggleFileTag,
+    clearTaggedFiles
   }
 
   return (

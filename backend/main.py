@@ -73,6 +73,7 @@ from banner_client import initialize_banner_client
 from llm_health_check import health_checker, get_llm_health_status
 from admin_routes import admin_router, setup_configfilesadmin
 from feedback_routes import feedback_router
+from files_routes import router as files_router
 from mcp_health_check import mcp_health_monitor
 
 mcp_manager: Optional[MCPToolManager] = None
@@ -168,6 +169,7 @@ async def admin_frontend():
 # Include admin and feedback routers
 app.include_router(admin_router)
 app.include_router(feedback_router)
+app.include_router(files_router)
 
 # Serve static files (only if frontend is built) - moved to after routes
 frontend_dist = Path("../frontend/dist")

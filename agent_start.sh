@@ -1,3 +1,6 @@
+# Configuration
+START_S3_MOCK=true
+
 echo "Clearing log for fresh start"
 echo "NEW LOG" > /workspaces/chat-ui-11/backend/logs/app.jsonl
 
@@ -9,6 +12,15 @@ cd ../backend
 
 pkill python
 pkill uvicorn
+
+# Start S3 mock service if enabled
+if [ "$START_S3_MOCK" = true ]; then
+    echo "Starting S3 mock service..."
+    cd ../mocks/s3-mock
+    python main.py &
+    cd ../../backend
+    echo "S3 mock service started on http://127.0.0.1:8003"
+fi
 
 uvicorn main:app &
 echo "Server started"

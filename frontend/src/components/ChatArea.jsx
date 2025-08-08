@@ -12,6 +12,9 @@ const ChatArea = () => {
   const [showToolAutocomplete, setShowToolAutocomplete] = useState(false)
   const [filteredTools, setFilteredTools] = useState([])
   const [selectedToolIndex, setSelectedToolIndex] = useState(0)
+  const [showFileAutocomplete, setShowFileAutocomplete] = useState(false)
+  const [filteredFiles, setFilteredFiles] = useState([])
+  const [selectedFileIndex, setSelectedFileIndex] = useState(0)
   const textareaRef = useRef(null)
   const messagesRef = useRef(null)
   const fileInputRef = useRef(null)
@@ -26,7 +29,8 @@ const ChatArea = () => {
     selectedTools,
     toggleTool,
     toolChoiceRequired,
-    setToolChoiceRequired
+    setToolChoiceRequired,
+    sessionFiles
   } = useChat()
   const { isConnected } = useWS()
 
@@ -78,12 +82,16 @@ const ChatArea = () => {
     }
   }, [messages, isThinking])
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     const message = inputValue.trim()
     if (!message || !currentModel || !isConnected) return
     
-    sendChatMessage(message, uploadedFiles)
+    // Process @file references in the message
+    const processedFiles = await processFileReferences(message)
+    const allFiles = { ...uploadedFiles, ...processedFiles }
+    
+    sendChatMessage(message, allFiles)
     setInputValue('')
     
     // Reset textarea height
@@ -91,9 +99,50 @@ const ChatArea = () => {
       textareaRef.current.style.height = 'auto'
     }
   }
+  
+  // Process @file references in the message and return file content
+  const processFileReferences = async (message) => {
+    const fileRefs = {}
+    const fileRegex = /@file\s+([^\s]+)/g
+    let match
+    
+    while ((match = fileRegex.exec(message)) !== null) {
+      const filename = match[1]
+      
+      // Find the file in session files
+      const file = sessionFiles.files?.find(f => f.filename === filename)
+      if (file && file.s3_key) {
+        try {
+          // Fetch file content from S3 via API
+          const response = await fetch(`/api/files/${encodeURIComponent(file.s3_key)}`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('userEmail') || 'user@example.com'}`
+            }
+          })
+          
+          if (response.ok) {
+            const fileData = await response.json()
+            fileRefs[filename] = fileData.content_base64
+            console.log(`📎 Loaded content for @file ${filename}`)
+          } else {
+            console.warn(`Failed to load @file ${filename}:`, response.status)
+            fileRefs[filename] = `[Error loading file: ${filename}]`
+          }
+        } catch (error) {
+          console.error(`Error fetching @file ${filename}:`, error)
+          fileRefs[filename] = `[Error loading file: ${filename}]`
+        }
+      } else {
+        console.warn(`@file ${filename} not found in session files`)
+        fileRefs[filename] = `[File not found: ${filename}]`
+      }
+    }
+    
+    return fileRefs
+  }
 
   const handleKeyDown = (e) => {
-    // Handle autocomplete navigation
+    // Handle autocomplete navigation for tools
     if (showToolAutocomplete) {
       if (e.key === 'ArrowDown') {
         e.preventDefault()
@@ -118,6 +167,31 @@ const ChatArea = () => {
       }
     }
     
+    // Handle autocomplete navigation for files
+    if (showFileAutocomplete) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        setSelectedFileIndex(prev => 
+          prev < filteredFiles.length - 1 ? prev + 1 : 0
+        )
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        setSelectedFileIndex(prev => 
+          prev > 0 ? prev - 1 : filteredFiles.length - 1
+        )
+      } else if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault()
+        if (filteredFiles[selectedFileIndex]) {
+          selectFile(filteredFiles[selectedFileIndex])
+        }
+        return
+      } else if (e.key === 'Escape') {
+        e.preventDefault()
+        setShowFileAutocomplete(false)
+        return
+      }
+    }
+    
     // Normal enter handling
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -130,8 +204,8 @@ const ChatArea = () => {
     setInputValue(value)
     autoResizeTextarea()
     
-    // Handle slash command autocomplete
-    handleSlashCommand(value)
+    // Handle autocomplete for different command types
+    handleAutoComplete(value)
   }
 
   // Get all available tools as flat list
@@ -150,49 +224,138 @@ const ChatArea = () => {
     return allTools
   }
 
-  // Handle slash command logic
-  const handleSlashCommand = (value) => {
-    if (value.startsWith('/')) {
-      // Extract the command part (before any space)
-      const spaceIndex = value.indexOf(' ')
-      const commandPart = spaceIndex === -1 ? value.slice(1) : value.slice(1, spaceIndex)
-      const query = commandPart.toLowerCase()
-      const availableTools = getAllAvailableTools()
-      
-      // Only show autocomplete if we're still typing the command (no space yet or at the end)
-      const showAutocomplete = spaceIndex === -1 || value.length === spaceIndex + 1
-      
-      if (showAutocomplete) {
-        if (query === '') {
-          // Show all tools when just "/" is typed
-          setFilteredTools(availableTools)
+  // Get all available files as flat list
+  const getAllAvailableFiles = () => {
+    if (!sessionFiles || !sessionFiles.files) return []
+    
+    return sessionFiles.files.map(file => ({
+      filename: file.filename,
+      type: file.type || 'other',
+      size: file.size || 0,
+      source: file.source || 'unknown',
+      extension: file.extension || ''
+    }))
+  }
+
+  // Handle autocomplete for slash commands and @file commands
+  const handleAutoComplete = (value) => {
+    const cursorPosition = textareaRef.current?.selectionStart || value.length
+    const textBeforeCursor = value.substring(0, cursorPosition)
+    
+    // Find the last occurrence of @ or / before cursor
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@')
+    const lastSlashIndex = textBeforeCursor.lastIndexOf('/')
+    
+    // Determine which command type is active
+    let commandType = null
+    let commandStart = -1
+    
+    if (lastAtIndex > lastSlashIndex && lastAtIndex !== -1) {
+      // Check if it's @file
+      if (textBeforeCursor.substring(lastAtIndex).startsWith('@file')) {
+        commandType = 'file'
+        commandStart = lastAtIndex
+      }
+    } else if (lastSlashIndex !== -1) {
+      // Check if it's a tool command (starts with /)
+      const textAfterSlash = textBeforeCursor.substring(lastSlashIndex)
+      if (!textAfterSlash.includes(' ') || textAfterSlash.endsWith(' ')) {
+        commandType = 'tool'
+        commandStart = lastSlashIndex
+      }
+    }
+    
+    if (commandType === 'file') {
+      handleFileCommand(textBeforeCursor, commandStart)
+    } else if (commandType === 'tool') {
+      handleToolCommand(textBeforeCursor, commandStart)
+    } else {
+      // No active command, hide both autocompletes
+      setShowToolAutocomplete(false)
+      setShowFileAutocomplete(false)
+    }
+  }
+  
+  const handleToolCommand = (textBeforeCursor, commandStart) => {
+    const commandText = textBeforeCursor.substring(commandStart + 1) // Remove the /
+    const spaceIndex = commandText.indexOf(' ')
+    const query = (spaceIndex === -1 ? commandText : commandText.substring(0, spaceIndex)).toLowerCase()
+    const availableTools = getAllAvailableTools()
+    
+    // Show autocomplete if we're still typing the command
+    const showAutocomplete = spaceIndex === -1 || commandText.length === spaceIndex + 1
+    
+    if (showAutocomplete) {
+      if (query === '') {
+        setFilteredTools(availableTools)
+        setShowToolAutocomplete(true)
+        setSelectedToolIndex(0)
+      } else {
+        const filtered = availableTools.filter(tool => 
+          tool.name.toLowerCase().includes(query) ||
+          tool.server.toLowerCase().includes(query)
+        )
+        
+        if (filtered.length > 0) {
+          setFilteredTools(filtered)
           setShowToolAutocomplete(true)
           setSelectedToolIndex(0)
         } else {
-          // Filter tools based on query
-          const filtered = availableTools.filter(tool => 
-            tool.name.toLowerCase().includes(query) ||
-            tool.server.toLowerCase().includes(query)
-          )
-          
-          if (filtered.length > 0) {
-            setFilteredTools(filtered)
-            setShowToolAutocomplete(true)
-            setSelectedToolIndex(0)
-          } else {
-            setShowToolAutocomplete(false)
-          }
+          setShowToolAutocomplete(false)
         }
-      } else {
-        setShowToolAutocomplete(false)
       }
     } else {
       setShowToolAutocomplete(false)
     }
+    
+    // Hide file autocomplete
+    setShowFileAutocomplete(false)
+  }
+  
+  const handleFileCommand = (textBeforeCursor, commandStart) => {
+    const commandText = textBeforeCursor.substring(commandStart) // Include the @
+    
+    // Check if we have @file followed by space or partial filename
+    if (commandText.startsWith('@file')) {
+      const afterFile = commandText.substring(5) // Remove '@file'
+      const query = afterFile.trim().toLowerCase()
+      const availableFiles = getAllAvailableFiles()
+      
+      if (afterFile.startsWith(' ') || afterFile === '') {
+        // Show file autocomplete
+        if (query === '') {
+          setFilteredFiles(availableFiles)
+          setShowFileAutocomplete(true)
+          setSelectedFileIndex(0)
+        } else {
+          const filtered = availableFiles.filter(file => 
+            file.filename.toLowerCase().includes(query)
+          )
+          
+          if (filtered.length > 0) {
+            setFilteredFiles(filtered)
+            setShowFileAutocomplete(true)
+            setSelectedFileIndex(0)
+          } else {
+            setShowFileAutocomplete(false)
+          }
+        }
+      } else {
+        setShowFileAutocomplete(false)
+      }
+    } else {
+      setShowFileAutocomplete(false)
+    }
+    
+    // Hide tool autocomplete
+    setShowToolAutocomplete(false)
   }
 
   // Check if input contains a slash command
   const hasSlashCommand = inputValue.startsWith('/') && inputValue.includes(' ')
+  
+  // Check if input contains @file references
+  const hasFileReference = inputValue.includes('@file ')
 
   // Handle tool selection from autocomplete
   const selectTool = (tool) => {
@@ -207,6 +370,37 @@ const ChatArea = () => {
     // Replace the slash command with the tool name and add a space
     setInputValue(`/${tool.name} `)
     setShowToolAutocomplete(false)
+    
+    // Focus back to textarea
+    if (textareaRef.current) {
+      textareaRef.current.focus()
+    }
+  }
+
+  // Handle file selection from autocomplete
+  const selectFile = (file) => {
+    const cursorPosition = textareaRef.current?.selectionStart || inputValue.length
+    const textBeforeCursor = inputValue.substring(0, cursorPosition)
+    const textAfterCursor = inputValue.substring(cursorPosition)
+    
+    // Find the @file command position
+    const lastAtIndex = textBeforeCursor.lastIndexOf('@file')
+    if (lastAtIndex !== -1) {
+      // Replace @file... with @file filename
+      const beforeCommand = textBeforeCursor.substring(0, lastAtIndex)
+      const newValue = `${beforeCommand}@file ${file.filename}${textAfterCursor}`
+      setInputValue(newValue)
+      
+      // Position cursor after the inserted filename
+      const newCursorPosition = beforeCommand.length + `@file ${file.filename}`.length
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.setSelectionRange(newCursorPosition, newCursorPosition)
+        }
+      }, 0)
+    }
+    
+    setShowFileAutocomplete(false)
     
     // Focus back to textarea
     if (textareaRef.current) {
@@ -323,11 +517,13 @@ const ChatArea = () => {
                 value={inputValue}
                 onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
-                placeholder="Type your message..."
+                placeholder="Type your message... (Use /tool for tools, @file for files)"
                 rows={1}
                 className={`w-full px-4 py-3 bg-gray-800 rounded-lg text-gray-200 placeholder-gray-400 resize-none focus:outline-none focus:ring-2 focus:border-transparent ${
                   hasSlashCommand 
                     ? 'border-2 border-yellow-500 focus:ring-yellow-500 bg-yellow-900/10' 
+                    : hasFileReference
+                    ? 'border-2 border-green-500 focus:ring-green-500 bg-green-900/10'
                     : 'border border-gray-600 focus:ring-blue-500'
                 }`}
                 style={{ minHeight: '48px', maxHeight: '128px' }}
@@ -352,6 +548,37 @@ const ChatArea = () => {
                       <div className="flex items-center gap-2">
                         <span className="font-black text-white">/{tool.name}</span>
                         <span className="text-xs text-gray-400">from {tool.server}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {/* File Autocomplete Dropdown */}
+              {showFileAutocomplete && filteredFiles.length > 0 && (
+                <div className="absolute bottom-full left-0 right-0 mb-2 bg-gray-800 border border-gray-600 rounded-lg shadow-lg max-h-64 overflow-y-auto z-50">
+                  <div className="p-2 text-xs text-gray-400 bg-gray-700 border-b border-gray-600">
+                    Files available in your session - Use ↑↓ to navigate, Enter to select, Esc to cancel
+                  </div>
+                  {filteredFiles.map((file, index) => (
+                    <div
+                      key={file.filename}
+                      onClick={() => selectFile(file)}
+                      className={`px-3 py-2 cursor-pointer transition-colors border-b border-gray-700 last:border-b-0 ${
+                        index === selectedFileIndex 
+                          ? 'bg-green-600 text-white' 
+                          : 'hover:bg-gray-700 text-gray-200'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-white">@file {file.filename}</span>
+                          <span className="text-xs px-2 py-1 rounded bg-gray-600 text-gray-300">{file.type}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-gray-400">
+                          <span>{file.source === 'tool' ? '🔧 generated' : '📤 uploaded'}</span>
+                          <span>{(file.size / 1024).toFixed(1)}KB</span>
+                        </div>
                       </div>
                     </div>
                   ))}

@@ -65,3 +65,6 @@ test_e2e/playwright-report/
 # Test Results (any location)
 test-results/
 **/test-results/
+
+# S3 Mock Storage
+mocks/s3-mock/s3-mock-storage/

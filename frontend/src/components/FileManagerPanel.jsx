@@ -4,7 +4,7 @@ import FileManager from './FileManager'
 import ResizablePanel from './ResizablePanel'
 
 const FileManagerPanel = ({ isOpen, onClose }) => {
-  const { sessionFiles, downloadFile, deleteFile } = useChat()
+  const { sessionFiles, downloadFile, deleteFile, taggedFiles, toggleFileTag } = useChat()
 
   const downloadAllFiles = () => {
     if (sessionFiles.total_files === 0) {
@@ -63,6 +63,8 @@ const FileManagerPanel = ({ isOpen, onClose }) => {
             files={sessionFiles}
             onDownloadFile={downloadFile}
             onDeleteFile={deleteFile}
+            taggedFiles={taggedFiles}
+            onToggleFileTag={toggleFileTag}
           />
           
           {/* Info Section */}

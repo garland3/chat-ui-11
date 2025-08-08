@@ -46,6 +46,14 @@ hljs.registerLanguage('bash', bash)
 hljs.registerLanguage('shell', bash)
 hljs.registerLanguage('sh', bash)
 
+// Helper function to highlight @file references in message content
+const processFileReferences = (content) => {
+  return content.replace(
+    /@file\s+([^\s]+)/g,
+    '<span class="inline-flex items-center px-2 py-1 rounded-md bg-green-900/30 border border-green-500/30 text-green-400 text-sm font-medium">📎 @file $1</span>'
+  )
+}
+
 // Configure marked with custom renderer for code blocks
 const renderer = new marked.Renderer()
 renderer.code = function(code, language) {
@@ -315,15 +323,15 @@ const copyMessageContent = (content, button) => {
 // Helper function to process message content (strings and structured objects)
 const processMessageContent = (content) => {
   if (typeof content === 'string') {
-    return content
+    return processFileReferences(content)
   } else if (content && typeof content === 'object') {
     // Handle structured content objects that might contain markdown
     if (content.raw && typeof content.raw === 'string') {
       // If there's a raw property, use it (likely contains markdown)
-      return content.raw
+      return processFileReferences(content.raw)
     } else if (content.text && typeof content.text === 'string') {
       // If there's a text property, use it
-      return content.text
+      return processFileReferences(content.text)
     } else {
       // Fallback to JSON for other objects
       try {

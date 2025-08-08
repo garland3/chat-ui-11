@@ -8,6 +8,7 @@ from fastapi import WebSocket, WebSocketDisconnect
 
 from mcp_client import MCPToolManager
 from message_processor import MessageProcessor
+from s3_client import s3_client
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +45,8 @@ class ChatSession:
         self.only_rag: bool = True  # Default to true as per instructions
         self.tool_choice_required: bool = False  # Tool choice mode: False = auto, True = required
         self.session_id: str = id(self)
-        self.uploaded_files: Dict[str, str] = {}  # filename -> base64 mapping
+        self.uploaded_files: Dict[str, str] = {}  # filename -> s3_key mapping
+        self.file_references: Dict[str, Dict[str, Any]] = {}  # filename -> file metadata
         
         # Initialize message processor
         self.message_processor = MessageProcessor(self)
@@ -111,37 +113,122 @@ class ChatSession:
         # Update uploaded files if provided
         if "files" in message:
             # logging the files for debugging
-            logger.info("Received files for session %s: %s", self.session_id, message["files"])
-            # Update the session's file mapping and send UI update
-            await self.update_files_async(message["files"])
+            logger.info("Received files for session %s: %s", self.session_id, list(message["files"].keys()))
+            # Upload files to S3 and update the session's file mapping
+            await self.upload_files_to_s3_async(message["files"])
         
         if message.get("agent_mode", False):
             await self.message_processor.handle_agent_mode_message(message)
         else:
             await self.message_processor.handle_chat_message(message)
 
-    def update_files(self, files: Dict[str, str]) -> None:
-        """Update the session's file mapping"""
-        if files:
-            self.uploaded_files.update(files)
-            logger.info(
-                "Updated files for session %s: %s", 
-                self.session_id, 
-                list(files.keys())
-            )
-        # log all File names and length of the base 64 to the log, use fstring, offset with \t
-        logger.info("Current files in session %s:", self.session_id)
-        if not self.uploaded_files:
-            logger.info("\tNo files uploaded yet.")
-        else:
-            # use fstring. 
-            for filename, base64_data in self.uploaded_files.items():
-                logger.info(f"\t{filename}: {len(base64_data)} bytes")
+    async def upload_files_to_s3_async(self, files: Dict[str, str]) -> None:
+        """Upload files to S3 and update the session's file mapping"""
+        if not files:
+            return
+            
+        try:
+            for filename, base64_content in files.items():
+                # Determine content type based on filename
+                content_type = self._get_content_type(filename)
+                
+                # Upload to S3
+                file_metadata = await s3_client.upload_file(
+                    user_email=self.user_email,
+                    filename=filename,
+                    content_base64=base64_content,
+                    content_type=content_type,
+                    source_type="user"
+                )
+                
+                # Store S3 key and metadata
+                self.uploaded_files[filename] = file_metadata["key"]
+                self.file_references[filename] = file_metadata
+                
+                logger.info(
+                    f"File uploaded to S3: {filename} -> {file_metadata['key']} for session {self.session_id}"
+                )
+            
+            # Send updated file list to UI
+            await self.send_files_update()
+            
+        except Exception as exc:
+            logger.error(f"Error uploading files to S3 for session {self.session_id}: {exc}")
+            await self.send_error(f"Failed to upload files: {str(exc)}")
 
-    async def update_files_async(self, files: Dict[str, str]) -> None:
-        """Update the session's file mapping and send UI update"""
-        self.update_files(files)
-        await self.send_files_update()
+    async def store_generated_file_in_s3(self, filename: str, content_base64: str, source_tool: str = "system") -> str:
+        """Store a tool-generated file in S3 and return the S3 key"""
+        try:
+            content_type = self._get_content_type(filename)
+            
+            file_metadata = await s3_client.upload_file(
+                user_email=self.user_email,
+                filename=filename,
+                content_base64=content_base64,
+                content_type=content_type,
+                tags={"source_tool": source_tool},
+                source_type="tool"
+            )
+            
+            # Store in session
+            self.uploaded_files[filename] = file_metadata["key"]
+            self.file_references[filename] = file_metadata
+            
+            logger.info(
+                f"Generated file stored in S3: {filename} -> {file_metadata['key']} for session {self.session_id}"
+            )
+            
+            # Send updated file list to UI
+            await self.send_files_update()
+            
+            return file_metadata["key"]
+            
+        except Exception as exc:
+            logger.error(f"Error storing generated file in S3: {exc}")
+            raise
+
+    def _get_content_type(self, filename: str) -> str:
+        """Determine content type based on filename"""
+        extension = filename.lower().split('.')[-1] if '.' in filename else ''
+        
+        content_types = {
+            'txt': 'text/plain',
+            'md': 'text/markdown',
+            'json': 'application/json',
+            'csv': 'text/csv',
+            'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'pdf': 'application/pdf',
+            'png': 'image/png',
+            'jpg': 'image/jpeg',
+            'jpeg': 'image/jpeg',
+            'gif': 'image/gif',
+            'py': 'text/x-python',
+            'js': 'application/javascript',
+            'html': 'text/html',
+            'css': 'text/css'
+        }
+        
+        return content_types.get(extension, 'application/octet-stream')
+
+    async def get_file_content_by_name(self, filename: str) -> Optional[str]:
+        """Get base64 content of a file by filename (for tool access)"""
+        try:
+            if filename not in self.uploaded_files:
+                logger.warning(f"File not found in session: {filename}")
+                return None
+                
+            s3_key = self.uploaded_files[filename]
+            file_data = await s3_client.get_file(self.user_email, s3_key)
+            
+            if file_data:
+                return file_data["content_base64"]
+            else:
+                logger.warning(f"File not found in S3: {s3_key}")
+                return None
+                
+        except Exception as exc:
+            logger.error(f"Error getting file content for {filename}: {exc}")
+            return None
 
     async def handle_download_request(self, message: Dict[str, Any]) -> None:
         """Handle file download requests from the client."""
@@ -155,10 +242,19 @@ class ChatSession:
                 await self.send_error(f"File '{filename}' not found in session")
                 return
             
+            # Get S3 key for the file
+            s3_key = self.uploaded_files[filename]
+            
+            # Retrieve file from S3
+            file_data = await s3_client.get_file(self.user_email, s3_key)
+            if not file_data:
+                await self.send_error(f"File '{filename}' not found in storage")
+                return
+            
             # Send the file content back to the client
             await self.send_update_to_ui("file_download", {
                 "filename": filename,
-                "content_base64": self.uploaded_files[filename]
+                "content_base64": file_data["content_base64"]
             })
             
             logger.info(f"Sent file download for '{filename}' to user {self.user_email}")
@@ -228,19 +324,25 @@ class ChatSession:
         """Get metadata for all files in the session."""
         files_metadata = []
         
-        for filename, base64_content in self.uploaded_files.items():
-            # Determine if file was uploaded or generated
-            # Files with tool prefixes are generated (except for data files which keep original names)
-            is_generated = '_' in filename and not filename.endswith(('.csv', '.json', '.txt', '.xlsx'))
-            source_tool = filename.split('_')[0] if is_generated else None
+        for filename, s3_key in self.uploaded_files.items():
+            # Get metadata from file references
+            file_metadata = self.file_references.get(filename, {})
+            
+            # Determine source type from tags or metadata
+            tags = file_metadata.get("tags", {})
+            source_type = tags.get("source", "uploaded")
+            source_tool = tags.get("source_tool", None)
             
             file_info = {
                 'filename': filename,
-                'size': len(base64_content),
+                's3_key': s3_key,
+                'size': file_metadata.get("size", 0),
                 'type': self._categorize_file_type(filename),
-                'source': 'generated' if is_generated else 'uploaded',
+                'source': source_type,
                 'source_tool': source_tool,
-                'extension': filename.split('.')[-1] if '.' in filename else ''
+                'extension': filename.split('.')[-1] if '.' in filename else '',
+                'last_modified': file_metadata.get("last_modified"),
+                'content_type': file_metadata.get("content_type", "application/octet-stream")
             }
             files_metadata.append(file_info)
         
