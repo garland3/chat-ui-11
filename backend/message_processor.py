@@ -161,19 +161,22 @@ class MessageProcessor:
             # Validate required fields
             content = message.get("content", "")
             if not content or not self.session.model_name:
-                raise ValueError("Message content and model name are required.")
+                logger.error(f"Message validation failed for user {self.session.user_email}: content='{content}', model='{self.session.model_name}'")
+                raise ValueError(f"Message content and model name are required. Content: {bool(content)}, Model: {bool(self.session.model_name)}")
 
             await self.session._trigger_callbacks("before_user_message_added", content=content)
 
-            # Build processing context
-            context = self._build_processing_context(message, agent_mode)
-            
             # Apply custom system prompts if needed
             await self._apply_custom_system_prompts()
             
-            # Add user message to conversation
-            self.session.messages.append({"role": "user", "content": context.content})
-            await self.session._trigger_callbacks("after_user_message_added", user_message={"role": "user", "content": context.content})
+            # Add user message to conversation BEFORE building context
+            content = message.get("content", "")
+            enhanced_content = self._build_content_with_files(content)
+            self.session.messages.append({"role": "user", "content": enhanced_content})
+            await self.session._trigger_callbacks("after_user_message_added", user_message={"role": "user", "content": enhanced_content})
+
+            # Build processing context AFTER adding user message
+            context = self._build_processing_context(message, agent_mode)
 
             # Process the message using new modular architecture
             result = await self.processor.process_message(context)
@@ -323,12 +326,15 @@ class MessageProcessor:
     
     def _update_session_state(self, message: Dict[str, Any]) -> None:
         """Update session state from incoming message."""
+        prev_model = self.session.model_name
         self.session.model_name = message.get("model", "")
         self.session.selected_tools = message.get("selected_tools", [])
         self.session.selected_prompts = message.get("selected_prompts", [])
         self.session.selected_data_sources = message.get("selected_data_sources", [])
         self.session.only_rag = message.get("only_rag", True)
         self.session.tool_choice_required = message.get("tool_choice_required", False)
+        
+        logger.debug(f"Session state update for {self.session.user_email}: model '{prev_model}' -> '{self.session.model_name}'")
         
         # Update uploaded files instead of replacing them (preserve tool-generated files)
         new_files = message.get("files", {})
@@ -376,19 +382,15 @@ class MessageProcessor:
         """Build processing context from message and session state."""
         content = message.get("content", "")
         
-        # Append available files to content if any exist
-        enhanced_content = self._build_content_with_files(content)
-        
-        # Log content length to detect large file injection issues
-        if len(enhanced_content) > len(content) + 1000:
-            logger.info(f"Enhanced content is {len(enhanced_content)} chars (original: {len(content)} chars)")
-            if len(enhanced_content) > 100000:
-                logger.warning(f"Very large enhanced content ({len(enhanced_content)} chars) may cause LLM issues")
+        # Debug: Log exactly what content is being processed
+        logger.info(f"Processing context for user {self.session.user_email}:")
+        logger.info(f"  Original content: '{content[:100]}{'...' if len(content) > 100 else ''}'")
+        logger.info(f"  Messages in context: {len(self.session.messages)}")
         
         return ProcessingContext(
             user_email=self.session.user_email,
             model_name=self.session.model_name,
-            content=enhanced_content,
+            content=content,  # Use original content since enhanced content is now in messages
             messages=self.session.messages.copy(),
             selected_tools=self.session.selected_tools,
             selected_data_sources=self.session.selected_data_sources,

@@ -85,18 +85,33 @@ const ChatArea = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     const message = inputValue.trim()
-    if (!message || !currentModel || !isConnected) return
+    if (!message || !currentModel || !isConnected) {
+      console.debug('Submit blocked:', { message: !!message, currentModel: !!currentModel, isConnected })
+      return
+    }
     
-    // Process @file references in the message
-    const processedFiles = await processFileReferences(message)
-    const allFiles = { ...uploadedFiles, ...processedFiles }
-    
-    sendChatMessage(message, allFiles)
-    setInputValue('')
-    
-    // Reset textarea height
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto'
+    try {
+      // Process @file references in the message
+      const processedFiles = await processFileReferences(message)
+      const allFiles = { ...uploadedFiles, ...processedFiles }
+      
+      sendChatMessage(message, allFiles)
+      setInputValue('')
+      
+      // Reset textarea height
+      if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto'
+      }
+    } catch (error) {
+      console.error('Error in handleSubmit:', error)
+      // Still try to send the message without file processing
+      sendChatMessage(message, uploadedFiles)
+      setInputValue('')
+      
+      // Reset textarea height
+      if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto'
+      }
     }
   }
   
@@ -106,11 +121,17 @@ const ChatArea = () => {
     const fileRegex = /@file\s+([^\s]+)/g
     let match
     
+    // Early return if sessionFiles is not properly initialized
+    if (!sessionFiles || !sessionFiles.files || !Array.isArray(sessionFiles.files)) {
+      console.debug('Session files not available for @file processing')
+      return fileRefs
+    }
+    
     while ((match = fileRegex.exec(message)) !== null) {
       const filename = match[1]
       
       // Find the file in session files
-      const file = sessionFiles.files?.find(f => f.filename === filename)
+      const file = sessionFiles.files.find(f => f.filename === filename)
       if (file && file.s3_key) {
         try {
           // Fetch file content from S3 via API

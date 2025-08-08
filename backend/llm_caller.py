@@ -57,6 +57,12 @@ class LLMCaller:
             total_chars = sum(len(str(msg.get('content', ''))) for msg in messages)
             logger.info(f"Plain LLM call: {len(messages)} messages, {total_chars} chars")
             
+            # Debug: Log the actual messages being sent to LLM
+            logger.info(f"Messages being sent to LLM:")
+            for i, msg in enumerate(messages):
+                content_preview = str(msg.get('content', ''))[:200] + ('...' if len(str(msg.get('content', ''))) > 200 else '')
+                logger.info(f"  [{i}] {msg.get('role', 'unknown')}: {content_preview}")
+            
             loop = asyncio.get_event_loop()
             response = await loop.run_in_executor(
                 None, lambda: requests.post(api_url, headers=headers, json=payload, timeout=30)
@@ -64,7 +70,9 @@ class LLMCaller:
             
             if response.status_code == 200:
                 result = response.json()
-                return result["choices"][0]["message"]["content"]
+                llm_response = result["choices"][0]["message"]["content"]
+                logger.info(f"LLM response preview: '{llm_response[:200]}{'...' if len(llm_response) > 200 else ''}'")
+                return llm_response
             
             logger.error("LLM API error %s: %s", response.status_code, response.text)
             raise Exception(f"LLM API error: {response.status_code}")
