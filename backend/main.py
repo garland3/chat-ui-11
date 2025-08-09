@@ -292,18 +292,33 @@ async def get_config(current_user: str = Depends(get_current_user)):
     logger.info(f"User {current_user} has access to {len(authorized_servers)} servers: {authorized_servers}")
     logger.info(f"Returning {len(tools_info)} server tool groups to frontend for user {current_user}")
     
+    # Apply feature gating: if features are disabled, zero out related arrays before returning
+    if not app_settings.feature_rag_enabled:
+        rag_data_sources = []
+    if not app_settings.feature_tools_enabled:
+        tools_info = []
+        prompts_info = []
+
     return {
         "app_name": app_settings.app_name,
         "models": list(llm_config.models.keys()),
-        "tools": tools_info,  # Only authorized servers are included
-        "prompts": prompts_info,  # Available prompts from authorized servers
-        "data_sources": rag_data_sources,  # RAG data sources for the user
+        "tools": tools_info,  # Authorized tool servers (subject to feature flag)
+        "prompts": prompts_info,  # Authorized prompts (subject to feature flag)
+        "data_sources": rag_data_sources,  # RAG data sources (subject to feature flag)
         "user": current_user,
         "active_sessions": session_manager.get_session_count() if session_manager else 0,
         "authorized_servers": authorized_servers,  # Optional: expose for debugging
-        "agent_mode_available": app_settings.agent_mode_available,  # Whether agent mode UI should be shown
-        "banner_enabled": app_settings.banner_enabled,  # Whether banner system is enabled
-        "help_config": help_config  # Help page configuration from help-config.json
+        "agent_mode_available": app_settings.agent_mode_available,
+        "banner_enabled": app_settings.banner_enabled,
+        "help_config": help_config,
+        "features": {
+            "workspaces": app_settings.feature_workspaces_enabled,
+            "rag": app_settings.feature_rag_enabled,
+            "tools": app_settings.feature_tools_enabled,
+            "marketplace": app_settings.feature_marketplace_enabled,
+            "files": app_settings.feature_files_panel_enabled,
+            "chat_history": app_settings.feature_chat_history_enabled,
+        }
     }
 
 

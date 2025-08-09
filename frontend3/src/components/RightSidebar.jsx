@@ -13,6 +13,8 @@ function RightSidebar() {
     return <div>Loading...</div>;
   }
 
+  const features = config.features || {};
+
   return (
     <aside id="right-sidebar" className="w-80 bg-gray-800 flex-shrink-0 flex flex-col p-4 space-y-6 border-l border-gray-700 lg:relative">
       <div className="flex justify-between items-center">
@@ -64,24 +66,30 @@ function RightSidebar() {
           />
         </div>
       </div>
-      <div className="bg-gray-700 p-3 rounded-lg space-y-3">
-        <h3 className="font-semibold">Tools</h3>
-        <div id="tool-selection-list" className="space-y-2">
-          {config.tools && config.tools.map((tool) => (
-            <label key={tool.server} className="flex items-center space-x-2 text-sm">
-              <input type="checkbox" className="form-checkbox bg-gray-600 border-gray-500 text-cyan-500 rounded focus:ring-cyan-500" defaultChecked={true} />
-              <span>{tool.server}</span>
-            </label>
-          ))}
+      {features.tools && (
+        <div className="bg-gray-700 p-3 rounded-lg space-y-3">
+          <h3 className="font-semibold">Tools</h3>
+          <div id="tool-selection-list" className="space-y-2">
+            {config.tools && config.tools.map((tool) => (
+              <label key={tool.server} className="flex items-center space-x-2 text-sm">
+                <input type="checkbox" className="form-checkbox bg-gray-600 border-gray-500 text-cyan-500 rounded focus:ring-cyan-500" defaultChecked={true} />
+                <span>{tool.server}</span>
+              </label>
+            ))}
+          </div>
+          {features.marketplace && (
+            <button className="w-full mt-2 text-sm bg-cyan-500/50 hover:bg-cyan-500/80 text-white py-1 px-3 rounded-lg transition-all">
+              Browse Marketplace
+            </button>
+          )}
         </div>
-        <button className="w-full mt-2 text-sm bg-cyan-500/50 hover:bg-cyan-500/80 text-white py-1 px-3 rounded-lg transition-all">
-          Browse Marketplace
-        </button>
-      </div>
-      <div className="bg-gray-700 p-3 rounded-lg flex-grow flex flex-col">
-        <h3 className="font-semibold mb-2">Uploaded Files</h3>
-        <ul id="file-list" className="space-y-2 overflow-y-auto flex-grow"></ul>
-      </div>
+      )}
+      {features.files && (
+        <div className="bg-gray-700 p-3 rounded-lg flex-grow flex flex-col">
+          <h3 className="font-semibold mb-2">Uploaded Files</h3>
+          <ul id="file-list" className="space-y-2 overflow-y-auto flex-grow"></ul>
+        </div>
+      )}
     </aside>
   );
 }

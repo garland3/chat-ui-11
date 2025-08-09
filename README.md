@@ -54,6 +54,21 @@ All documentation has been organized in the `docs/` folder:
 - **[Advanced Features](docs/advanced-features.md)** - Custom HTML, RAG, Agent mode
 - **[TODO & Ideas](docs/todo.md)** - Roadmap and future enhancements
 
+### Feature Flags
+
+Advanced capabilities can be toggled via environment variables (default all disabled for a basic chat experience). Add to your `.env`:
+
+```
+FEATURE_WORKSPACES_ENABLED=false
+FEATURE_RAG_ENABLED=false
+FEATURE_TOOLS_ENABLED=false
+FEATURE_MARKETPLACE_ENABLED=false
+FEATURE_FILES_PANEL_ENABLED=false
+FEATURE_CHAT_HISTORY_ENABLED=false
+```
+
+Enable individually to roll out features safely. The backend strips related data when a flag is off and the frontend hides corresponding UI elements.
+
 ## Key Technologies
 
 - **Backend**: FastAPI + WebSockets  
