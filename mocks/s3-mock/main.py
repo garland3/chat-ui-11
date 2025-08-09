@@ -16,6 +16,7 @@ import time
 import uuid
 from typing import Dict, List, Optional, Any
 from pathlib import Path
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -26,7 +27,26 @@ from datetime import datetime
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="S3 Mock Service", version="1.0.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context to handle startup and shutdown tasks.
+
+    Replaces deprecated on_event handlers for startup/shutdown.
+    """
+    # Startup
+    logger.info("Initializing S3 Mock Storage (lifespan startup)...")
+    initialize_storage()
+    logger.info(f"S3 Mock Storage initialized with {len(file_storage)} existing files")
+    try:
+        yield
+    finally:
+        # Shutdown
+        logger.info("Shutting down S3 Mock Storage (lifespan shutdown)...")
+        save_metadata()
+        logger.info("Metadata saved successfully")
+
+
+app = FastAPI(title="S3 Mock Service", version="1.0.0", lifespan=lifespan)
 security = HTTPBearer(auto_error=False)  # Make auth optional for single-user scenario
 
 # Storage configuration
@@ -399,20 +419,7 @@ async def health_check():
     }
 
 
-@app.on_event("startup")
-async def startup_event():
-    """Initialize storage on startup."""
-    logger.info("Initializing S3 Mock Storage...")
-    initialize_storage()
-    logger.info(f"S3 Mock Storage initialized with {len(file_storage)} existing files")
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Save metadata on shutdown."""
-    logger.info("Shutting down S3 Mock Storage...")
-    save_metadata()
-    logger.info("Metadata saved successfully")
+## Removed deprecated on_event handlers; functionality handled in lifespan above.
 
 
 @app.get("/")

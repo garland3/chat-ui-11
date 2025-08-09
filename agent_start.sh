@@ -1,17 +1,30 @@
+#!/bin/bash
+
 # Configuration
+USE_NEW_FRONTEND=${USE_NEW_FRONTEND:-true}
 START_S3_MOCK=true
+
+# Kill any running uvicorn processes
+pkill -f uvicorn
 
 echo "Clearing log for fresh start"
 echo "NEW LOG" > /workspaces/chat-ui-11/backend/logs/app.jsonl
 
 cd /workspaces/chat-ui-11
-source venv/bin/activate
-cd frontend
-npm run build
-cd ../backend
+. venv/bin/activate
 
-pkill python
-pkill uvicorn
+if [ "$USE_NEW_FRONTEND" = true ]; then
+    echo "Using new frontend in frontend3"
+    cd frontend3
+    npm install
+    npm run build
+    cd ../backend
+else
+    echo "Using old frontend in frontend"
+    cd frontend
+    npm run build
+    cd ../backend
+fi
 
 # Start S3 mock service if enabled
 if [ "$START_S3_MOCK" = true ]; then
@@ -27,7 +40,8 @@ echo "Server started"
 
 
 # print every 3 seconds saying it is running. do 10 times. print second since start
-for ((i=1; i<=10; i++)); do
+for i in {1..10}
+do
     echo "Server running for $((i * 3)) seconds"
     sleep 3
 done

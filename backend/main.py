@@ -173,12 +173,21 @@ app.include_router(admin_router)
 app.include_router(feedback_router)
 app.include_router(files_router)
 
+USE_NEW_FRONTEND = os.getenv("USE_NEW_FRONTEND", "false").lower() == "true"
+print(f"USE_NEW_FRONTEND: {USE_NEW_FRONTEND}")
+
 # Serve static files (only if frontend is built) - moved to after routes
-frontend_dist = Path("../frontend/dist")
-if frontend_dist.exists():
-    app.mount("/static", StaticFiles(directory="../frontend/dist"), name="static")
+if USE_NEW_FRONTEND:
+    frontend_dist = Path("../frontend3/dist")
 else:
-    logger.warning("Frontend dist directory not found. Skipping static file mounting.")
+    frontend_dist = Path("../frontend/dist")
+
+print(f"Frontend dist path: {frontend_dist}")
+
+if frontend_dist.exists():
+    app.mount("/static", StaticFiles(directory=frontend_dist), name="static")
+else:
+    logger.warning(f"Frontend dist directory not found at {frontend_dist}. Skipping static file mounting.")
 # app.mount("/vendor", StaticFiles(directory="../_old_frontend/vendor"), name="vendor")
 # app.mount("/fonts", StaticFiles(directory="../_old_frontend/fonts"), name="fonts")
 
@@ -389,7 +398,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
 # Mount frontend files at root for direct serving (must be last to avoid conflicts)  
 if frontend_dist.exists():
-    app.mount("/", StaticFiles(directory="../frontend/dist", html=True), name="root")
+    app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="root")
 
 if __name__ == "__main__":
     import uvicorn
