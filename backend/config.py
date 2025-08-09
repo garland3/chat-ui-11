@@ -29,6 +29,8 @@ class ModelConfig(BaseModel):
     description: Optional[str] = None
     max_tokens: Optional[int] = 1000
     temperature: Optional[float] = 0.7
+    # Optional extra HTTP headers (e.g. for providers like OpenRouter)
+    extra_headers: Optional[Dict[str, str]] = None
 
 
 class LLMConfig(BaseModel):
