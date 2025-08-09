@@ -63,10 +63,17 @@ def create_button_demo() -> Dict[str, Any]:
     """
     custom_html = COMMON_UI_TEMPLATE.replace("{content}", demo_content)
     
+    # Save HTML to file instead of returning custom_html
+    import base64
+    html_base64 = base64.b64encode(custom_html.encode('utf-8')).decode('utf-8')
+    
     return {
         "content": "Custom UI demo created successfully! Check the canvas panel for the interactive demo.",
-        "custom_html": custom_html,
-        "success": True
+        "success": True,
+        "returned_files": [{
+            "filename": "ui_demo.html",
+            "content_base64": html_base64
+        }]
     }
 
 @mcp.tool
@@ -105,14 +112,21 @@ def create_data_visualization() -> Dict[str, Any]:
     """
     custom_html = COMMON_UI_TEMPLATE.replace("{content}", demo_content)
     
+    # Save HTML to file instead of returning custom_html
+    import base64
+    html_base64 = base64.b64encode(custom_html.encode('utf-8')).decode('utf-8')
+    
     return {
         "content": "Data visualization created and displayed in the canvas panel.",
-        "custom_html": custom_html,
         "data_points": {
             "sales": 75,
             "satisfaction": 92,
             "market_share": 58
-        }
+        },
+        "returned_files": [{
+            "filename": "data_visualization.html",
+            "content_base64": html_base64
+        }]
     }
 
 @mcp.tool
@@ -147,10 +161,17 @@ def create_form_demo() -> Dict[str, Any]:
     """
     custom_html = COMMON_UI_TEMPLATE.replace("{content}", demo_content)
     
+    # Save HTML to file instead of returning custom_html
+    import base64
+    html_base64 = base64.b64encode(custom_html.encode('utf-8')).decode('utf-8')
+    
     return {
         "content": "Interactive form demo created! You can interact with the form in the canvas panel.",
-        "custom_html": custom_html,
-        "form_type": "demo"
+        "form_type": "demo",
+        "returned_files": [{
+            "filename": "interactive_form.html",
+            "content_base64": html_base64
+        }]
     }
 
 if __name__ == "__main__":

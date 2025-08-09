@@ -23,7 +23,7 @@ function ChatInterface() {
   const [canvasPanelOpen, setCanvasPanelOpen] = useState(false)
   const [canvasPanelWidth, setCanvasPanelWidth] = useState(0)
   const [filesPanelOpen, setFilesPanelOpen] = useState(false)
-  const { canvasContent, customUIContent } = useChat()
+  const { canvasContent, customUIContent, canvasFiles } = useChat()
 
   // Auto-open tools panel when returning from marketplace
   useEffect(() => {
@@ -53,6 +53,16 @@ function ChatInterface() {
       setCanvasPanelOpen(true)
     }
   }, [customUIContent])
+
+  // Auto-open canvas panel when viewable files are received
+  useEffect(() => {
+    if (canvasFiles && canvasFiles.length > 0) {
+      // Close other panels when canvas opens
+      setToolsPanelOpen(false)
+      setFilesPanelOpen(false)
+      setCanvasPanelOpen(true)
+    }
+  }, [canvasFiles])
 
   return (
     <div className="flex h-screen w-full bg-gray-900 text-gray-200 overflow-hidden">

@@ -117,7 +117,7 @@
               "type": "subsection",
               "title": "Special Return Types",
               "bullets": [
-                {"code": "custom_html", "description": "Return custom HTML for Canvas rendering"},
+                {"code": "returned_files", "description": "Return files for Canvas rendering (HTML, images, PDFs, text)"},
                 {"code": "file_path", "description": "Reference files for download/display"},
                 {"code": "content", "description": "Standard text response"},
                 {"code": "success", "description": "Boolean indicating operation success"}
@@ -125,9 +125,9 @@
             },
             {
               "type": "code-example",
-              "title": "Custom HTML Example",
+              "title": "Returned Files Example",
               "language": "json",
-              "code": "{\n    \"content\": \"Created interactive chart\",\n    \"custom_html\": \"<div>Your HTML here</div>\",\n    \"success\": true\n}"
+              "code": "{\n    \"content\": \"Created interactive chart\",\n    \"returned_files\": [{\n        \"filename\": \"chart.html\",\n        \"content_base64\": \"PGRpdj5Zb3VyIEhUTUwgaGVyZTwvZGl2Pg==\"\n    }],\n    \"success\": true\n}"
             }
           ]
         },
@@ -136,7 +136,7 @@
           "borderColor": "cyan-400",
           "description": "Advanced customization options for developers.",
           "bullets": [
-            "MCP servers can return custom HTML that renders in the Canvas panel",
+            "MCP servers can return files (HTML, images, PDFs, text) that render in the Canvas panel",
             "All HTML is sanitized for security using DOMPurify", 
             "JavaScript is supported for interactive elements",
             "Use custom prompts to modify AI behavior",

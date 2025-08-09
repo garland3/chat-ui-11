@@ -43,6 +43,8 @@ export const ChatProvider = ({ children }) => {
   
   // Canvas state
   const [canvasContent, setCanvasContent] = useState('')
+  const [canvasFiles, setCanvasFiles] = useState([])
+  const [currentCanvasFileIndex, setCurrentCanvasFileIndex] = useState(0)
   
   // Custom UI state
   const [customUIContent, setCustomUIContent] = useState(null)
@@ -64,6 +66,20 @@ export const ChatProvider = ({ children }) => {
   const [taggedFiles, setTaggedFiles] = useState(new Set())
   
   const { sendMessage, addMessageHandler } = useWS()
+
+  // Helper function to determine canvas file type from filename
+  const getFileType = (filename) => {
+    const extension = filename.toLowerCase().split('.').pop()
+    if (['png', 'jpg', 'jpeg', 'gif', 'svg'].includes(extension)) {
+      return 'image'
+    } else if (extension === 'pdf') {
+      return 'pdf'  
+    } else if (extension === 'html') {
+      return 'html'
+    } else {
+      return 'other'
+    }
+  }
 
   // Load configuration on mount
   useEffect(() => {
@@ -692,6 +708,22 @@ export const ChatProvider = ({ children }) => {
           }
           break
 
+        case 'canvas_files':
+          try {
+            if (updateData && updateData.files && Array.isArray(updateData.files)) {
+              console.log('Received canvas files:', updateData.files.length, 'files from', updateData.server_name, updateData.tool_name)
+              setCanvasFiles(updateData.files)
+              setCurrentCanvasFileIndex(0) // Start with first file
+              // Clear old canvas content and custom UI when files are provided
+              setCanvasContent('')
+              setCustomUIContent(null)
+            }
+          } catch (filesError) {
+            console.error('Error handling canvas files:', filesError, updateData)
+            setCanvasFiles([])
+          }
+          break
+
         case 'custom_ui':
           try {
             if (updateData && updateData.type === 'html_injection' && updateData.content) {
@@ -718,7 +750,31 @@ export const ChatProvider = ({ children }) => {
           try {
             console.log('Received files update:', updateData)
             if (updateData) {
-              setSessionFiles(updateData)
+              setSessionFiles(prev => {
+                // Auto-open canvas for viewable files
+                if (updateData.files && updateData.files.length > 0) {
+                  // Find new viewable files (images, PDFs, HTML)
+                  const viewableFiles = updateData.files.filter(file => {
+                    const extension = file.filename.toLowerCase().split('.').pop()
+                    return ['png', 'jpg', 'jpeg', 'gif', 'svg', 'pdf', 'html'].includes(extension)
+                  })
+                  
+                  if (viewableFiles.length > 0) {
+                    console.log('Auto-opening canvas for viewable files:', viewableFiles.length, 'files')
+                    // Set the viewable files as canvas files
+                    const canvasFiles = viewableFiles.map(file => ({
+                      ...file,
+                      type: getFileType(file.filename)
+                    }))
+                    setCanvasFiles(canvasFiles)
+                    setCurrentCanvasFileIndex(0)
+                    // Clear other canvas content
+                    setCanvasContent('')
+                    setCustomUIContent(null)
+                  }
+                }
+                return updateData
+              })
             }
           } catch (filesError) {
             console.error('Error handling files update:', filesError, updateData)
@@ -1121,6 +1177,10 @@ export const ChatProvider = ({ children }) => {
     // Canvas
     canvasContent,
     setCanvasContent,
+    canvasFiles,
+    setCanvasFiles,
+    currentCanvasFileIndex,
+    setCurrentCanvasFileIndex,
     
     // Custom UI
     customUIContent,

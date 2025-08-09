@@ -215,9 +215,9 @@ const Header = ({ onToggleRag, onToggleTools, onToggleFiles, onToggleCanvas, onC
           <Wrench className="w-5 h-5" />
         </button>
         
-        {/* File Manager Navigation */}
+        {/* File Manager Panel Toggle */}
         <button
-          onClick={() => navigate('/files')}
+          onClick={onToggleFiles}
           className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
           title="File Manager"
         >

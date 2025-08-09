@@ -26,7 +26,6 @@ class ToolResult:
     content: str = ""
     success: bool = True
     error: Optional[str] = None
-    custom_html: Optional[str] = None
     files_generated: List[str] = None
     
     def __post_init__(self):
@@ -161,13 +160,13 @@ class FileManager:
                                 elif isinstance(filtered_data[field], str) and len(filtered_data[field]) > 10000:
                                     filtered_data[field] = f"<file_content_removed_size_{len(filtered_data[field])}_bytes>"
                         
-                        # Remove HTML content entirely from LLM context
-                        ui_only_fields = ['custom_html', 'html_content', 'plot_html']
-                        for field in ui_only_fields:
+                        # Remove large HTML content from LLM context (but preserve file references)
+                        html_fields = ['custom_html', 'plot_html']
+                        for field in html_fields:
                             if field in filtered_data:
                                 content_size = len(str(filtered_data[field])) if filtered_data[field] else 0
-                                if content_size > 0:
-                                    del filtered_data[field]
+                                if content_size > 5000:  # Only filter very large HTML content
+                                    filtered_data[field] = f"<html_content_removed_size_{content_size}_bytes>"
                         
                         # Filter returned_files array
                         if 'returned_files' in filtered_data and isinstance(filtered_data['returned_files'], list):
@@ -418,10 +417,8 @@ class ToolExecutor:
         server_name: str,
         context: ExecutionContext
     ) -> ToolResult:
-        """Process tool result, handle files, and send UI updates."""
+        """Process tool result, handle files, and send UI updates with unified canvas system."""
         
-        # Parse the tool result to extract custom_html if present
-        custom_html_content = None
         parsed_result = None
         
         # Extract text content from CallToolResult
@@ -430,16 +427,12 @@ class ToolExecutor:
             if hasattr(text_content_item, "text"):
                 try:
                     parsed_result = json.loads(text_content_item.text)
-                    if isinstance(parsed_result, dict) and "custom_html" in parsed_result:
-                        custom_html_content = parsed_result["custom_html"]
-                        logger.info(f"Tool {tool_name} returned custom HTML content for UI modification")
                 except json.JSONDecodeError:
                     pass
         
-        # Check if tool_result is a dict with custom_html field (fallback)
-        if custom_html_content is None and isinstance(tool_result, dict) and "custom_html" in tool_result:
-            custom_html_content = tool_result["custom_html"]
-            logger.info(f"Tool {tool_name} returned custom HTML content for UI modification")
+        # Check if tool_result is a dict (fallback)
+        if parsed_result is None and isinstance(tool_result, dict):
+            parsed_result = tool_result
         
         # Extract content text
         if hasattr(tool_result, "content"):
@@ -452,28 +445,27 @@ class ToolExecutor:
         else:
             content_text = str(tool_result)
         
-        # Send custom UI update if custom_html is present
-        if context.should_send_ui_updates() and custom_html_content:
-            await context.session.send_update_to_ui("custom_ui", {
-                "type": "html_injection",
-                "content": custom_html_content,
+        # Extract and save files from tool result to session
+        files_saved = 0
+        canvas_files = []  # Files that should be displayed in canvas
+        
+        if context.should_send_ui_updates() and parsed_result:
+            logger.info(f"About to save tool files to session for tool {tool_name}")
+            files_saved = await self.file_manager.save_tool_files_to_session(parsed_result, context.session, tool_name)
+            logger.info(f"Session now has {len(context.session.uploaded_files)} files: {list(context.session.uploaded_files.keys())}")
+            
+            # Check for canvas-displayable files
+            canvas_files = self._get_canvas_files(parsed_result, context.session)
+        
+        # Send unified canvas update if there are displayable files
+        if context.should_send_ui_updates() and canvas_files:
+            await context.session.send_update_to_ui("canvas_files", {
+                "files": canvas_files,
                 "tool_name": tool_name,
                 "server_name": server_name,
                 "tool_call_id": tool_call["id"]
             })
-        
-        # Extract and save files from tool result to session
-        files_saved = 0
-        result_dict = None
-        if parsed_result and isinstance(parsed_result, dict):
-            result_dict = parsed_result
-        elif isinstance(tool_result, dict):
-            result_dict = tool_result
-        
-        if context.should_send_ui_updates() and result_dict:
-            logger.info(f"About to save tool files to session for tool {tool_name}")
-            files_saved = await self.file_manager.save_tool_files_to_session(result_dict, context.session, tool_name)
-            logger.info(f"Session now has {len(context.session.uploaded_files)} files: {list(context.session.uploaded_files.keys())}")
+            logger.info(f"Tool {tool_name} generated {len(canvas_files)} files for canvas display")
         
         # Send tool result notification to UI
         if context.should_send_ui_updates():
@@ -504,6 +496,77 @@ class ToolExecutor:
             tool_call_id=tool_call["id"],
             content=filtered_content_for_llm,
             success=True,
-            custom_html=custom_html_content,
             files_generated=[f"Generated {files_saved} files"] if files_saved > 0 else []
         )
+    
+    def _get_canvas_files(self, result_dict: Dict, session) -> List[Dict]:
+        """Extract files that should be displayed in canvas based on file type."""
+        canvas_files = []
+        
+        # File extensions that should be displayed in canvas
+        canvas_extensions = {
+            # Images
+            '.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.bmp', '.ico',
+            # Documents
+            '.pdf', '.html', '.htm',
+            # Text/code files
+            '.txt', '.md', '.rst', '.csv', '.json', '.xml', '.yaml', '.yml',
+            '.py', '.js', '.css', '.ts', '.jsx', '.tsx', '.vue', '.sql'
+        }
+        
+        # Check returned_files array (preferred format)
+        if "returned_files" in result_dict and isinstance(result_dict["returned_files"], list):
+            for file_info in result_dict["returned_files"]:
+                if isinstance(file_info, dict) and "filename" in file_info:
+                    filename = file_info["filename"]
+                    file_ext = self._get_file_extension(filename).lower()
+                    
+                    if file_ext in canvas_extensions:
+                        # Get the file content from session (it should be uploaded by now)
+                        if hasattr(session, 'uploaded_files') and filename in session.uploaded_files:
+                            canvas_files.append({
+                                "filename": filename,
+                                "type": self._get_canvas_file_type(file_ext),
+                                "s3_key": session.uploaded_files[filename],
+                                "size": file_info.get("size", 0),
+                                "source": "tool_generated"
+                            })
+        
+        # Check legacy single file format
+        elif "returned_file_name" in result_dict and "returned_file_base64" in result_dict:
+            filename = result_dict["returned_file_name"]
+            file_ext = self._get_file_extension(filename).lower()
+            
+            if file_ext in canvas_extensions:
+                if hasattr(session, 'uploaded_files') and filename in session.uploaded_files:
+                    canvas_files.append({
+                        "filename": filename,
+                        "type": self._get_canvas_file_type(file_ext),
+                        "s3_key": session.uploaded_files[filename],
+                        "size": 0,  # Size not available in legacy format
+                        "source": "tool_generated"
+                    })
+        
+        logger.info(f"Found {len(canvas_files)} canvas-displayable files: {[f['filename'] for f in canvas_files]}")
+        return canvas_files
+    
+    def _get_file_extension(self, filename: str) -> str:
+        """Extract file extension from filename."""
+        return '.' + filename.split('.')[-1] if '.' in filename else ''
+    
+    def _get_canvas_file_type(self, file_ext: str) -> str:
+        """Determine canvas display type based on file extension."""
+        image_exts = {'.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.bmp', '.ico'}
+        text_exts = {'.txt', '.md', '.rst', '.csv', '.json', '.xml', '.yaml', '.yml', 
+                    '.py', '.js', '.css', '.ts', '.jsx', '.tsx', '.vue', '.sql'}
+        
+        if file_ext in image_exts:
+            return 'image'
+        elif file_ext == '.pdf':
+            return 'pdf'
+        elif file_ext in {'.html', '.htm'}:
+            return 'html'
+        elif file_ext in text_exts:
+            return 'text'
+        else:
+            return 'other'

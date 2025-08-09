@@ -91,6 +91,7 @@ const ResizablePanel = ({
           width: isOpen ? `${width}px` : '0px',
           minWidth: isOpen ? `${minWidth}px` : '0px',
           maxWidth: `${maxWidth}px`,
+          display: isOpen ? 'flex' : 'none',
         }}
       >
         {/* Resize Handle */}

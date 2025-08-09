@@ -872,14 +872,21 @@ def execute_python_code_with_file(
             if was_truncated:
                 logger.info(f"Output truncated from {len(raw_output)} to {len(truncated_output)} characters")
             
-            # Create custom HTML if there are plots or significant output
-            # Use raw output for HTML visualization (not truncated)
-            custom_html = ""
+            # Create visualization HTML file if there are plots or significant output
+            html_filename = None
             if plots or raw_output.strip():
                 try:
-                    custom_html = create_visualization_html(plots, raw_output)
+                    visualization_html = create_visualization_html(plots, raw_output)
+                    html_filename = f"execution_results_{int(time.time())}.html"
+                    html_filepath = exec_dir / html_filename
+                    
+                    # Save HTML to file
+                    with open(html_filepath, 'w', encoding='utf-8') as f:
+                        f.write(visualization_html)
+                    
+                    logger.info(f"Created visualization HTML file: {html_filename}")
                 except Exception as e:
-                    logger.warning(f"Failed to create visualization HTML: {str(e)}")
+                    logger.warning(f"Failed to create visualization HTML file: {str(e)}")
                     logger.warning(f"Traceback: {traceback.format_exc()}")
             
             # Create downloadable script file with the analysis code
@@ -901,11 +908,22 @@ def execute_python_code_with_file(
             
             script_base64 = base64.b64encode(script_content.encode('utf-8')).decode('utf-8')
             
-            # Combine script and generated files for download
+            # Combine script, HTML file (if created), and other generated files
             returned_files = [{
                 'filename': script_filename,
                 'content_base64': script_base64
             }]
+            
+            # Add HTML visualization file if created
+            if html_filename and (exec_dir / html_filename).exists():
+                with open(exec_dir / html_filename, 'r', encoding='utf-8') as f:
+                    html_content = f.read()
+                html_base64 = base64.b64encode(html_content.encode('utf-8')).decode('utf-8')
+                returned_files.append({
+                    'filename': html_filename,
+                    'content_base64': html_base64
+                })
+            
             returned_files.extend(encoded_generated_files)
             
             # Extract filenames and content for backward compatibility
@@ -920,7 +938,6 @@ def execute_python_code_with_file(
                 "error_type": execution_result.get("error_type"),
                 "files": generated_files,
                 "uploaded_file": saved_filename,
-                "custom_html": custom_html,
                 "execution_time": execution_time,
                 "returned_files": returned_files,
                 "returned_file_names": returned_file_names,
@@ -972,7 +989,6 @@ def execute_python_code_with_file(
                 "output": truncated_output,  # Use truncated output for LLM context
                 "files": [],
                 "uploaded_file": saved_filename if 'saved_filename' in locals() else None,
-                "custom_html": "",
                 "execution_time": execution_time,
                 "returned_files": returned_files,
                 "returned_file_names": returned_file_names,
@@ -1020,7 +1036,6 @@ def execute_python_code_with_file(
             "error_type": "CodeExecutionError",
             "output": "",
             "files": [],
-            "custom_html": "",
             "execution_time": execution_time,
             "returned_files": returned_files,
             "returned_file_names": returned_file_names,
@@ -1067,7 +1082,6 @@ def execute_python_code_with_file(
             "error_type": type(e).__name__,
             "output": "",
             "files": [],
-            "custom_html": "",
             "execution_time": execution_time,
             "returned_files": returned_files,
             "returned_file_names": returned_file_names,

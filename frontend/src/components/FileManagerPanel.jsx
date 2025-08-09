@@ -24,6 +24,10 @@ const FileManagerPanel = ({ isOpen, onClose }) => {
     }
   }
 
+  if (!isOpen) {
+    return null
+  }
+
   return (
     <ResizablePanel
       isOpen={isOpen}
