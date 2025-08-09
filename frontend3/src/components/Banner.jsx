@@ -6,7 +6,7 @@ function Banner() {
   if (!isVisible) return null;
 
   return (
-    <div className="absolute top-0 left-0 right-0 bg-cyan-600 text-white text-center p-2 text-sm z-50 flex justify-between items-center">
+    <div className="bg-cyan-600 text-white text-center p-2 text-sm flex justify-between items-center">
       <span>
         Welcome to the new Gemini interface! ✨{' '}
         <a href="#" className="underline font-semibold">

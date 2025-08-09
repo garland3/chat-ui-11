@@ -28,11 +28,12 @@ class BannerClient:
             return []
         
         try:
-            # Read from configfilesadmin/messages.txt
-            messages_file = Path("configfilesadmin/messages.txt")
+            # Construct absolute path to messages.txt relative to this file
+            current_dir = Path(__file__).parent
+            messages_file = current_dir / "configfilesadmin" / "messages.txt"
             
             if not messages_file.exists():
-                logger.debug("Admin messages file not found, returning empty list")
+                logger.debug(f"Admin messages file not found at {messages_file}, returning empty list")
                 return []
             
             with open(messages_file, 'r', encoding='utf-8') as f:

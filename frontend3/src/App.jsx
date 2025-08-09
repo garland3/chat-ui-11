@@ -11,9 +11,9 @@ function App() {
   }, []);
 
   return (
-    <div className="bg-gray-900 text-gray-100 font-sans antialiased overflow-hidden">
+    <div className="bg-gray-900 text-gray-100 font-sans antialiased overflow-hidden flex flex-col h-screen w-screen">
       <Banner />
-      <div id="app" className="flex h-screen w-screen relative">
+      <div id="app" className="flex flex-grow relative">
         <LeftSidebar />
         <MainContent />
         <RightSidebar />

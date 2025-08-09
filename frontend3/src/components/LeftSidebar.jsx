@@ -15,7 +15,7 @@ function LeftSidebar() {
   return (
     <aside id="left-sidebar" className="w-72 bg-gray-800 flex-shrink-0 flex flex-col p-4 space-y-4 border-r border-gray-700 lg:relative">
       <div className="flex justify-between items-center">
-        <h1 className="text-xl font-bold">Gemini Chat</h1>
+        <h1 className="text-xl font-bold">{config.app_name}</h1>
         <button className="lg:hidden">
           <i className="fas fa-times"></i>
         </button>
