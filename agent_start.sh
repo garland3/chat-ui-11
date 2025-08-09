@@ -10,7 +10,7 @@ pkill -f uvicorn
 echo "Clearing log for fresh start"
 echo "NEW LOG" > /workspaces/chat-ui-11/backend/logs/app.jsonl
 
-cd /workspaces/chat-ui-11
+# cd /workspaces/chat-ui-11
 . venv/bin/activate
 
 if [ "$USE_NEW_FRONTEND" = true ]; then
