@@ -58,10 +58,10 @@ class LLMCaller:
             logger.info(f"Plain LLM call: {len(messages)} messages, {total_chars} chars")
             
             # Debug: Log the actual messages being sent to LLM
-            logger.info(f"Messages being sent to LLM:")
+            logger.debug(f"Messages being sent to LLM:")
             for i, msg in enumerate(messages):
                 content_preview = str(msg.get('content', ''))[:200] + ('...' if len(str(msg.get('content', ''))) > 200 else '')
-                logger.info(f"  [{i}] {msg.get('role', 'unknown')}: {content_preview}")
+                logger.debug(f"  [{i}] {msg.get('role', 'unknown')}: {content_preview}")
             
             loop = asyncio.get_event_loop()
             response = await loop.run_in_executor(

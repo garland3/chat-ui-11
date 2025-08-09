@@ -61,45 +61,25 @@ async def validate_selected_tools(
 
 
 async def call_llm(model_name: str, messages: List[Dict[str, str]]) -> str:
-    """Call an OpenAI-compliant LLM API using requests."""
-    llm_config = config_manager.llm_config
-    if model_name not in llm_config.models:
-        raise ValueError(f"Model {model_name} not found in configuration")
-
-    model_config = llm_config.models[model_name]
-    api_url = model_config.model_url
-    api_key = os.path.expandvars(model_config.api_key)
-    model_id = model_config.model_name
-
-    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
-    payload = {"model": model_id, "messages": messages, "max_tokens": 1000, "temperature": 0.7}
-
-    try:
-        loop = asyncio.get_event_loop()
-        response = await loop.run_in_executor(
-            None, lambda: requests.post(api_url, headers=headers, json=payload, timeout=30)
-        )
-        if response.status_code == 200:
-            result = response.json()
-            return result["choices"][0]["message"]["content"]
-        logger.error("LLM API error %s: %s", response.status_code, response.text, exc_info=True)
-        raise Exception(f"LLM API error: {response.status_code}")
-    except requests.RequestException as exc:
-        logger.error("Request error calling LLM: %s", exc, exc_info=True)
-        raise Exception(f"Failed to call LLM: {exc}")
-    except KeyError as exc:
-        logger.error("Invalid response format from LLM: %s", exc, exc_info=True)
-        raise Exception("Invalid response format from LLM")
+    """
+    Call an LLM using the centralized LLMCaller.
+    
+    DEPRECATED: This function is now a thin wrapper around LLMCaller.call_plain().
+    Direct use of LLMCaller is recommended for new code.
+    """
+    from llm_caller import LLMCaller
+    llm_caller = LLMCaller()
+    return await llm_caller.call_plain(model_name, messages)
 
 
 
 
 def create_agent_completion_tool() -> Dict:
-    """Create the all_work_is_done tool for agent mode completion."""
+    """Create the all_work_done tool for agent mode completion."""
     return {
         "type": "function",
         "function": {
-            "name": "all_work_is_done",
+            "name": "all_work_done",
             "description": """IMPORTANT: Call this function when you have completely finished all the work requested by the user. 
 
 This function signals that you have successfully completed the entire task or question asked by the user. Only call this when:
@@ -182,9 +162,9 @@ async def call_llm_with_tools(
     if agent_mode:
         agent_tool = create_agent_completion_tool()
         tools_schema.append(agent_tool)
-        tool_mapping["all_work_is_done"] = {
+        tool_mapping["all_work_done"] = {
             "server": "agent_completion",
-            "tool_name": "all_work_is_done"
+            "tool_name": "all_work_done"
         }
 
     if not tools_schema:

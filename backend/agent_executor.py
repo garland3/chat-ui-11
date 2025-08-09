@@ -399,9 +399,9 @@ Do not call this function if you need to continue thinking, gather more informat
                     "user": context.user_email
                 })
             
-            # Check if completion tool was used
-            for i, tool_result in enumerate(tool_results):
-                if "Agent completion acknowledged:" in tool_result.content:
+            # Check if completion tool was used - look at original tool calls for function name
+            for i, (tool_call, tool_result) in enumerate(zip(llm_response.tool_calls, tool_results)):
+                if tool_call["function"]["name"] == "all_work_done":
                     used_completion_tool = True
                     # For completion tool, make follow-up call to get final response
                     follow_up_messages = messages + [

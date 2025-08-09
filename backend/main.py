@@ -85,6 +85,10 @@ load_dotenv(dotenv_path="../.env")
 # Setup OpenTelemetry logging (replaces traditional logging setup)
 otel_config = setup_opentelemetry("chat-ui-backend", "1.0.0")
 
+# Initialize config first (needed for other initialization)
+app_settings = config_manager.app_settings
+DEBUG_MODE = app_settings.debug_mode
+
 # Initialize RAG client after environment variables are loaded
 initialize_rag_client()
 
@@ -147,9 +151,7 @@ async def lifespan(app: FastAPI):
         await mcp_manager.cleanup()
 
 
-# Create FastAPI app
-app_settings = config_manager.app_settings
-DEBUG_MODE = app_settings.debug_mode
+# Create FastAPI app (config already initialized above)
 app = FastAPI(title=app_settings.app_name, lifespan=lifespan)
 
 # Instrument FastAPI with OpenTelemetry

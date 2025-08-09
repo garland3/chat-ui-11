@@ -27,15 +27,13 @@ class ChatSession:
         self.user_email = user_email
         self.mcp_manager = mcp_manager
         self._callbacks = callbacks
-        
+
         # Initialize messages with system prompt
         from prompt_utils import load_system_prompt
+
         system_content = load_system_prompt(user_email)
         self.messages: List[Dict[str, Any]] = [
-            {
-                "role": "system",
-                "content": system_content,
-            }
+            {"role": "system", "content": system_content}
         ]
         self.model_name: Optional[str] = None
         self.selected_tools: List[str] = []
@@ -47,7 +45,9 @@ class ChatSession:
         self.session_id: str = id(self)
         self.uploaded_files: Dict[str, str] = {}  # filename -> s3_key mapping
         self.file_references: Dict[str, Dict[str, Any]] = {}  # filename -> file metadata
-        
+        # Cache original base64 content for each uploaded or generated file (filename -> base64)
+        self._file_base64_cache: Dict[str, str] = {}
+
         # Initialize message processor
         self.message_processor = MessageProcessor(self)
 
@@ -82,7 +82,10 @@ class ChatSession:
                     await self.send_error(f"Unknown message type: {message.get('type')}")
         except WebSocketDisconnect:
             logger.info("WebSocket connection closed for user: %s", self.user_email)
-            await self._trigger_callbacks("session_ended")
+            try:
+                await self._trigger_callbacks("session_ended")
+            except Exception as callback_exc:
+                logger.error("Error in session_ended callback for %s: %s", self.user_email, callback_exc)
         except Exception as exc:  # pragma: no cover - unexpected errors
             logger.error("Error in ChatSession for %s: %s", self.user_email, exc, exc_info=True)
             # Only try to send error if connection is still open
@@ -91,7 +94,10 @@ class ChatSession:
                     await self.send_error("An internal server error occurred.")
             except Exception as send_exc:
                 logger.error("Failed to send error message to user %s: %s", self.user_email, send_exc)
-            await self._trigger_callbacks("session_error", error=exc)
+            try:
+                await self._trigger_callbacks("session_error", error=exc)
+            except Exception as callback_exc:
+                logger.error("Error in session_error callback for %s: %s", self.user_email, callback_exc)
 
     async def handle_chat_message(self, message: Dict[str, Any]) -> None:
         """
@@ -144,6 +150,8 @@ class ChatSession:
                 # Store S3 key and metadata
                 self.uploaded_files[filename] = file_metadata["key"]
                 self.file_references[filename] = file_metadata
+                # Preserve original base64 for later LLM context filtering (size / policy decisions)
+                self._file_base64_cache[filename] = base64_content
                 
                 logger.info(
                     f"File uploaded to S3: {filename} -> {file_metadata['key']} for session {self.session_id}"
@@ -173,6 +181,8 @@ class ChatSession:
             # Store in session
             self.uploaded_files[filename] = file_metadata["key"]
             self.file_references[filename] = file_metadata
+            # Cache content for LLM visibility decisions (tool outputs may be re-used by other tools / context)
+            self._file_base64_cache[filename] = content_base64
             
             logger.info(
                 f"Generated file stored in S3: {filename} -> {file_metadata['key']} for session {self.session_id}"

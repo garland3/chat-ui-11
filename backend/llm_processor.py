@@ -158,8 +158,8 @@ class LLMProcessor:
             messages=context.messages.copy()
         )
         
-        # Execute recursively
-        agent_result = await self.agent_executor.execute_recursively(
+        # Execute using loop-based approach
+        agent_result = await self.agent_executor.execute_agent_loop(
             context.content,
             agent_context
         )

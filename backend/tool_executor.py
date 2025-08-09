@@ -217,10 +217,27 @@ class ToolExecutor:
         context: ExecutionContext
     ) -> List[ToolResult]:
         """Execute all tool calls and return results."""
+        if not tool_calls:
+            logger.warning("No tool calls provided to execute")
+            return []
+            
+        logger.info(f"Executing {len(tool_calls)} tool calls for user {context.user_email}")
         results = []
-        for tool_call in tool_calls:
+        
+        for i, tool_call in enumerate(tool_calls):
+            logger.info(f"Processing tool call {i+1}/{len(tool_calls)}: {tool_call['function']['name']}")
             result = await self._execute_single_tool(tool_call, tool_mapping, context)
             results.append(result)
+            
+            # Send progress update for multiple tool calls
+            if context.should_send_ui_updates() and len(tool_calls) > 1:
+                await context.session.send_update_to_ui("tool_progress", {
+                    "current": i + 1,
+                    "total": len(tool_calls),
+                    "completed_tool": tool_call['function']['name']
+                })
+        
+        logger.info(f"Completed execution of {len(results)} tool calls")
         return results
     
     async def _execute_single_tool(
