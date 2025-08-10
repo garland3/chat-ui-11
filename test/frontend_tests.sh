@@ -25,6 +25,16 @@ fi
 
 # Run tests (ENVIRONMENT variable is already set by master script)
 echo "Running vitest..."
+
+# Make sure vitest is executable
+if [ -f "node_modules/.bin/vitest" ]; then
+    chmod +x node_modules/.bin/vitest
+fi
+
+# Add node_modules/.bin to PATH to ensure vitest is found
+export PATH="$PWD/node_modules/.bin:$PATH"
+
+# Run tests with proper configuration
 timeout 300 npm test -- --run --config vite.config.test.js
 
 echo "Frontend tests completed successfully!"

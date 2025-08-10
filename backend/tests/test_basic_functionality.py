@@ -3,8 +3,6 @@ Basic functionality tests that should always pass.
 """
 import os
 import sys
-import json
-from unittest.mock import Mock, patch
 
 # Add backend to path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -67,19 +65,16 @@ class TestUtilityFunctions:
     
     def test_filter_files_for_llm_context_mixed(self):
         """Test filtering with mixed file types."""
-        # Create some test base64 data (small)
-        small_text_b64 = "SGVsbG8gV29ybGQ="  # "Hello World" in base64
-        large_csv_b64 = "Y29sLmEsY29sLmI=" * 1000  # Repeated CSV data
-        
-        files = {
-            "small.txt": small_text_b64,
-            "large.csv": large_csv_b64,
-            "document.pdf": small_text_b64
+        # Create test file metadata (no more base64 content)
+        files_metadata = {
+            "small.txt": {"size": 500, "content_type": "text/plain"},
+            "large.csv": {"size": 50000, "content_type": "text/csv"}, 
+            "document.pdf": {"size": 1000, "content_type": "application/pdf"}
         }
         
-        result = filter_files_for_llm_context(files)
+        result = filter_files_for_llm_context(files_metadata)
         
-        # Small text should be included, CSV and PDF should not
+        # Small text should be included, CSV and PDF should not (CSV is tool-only by type, PDF by type)
         assert "small.txt" in result
         assert "large.csv" not in result
         assert "document.pdf" not in result

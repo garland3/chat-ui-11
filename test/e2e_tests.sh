@@ -8,12 +8,14 @@ echo "================================="
 
 # Resolve project root
 : "${PROJECT_ROOT:=$(pwd)}"
-FRONTEND_DIR="$PROJECT_ROOT/frontend"
+FRONTEND_DIR="$PROJECT_ROOT/frontend3"
 BACKEND_DIR="$PROJECT_ROOT/backend"
+E2E_DIR="$PROJECT_ROOT/test_e2e"
 
 echo "Project root: $PROJECT_ROOT"
 echo "Frontend directory: $FRONTEND_DIR"
 echo "Backend directory: $BACKEND_DIR"
+echo "E2E test directory: $E2E_DIR"
 
 # Handle frontend build based on environment
 cd "$FRONTEND_DIR"
@@ -98,16 +100,16 @@ fi
 
 # Run Playwright tests
 echo "Running Playwright tests..."
-cd "$FRONTEND_DIR"
+cd "$E2E_DIR"
 
 # Only install again in local environment if explicitly needed
 if [ "${ENVIRONMENT:-}" = "local" ]; then
-    echo "Local environment: re-installing dependencies..."
+    echo "Local environment: installing E2E test dependencies..."
     npm install
 fi
 
 # Detect active tests
-if find e2e/ -name "*.spec.js" -not -name "*.disabled" | grep -q .; then
+if find tests/ -name "*.spec.js" -not -name "*.disabled" | grep -q .; then
     echo "Installing Playwright browsers..."
     if [ "${ENVIRONMENT:-}" = "cicd" ]; then
         npx playwright install --with-deps chromium
@@ -127,7 +129,7 @@ if find e2e/ -name "*.spec.js" -not -name "*.disabled" | grep -q .; then
         echo "🧪 Test attempt ${attempt}/${MAX_RETRIES}"
         
         # Run tests with timeout
-        if timeout ${TIMEOUT_DURATION} npm run test:e2e; then
+        if timeout ${TIMEOUT_DURATION} npm test; then
             echo "✅ E2E tests passed on attempt ${attempt}"
             return 0
         else

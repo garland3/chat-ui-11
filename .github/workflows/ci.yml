@@ -37,24 +37,31 @@ jobs:
           type=sha,prefix={{branch}}-
           type=raw,value=latest,enable={{is_default_branch}}
     
-    - name: Build Docker image
+    - name: Build test Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile-test
+        load: true
+        tags: test-image:latest
+        labels: ${{ steps.meta.outputs.labels }}
+    
+    - name: Run tests in container
+      run: |
+        echo "Running tests in test container: test-image:latest"
+        
+        # Run the master test script in the test container
+        docker run --rm --workdir /app test-image:latest bash /app/test/run_tests.sh all
+
+    - name: Build production Docker image
       uses: docker/build-push-action@v5
       with:
         context: .
         load: true
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
-    
-    - name: Run tests in container
-      run: |
-        # Get the first tag from the metadata output
-        IMAGE_TAG=$(echo "${{ steps.meta.outputs.tags }}" | head -n1)
-        echo "Running tests in container: $IMAGE_TAG"
-        
-        # Run the master test script in the container
-        docker run --rm --workdir /app "$IMAGE_TAG" bash /app/test/run_tests.sh all
 
-    - name: Push Docker image
+    - name: Push production Docker image
       uses: docker/build-push-action@v5
       with:
         context: .
