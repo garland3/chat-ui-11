@@ -55,5 +55,5 @@ export function useWebSocket(url) {
     }
   };
 
-  return { messages, sendMessage, error };
+  return { messages, sendMessage, error, setMessages };
 }

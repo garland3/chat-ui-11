@@ -5,8 +5,10 @@ import WelcomeScreen from './WelcomeScreen';
 
 function MainContent({ leftCollapsed, rightCollapsed, onToggleLeft, onToggleRight, theme, toggleTheme, selectedModel, temperature }) {
   const wsUrl = `ws://${window.location.host}/ws`;
-  const { messages, sendMessage, error } = useWebSocket(wsUrl);
+  const { messages, sendMessage, error, setMessages } = useWebSocket(wsUrl);
   const [prompt, setPrompt] = useState('');
+  const [editingIndex, setEditingIndex] = useState(null);
+  const [editText, setEditText] = useState('');
 
   const promptInputRef = useRef(null);
 
@@ -28,6 +30,39 @@ function MainContent({ leftCollapsed, rightCollapsed, onToggleLeft, onToggleRigh
       e.preventDefault();
       handleSendMessage();
     }
+  };
+
+  const handleCopyMessage = (content) => {
+    navigator.clipboard.writeText(content);
+  };
+
+  const handleEditMessage = (index) => {
+    setEditingIndex(index);
+    setEditText(messages[index].content);
+  };
+
+  const handleSaveEdit = () => {
+    if (editText.trim()) {
+      // Update the message at editingIndex
+      const updatedMessages = [...messages];
+      updatedMessages[editingIndex] = { ...updatedMessages[editingIndex], content: editText };
+      
+      // Truncate messages from this point forward (remove all messages after the edited one)
+      const truncatedMessages = updatedMessages.slice(0, editingIndex + 1);
+      setMessages(truncatedMessages);
+      
+      // Send the edited message
+      sendMessage(editText, selectedModel, temperature);
+      
+      // Reset edit state
+      setEditingIndex(null);
+      setEditText('');
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingIndex(null);
+    setEditText('');
   };
 
   return (
@@ -99,24 +134,75 @@ function MainContent({ leftCollapsed, rightCollapsed, onToggleLeft, onToggleRigh
                         ? 'bg-blue-600 text-white ml-12' 
                         : 'bg-gray-200 text-gray-900 dark:bg-gray-800 dark:text-gray-300 mr-12'
                     }`}>
-                      <div className="whitespace-pre-wrap">
-                        {msg.content}
-                      </div>
-                      {msg.role === 'assistant' && (
-                        <div className="mt-2 pt-2 border-t border-gray-300 flex items-center justify-between dark:border-gray-700">
-                          <span className="text-xs text-gray-600 dark:text-gray-500">Assistant</span>
-                          <div className="flex items-center space-x-3 text-gray-600 dark:text-gray-500">
-                            <button className="hover:text-white">
-                              <i className="fas fa-thumbs-up"></i>
+                      {editingIndex === index ? (
+                        <div className="space-y-3">
+                          <textarea
+                            value={editText}
+                            onChange={(e) => setEditText(e.target.value)}
+                            className="w-full p-2 rounded bg-white text-gray-900 resize-none"
+                            rows="3"
+                            autoFocus
+                          />
+                          <div className="flex justify-end space-x-2">
+                            <button
+                              onClick={handleCancelEdit}
+                              className="px-3 py-1 text-sm bg-gray-500 hover:bg-gray-600 rounded"
+                            >
+                              Cancel
                             </button>
-                            <button className="hover:text-white">
-                              <i className="fas fa-thumbs-down"></i>
-                            </button>
-                            <button className="hover:text-white">
-                              <i className="fas fa-copy"></i>
+                            <button
+                              onClick={handleSaveEdit}
+                              className="px-3 py-1 text-sm bg-green-600 hover:bg-green-700 rounded"
+                            >
+                              Save & Send
                             </button>
                           </div>
                         </div>
+                      ) : (
+                        <>
+                          <div className="whitespace-pre-wrap">
+                            {msg.content}
+                          </div>
+                          {msg.role === 'user' && (
+                            <div className="mt-2 pt-2 border-t border-blue-500 flex justify-end">
+                              <div className="flex items-center space-x-3 text-blue-200">
+                                <button 
+                                  onClick={() => handleCopyMessage(msg.content)}
+                                  className="hover:text-white"
+                                  title="Copy message"
+                                >
+                                  <i className="fas fa-copy"></i>
+                                </button>
+                                <button 
+                                  onClick={() => handleEditMessage(index)}
+                                  className="hover:text-white"
+                                  title="Edit message"
+                                >
+                                  <i className="fas fa-edit"></i>
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                          {msg.role === 'assistant' && (
+                            <div className="mt-2 pt-2 border-t border-gray-300 flex items-center justify-between dark:border-gray-700">
+                              <span className="text-xs text-gray-600 dark:text-gray-500">Assistant</span>
+                              <div className="flex items-center space-x-3 text-gray-600 dark:text-gray-500">
+                                <button className="hover:text-white">
+                                  <i className="fas fa-thumbs-up"></i>
+                                </button>
+                                <button className="hover:text-white">
+                                  <i className="fas fa-thumbs-down"></i>
+                                </button>
+                                <button 
+                                  onClick={() => handleCopyMessage(msg.content)}
+                                  className="hover:text-white"
+                                >
+                                  <i className="fas fa-copy"></i>
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>
