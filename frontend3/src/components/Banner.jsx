@@ -1,45 +1,53 @@
 import React, { useState, useEffect } from 'react';
-import { useConfig } from '../hooks/useApi';
-import { useBanners } from '../hooks/useBanners';
 
 function Banner() {
-  const [isVisible, setIsVisible] = useState(true);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const { config } = useConfig();
-  const { messages, loading } = useBanners();
+  const [messages, setMessages] = useState([]);
+  const [dismissedMessages, setDismissedMessages] = useState(new Set());
 
-  const hasMessages = messages && messages.length > 0;
-
-  // Rotate messages every 8s if multiple (hook must always run to keep order stable)
   useEffect(() => {
-    if (!hasMessages || messages.length < 2) return;
-    const id = setInterval(() => {
-      setActiveIndex((i) => (i + 1) % messages.length);
-    }, 8000);
-    return () => clearInterval(id);
-  }, [hasMessages, messages]);
+    const fetchBannerMessages = async () => {
+      try {
+        const response = await fetch('/api/banners');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.messages && data.messages.length > 0) {
+            setMessages(data.messages);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching banner messages:', error);
+      }
+    };
 
-  // Not ready or disabled or closed
-  if (!config || !config.banner_enabled || !isVisible) {
-    return null;
-  }
+    fetchBannerMessages();
+  }, []);
 
-  const currentMessage = hasMessages ? messages[activeIndex] : `Welcome to ${config.app_name}!`;
+  const handleDismiss = (messageIndex) => {
+    setDismissedMessages(prev => new Set([...prev, messageIndex]));
+  };
+
+  const visibleMessages = messages.filter((_, index) => !dismissedMessages.has(index));
+
+  if (visibleMessages.length === 0) return null;
 
   return (
-    <div className="bg-cyan-600 text-white text-center p-2 text-sm flex justify-between items-center">
-      <span className="flex items-center gap-2">
-        <img src="/agent11.png" alt="logo" className="w-5 h-5 opacity-90" />
-        <span>{currentMessage}</span>
-      </span>
-      <div className="flex items-center gap-2">
-        {hasMessages && messages.length > 1 && (
-          <span className="text-xs opacity-70">{activeIndex + 1}/{messages.length}</span>
-        )}
-        <button onClick={() => setIsVisible(false)} className="px-2" aria-label="Close banner">
-          &times;
-        </button>
-      </div>
+    <div className="w-full">
+      {visibleMessages.map((message, index) => {
+        const originalIndex = messages.indexOf(message);
+        return (
+          <div key={originalIndex} className="w-full bg-cyan-600 text-white text-center p-2 text-sm flex justify-between items-center border-b border-cyan-700 last:border-b-0">
+            <span>
+              {message}
+            </span>
+            <button 
+              onClick={() => handleDismiss(originalIndex)} 
+              className="px-2 hover:bg-cyan-700 rounded"
+            >
+              &times;
+            </button>
+          </div>
+        );
+      })}
     </div>
   );
 }

@@ -4,8 +4,13 @@ import logging
 import os
 from typing import List
 from pathlib import Path
+from fastapi import APIRouter, Depends
+from utils import get_current_user
 
 logger = logging.getLogger(__name__)
+
+# Create the banner router
+banner_router = APIRouter(prefix="/api", tags=["banner"])
 
 
 class BannerClient:
@@ -28,12 +33,11 @@ class BannerClient:
             return []
         
         try:
-            # Construct absolute path to messages.txt relative to this file
-            current_dir = Path(__file__).parent
-            messages_file = current_dir / "configfilesadmin" / "messages.txt"
+            # Read from configfilesadmin/messages.txt
+            messages_file = Path("configfilesadmin/messages.txt")
             
             if not messages_file.exists():
-                logger.debug(f"Admin messages file not found at {messages_file}, returning empty list")
+                logger.debug("Admin messages file not found, returning empty list")
                 return []
             
             with open(messages_file, 'r', encoding='utf-8') as f:
@@ -57,3 +61,17 @@ def initialize_banner_client():
 
 # Global banner client instance - will be initialized in main.py after env vars are loaded
 banner_client = None
+
+
+@banner_router.get("/banners")
+async def get_banners(current_user: str = Depends(get_current_user)):
+    """Get banner messages for display at the top of the UI."""
+    if not banner_client:
+        return {"messages": []}
+    
+    try:
+        messages = await banner_client.get_banner_messages()
+        return {"messages": messages}
+    except Exception as e:
+        logger.error(f"Error fetching banner messages: {e}", exc_info=True)
+        return {"messages": []}

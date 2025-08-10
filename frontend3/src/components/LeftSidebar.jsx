@@ -12,17 +12,15 @@ function LeftSidebar() {
     return <div>Loading...</div>;
   }
 
-  const features = config.features || {};
-
   return (
     <aside id="left-sidebar" className="w-72 bg-gray-800 flex-shrink-0 flex flex-col p-4 space-y-4 border-r border-gray-700 lg:relative">
       <div className="flex justify-between items-center">
-        <h1 className="text-xl font-bold">{config.app_name}</h1>
+        <h1 className="text-xl font-bold">Gemini Chat</h1>
         <button className="lg:hidden">
           <i className="fas fa-times"></i>
         </button>
       </div>
-      {features.workspaces && (
+      {config.features?.workspaces && (
         <div>
           <label htmlFor="workspace-select" className="text-sm font-semibold text-gray-400 mb-1 block">
             Workspace
@@ -40,11 +38,10 @@ function LeftSidebar() {
         <i className="fas fa-plus mr-2"></i> New Chat
       </button>
       <div className="flex-grow overflow-y-auto space-y-4">
-        {features.chat_history && (
+        {config.features?.chat_history && (
           <div>
             <h2 className="text-sm font-semibold text-gray-400 mb-2">History</h2>
             <ul id="conversation-list" className="space-y-2">
-              {/* Placeholder history items when feature enabled */}
               <li className="bg-gray-700 p-2 rounded-lg cursor-pointer hover:bg-gray-600 transition-all">
                 Analyze sales_data.csv
               </li>
@@ -54,9 +51,9 @@ function LeftSidebar() {
             </ul>
           </div>
         )}
-        {features.rag && (
+        {config.features?.rag && (
           <div>
-              <h2 className="text-sm font-semibold text-gray-400 mb-2">RAG Sources</h2>
+            <h2 className="text-sm font-semibold text-gray-400 mb-2">RAG Sources</h2>
             <input
               type="search"
               id="rag-search"

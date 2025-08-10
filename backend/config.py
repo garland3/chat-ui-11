@@ -29,6 +29,8 @@ class ModelConfig(BaseModel):
     description: Optional[str] = None
     max_tokens: Optional[int] = 1000
     temperature: Optional[float] = 0.7
+    # Optional extra HTTP headers (e.g. for providers like OpenRouter)
+    extra_headers: Optional[Dict[str, str]] = None
 
 
 class LLMConfig(BaseModel):
@@ -110,14 +112,14 @@ class AppSettings(BaseSettings):
     s3_endpoint: str = "http://127.0.0.1:8003"
     s3_use_mock: bool = True
     s3_timeout: int = 30
-
-    # Feature flags (rollout switches) - default False keeps app a basic chat
+    
+    # Feature flags
     feature_workspaces_enabled: bool = False
     feature_rag_enabled: bool = False
     feature_tools_enabled: bool = False
     feature_marketplace_enabled: bool = False
-    feature_files_panel_enabled: bool = False  # uploaded + session files panel
-    feature_chat_history_enabled: bool = False  # show previous chat sessions/history
+    feature_files_panel_enabled: bool = False
+    feature_chat_history_enabled: bool = False
     
     model_config = {
         "env_file": "../.env", 

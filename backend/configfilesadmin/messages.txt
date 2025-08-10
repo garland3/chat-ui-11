@@ -1,1 +1,2 @@
-Hello Message. Example message. Known issue on server 4. No ETA for resolution. 
+Hello Message
+Server 5 is down with no ETA. 

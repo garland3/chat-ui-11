@@ -51,6 +51,16 @@ class LLMCaller:
         model_id = model_config.model_name
 
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+        # Inject any extra provider-specific headers (expand env vars, skip unresolved placeholders)
+        if getattr(model_config, 'extra_headers', None):
+            for h_key, h_val in model_config.extra_headers.items():
+                if not h_val:
+                    continue
+                expanded = os.path.expandvars(h_val)
+                # Skip if still looks like an unresolved ${VAR}
+                if expanded.startswith("${") and expanded.endswith("}"):
+                    continue
+                headers[h_key] = expanded
         payload = {"model": model_id, "messages": messages, "max_tokens": 1000, "temperature": 0.7}
 
         try:
@@ -150,6 +160,14 @@ class LLMCaller:
         model_id = model_config.model_name
 
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+        if getattr(model_config, 'extra_headers', None):
+            for h_key, h_val in model_config.extra_headers.items():
+                if not h_val:
+                    continue
+                expanded = os.path.expandvars(h_val)
+                if expanded.startswith("${") and expanded.endswith("}"):
+                    continue
+                headers[h_key] = expanded
         payload = {
             "model": model_id,
             "messages": messages,
