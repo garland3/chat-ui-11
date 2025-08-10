@@ -91,6 +91,10 @@ RUN /home/appuser/.local/bin/uv pip install -r requirements.txt
 
 # Simple E2E tests use only HTTP requests - no browser automation needed
 
+# Create .env file for test environment (skip authentication)
+RUN echo "# Development mode - skip authentication when true" > /app/.env && \
+    echo "DEBUG_MODE=true" >> /app/.env
+
 # Set environment variables
 ENV PYTHONPATH=/app
 ENV NODE_ENV=test
