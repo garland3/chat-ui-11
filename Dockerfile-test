@@ -48,7 +48,7 @@ RUN npm run build
 # Copy E2E test package files and install dependencies
 COPY test_e2e/package.json test_e2e/package-lock.json ./test_e2e/
 WORKDIR /app/test_e2e
-RUN npm ci
+RUN npm install
 
 # Switch back to app directory and copy backend code
 WORKDIR /app
