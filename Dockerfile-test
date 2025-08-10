@@ -56,7 +56,15 @@ COPY scripts/ ./scripts/
 COPY test/ ./test/
 COPY test_e2e/ ./test_e2e/
 
-# Create logs directory for the backend
+# Install Playwright in the test_e2e directory
+WORKDIR /app/test_e2e
+RUN npm install
+RUN npx playwright install --with-deps chromium || \
+    (echo "Playwright install with system deps failed, installing browser only..." && \
+     npx playwright install chromium)
+
+# Switch back to app directory and create logs directory for the backend
+WORKDIR /app
 RUN mkdir -p /app/backend/logs
 
 # Fix line endings for the entire app directory and set permissions
