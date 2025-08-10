@@ -1,35 +1,76 @@
 #!/bin/bash
 
+# Parse command line arguments
+ONLY_FRONTEND=false
+ONLY_BACKEND=false
+while getopts "fb" opt; do
+  case $opt in
+    f)
+      ONLY_FRONTEND=true
+      ;;
+    b)
+      ONLY_BACKEND=true
+      ;;
+  esac
+done
+
 # Configuration
 USE_NEW_FRONTEND=${USE_NEW_FRONTEND:-true}
 START_S3_MOCK=true
 
-# Kill any running uvicorn processes
-echo "Killing any running uvicorn processes... and python processes"
-pkill -f uvicorn
-# also kill python
-pkill -f python
-# wait a few seconds for processes to terminate
-sleep 5
-clear
-echo "Clearing log for fresh start"
-mkdir -p /workspaces/chat-ui-11/logs
-echo "NEW LOG" > /workspaces/chat-ui-11/logs/app.jsonl
+# Kill any running uvicorn processes (skip if only rebuilding frontend)
+if [ "$ONLY_FRONTEND" = false ] && [ "$ONLY_BACKEND" = false ]; then
+    echo "Killing any running uvicorn processes... and python processes"
+    pkill -f uvicorn
+    # also kill python
+    pkill -f python
+    # wait a few seconds for processes to terminate
+    sleep 5
+    clear
+    echo "Clearing log for fresh start"
+    mkdir -p /workspaces/chat-ui-11/logs
+    echo "NEW LOG" > /workspaces/chat-ui-11/logs/app.jsonl
+fi
 
 # cd /workspaces/chat-ui-11
 . venv/bin/activate
 
-if [ "$USE_NEW_FRONTEND" = true ]; then
-    echo "Using new frontend in frontend"
-    cd frontend
-    npm install
-    npm run build
-    cd ../backend
-else
-    echo "Using old frontend in frontend"
-    cd frontend
-    npm run build
-    cd ../backend
+# Build frontend if not backend only
+if [ "$ONLY_BACKEND" = false ]; then
+    if [ "$USE_NEW_FRONTEND" = true ]; then
+        echo "Using new frontend in frontend"
+        cd frontend
+        npm install
+        npm run build
+        cd ../backend
+    else
+        echo "Using old frontend in frontend"
+        cd frontend
+        npm run build
+        cd ../backend
+    fi
+fi
+
+# If only frontend flag is set, exit here
+if [ "$ONLY_FRONTEND" = true ]; then
+    echo "Frontend rebuilt successfully. Exiting as requested."
+    exit 0
+fi
+
+# If only backend flag is set, start backend services and exit
+if [ "$ONLY_BACKEND" = true ]; then
+    # Start S3 mock service if enabled
+    if [ "$START_S3_MOCK" = true ]; then
+        echo "Starting S3 mock service..."
+        cd ../mocks/s3-mock
+        python main.py &
+        cd ../../backend
+        echo "S3 mock service started on http://127.0.0.1:8003"
+    fi
+
+    uvicorn main:app &
+    echo "Backend server started. Exiting as requested."
+    exit 0
 fi
 
 # Start S3 mock service if enabled

@@ -62,7 +62,7 @@ const Header = ({ onToggleRag, onToggleTools, onToggleFiles, onToggleCanvas, onC
     <header className="flex items-center justify-between p-4 bg-gray-800 border-b border-gray-700">
       {/* Left section */}
       <div className="flex items-center gap-4">
-        {features.rag && (
+        {features?.rag && (
           <button
             onClick={onToggleRag}
             className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
@@ -210,7 +210,7 @@ const Header = ({ onToggleRag, onToggleTools, onToggleFiles, onToggleCanvas, onC
         </button>
 
         {/* Tools Panel Toggle */}
-        {features.tools && (
+        {features?.tools && (
           <button
             onClick={onToggleTools}
             className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
@@ -221,7 +221,7 @@ const Header = ({ onToggleRag, onToggleTools, onToggleFiles, onToggleCanvas, onC
         )}
         
         {/* File Manager Panel Toggle */}
-        {features.files_panel && (
+        {features?.files_panel && (
           <button
             onClick={onToggleFiles}
             className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"

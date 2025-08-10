@@ -67,7 +67,7 @@ function ChatInterface() {
   return (
     <div className="flex h-screen w-full bg-gray-900 text-gray-200 overflow-hidden">
       {/* RAG Data Sources Panel */}
-      {features.rag && (
+      {features?.rag && (
         <RagPanel 
           isOpen={ragPanelOpen} 
           onClose={() => setRagPanelOpen(false)} 
@@ -126,7 +126,7 @@ function ChatInterface() {
       {/* Right Side Panels Container */}
       <div className="relative flex-shrink-0">
         {/* Tools Panel */}
-        {features.tools && (
+        {features?.tools && (
           <ToolsPanel 
             isOpen={toolsPanelOpen} 
             onClose={() => setToolsPanelOpen(false)} 
@@ -134,7 +134,7 @@ function ChatInterface() {
         )}
         
         {/* File Manager Panel */}
-        {features.files_panel && (
+        {features?.files_panel && (
           <FileManagerPanel 
             isOpen={filesPanelOpen} 
             onClose={() => setFilesPanelOpen(false)} 
@@ -154,7 +154,7 @@ function AppRoutes() {
   return (
     <Routes>
       <Route path="/" element={<ChatInterface />} />
-      {features.marketplace && <Route path="/marketplace" element={<MarketplacePanel />} />}
+      {features?.marketplace && <Route path="/marketplace" element={<MarketplacePanel />} />}
       <Route path="/help" element={<HelpPage />} />
       <Route path="/admin" element={<AdminDashboard />} />
       <Route path="/files" element={<FilesPage />} />
