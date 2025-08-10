@@ -43,10 +43,16 @@ export function useWebSocket(url) {
     };
   }, [url]);
 
-  const sendMessage = (message, model, temperature) => {
+  const sendMessage = (message, model, temperature, files = null) => {
     if (socket) {
       // Add user message to UI immediately
-      setMessages((prevMessages) => [...prevMessages, { role: 'user', content: message }]);
+      let content = message;
+      if (files && Object.keys(files).length > 0) {
+        const fileNames = Object.keys(files).join(', ');
+        content = message ? `${message}\n\nAttached files: ${fileNames}` : `Attached files: ${fileNames}`;
+      }
+      
+      setMessages((prevMessages) => [...prevMessages, { role: 'user', content }]);
       
       // Set thinking state
       setIsThinking(true);
@@ -57,6 +63,12 @@ export function useWebSocket(url) {
         model: model,
         temperature: temperature
       };
+      
+      // Add files to message data if present
+      if (files && Object.keys(files).length > 0) {
+        messageData.files = files;
+      }
+      
       socket.send(JSON.stringify(messageData));
     }
   };

@@ -9,12 +9,14 @@ function MainContent({ leftCollapsed, rightCollapsed, onToggleLeft, onToggleRigh
   const [prompt, setPrompt] = useState('');
   const [editingIndex, setEditingIndex] = useState(null);
   const [editText, setEditText] = useState('');
+  const [selectedFiles, setSelectedFiles] = useState([]);
 
   const promptInputRef = useRef(null);
   const chatContainerRef = useRef(null);
   const bottomSentinelRef = useRef(null); // sentinel element at bottom for smooth scrolling
   const autoScrollRef = useRef(true); // whether we should auto-scroll on new content
   const isScrollingRef = useRef(false); // track if currently programmatically scrolling
+  const fileInputRef = useRef(null);
 
   // Scroll event tracking to update whether user is near bottom
   useEffect(() => {
@@ -64,9 +66,45 @@ function MainContent({ leftCollapsed, rightCollapsed, onToggleLeft, onToggleRigh
     }
   }, [messages, isThinking, scrollToBottom]);
 
-  const handleSendMessage = () => {
-    if (prompt.trim()) {
-      sendMessage(prompt, selectedModel, temperature);
+  const handleFileChange = (e) => {
+    const files = Array.from(e.target.files);
+    setSelectedFiles(files);
+  };
+
+  const handleSendMessage = async () => {
+    if (prompt.trim() || selectedFiles.length > 0) {
+      // If files are selected, we need to read them and send them with the message
+      if (selectedFiles.length > 0) {
+        const filesData = {};
+        
+        // Read all files as base64
+        for (const file of selectedFiles) {
+          const reader = new FileReader();
+          const fileData = await new Promise((resolve) => {
+            reader.onload = (e) => {
+              // Remove the data URL prefix (e.g., "data:image/png;base64,")
+              const base64 = e.target.result.split(',')[1];
+              resolve(base64);
+            };
+            reader.readAsDataURL(file);
+          });
+          
+          filesData[file.name] = fileData;
+        }
+        
+        // Send message with files
+        sendMessage(prompt, selectedModel, temperature, filesData);
+        
+        // Clear selected files
+        setSelectedFiles([]);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      } else {
+        // Send message without files
+        sendMessage(prompt, selectedModel, temperature);
+      }
+      
       setPrompt('');
     }
   };
@@ -287,6 +325,11 @@ function MainContent({ leftCollapsed, rightCollapsed, onToggleLeft, onToggleRigh
             */}
             <div className="flex-shrink-0 p-4 bg-gray-100 border-t border-gray-200 dark:bg-gray-800 dark:border-gray-700">
               <div className="relative bg-gray-200 rounded-lg dark:bg-gray-700">
+                {selectedFiles.length > 0 && (
+                  <div className="px-4 py-2 text-sm text-gray-600 dark:text-gray-300 border-b border-gray-300 dark:border-gray-600">
+                    Selected files: {selectedFiles.map(file => file.name).join(', ')}
+                  </div>
+                )}
                 <textarea
                   id="prompt-input"
                   rows="1"
@@ -301,7 +344,14 @@ function MainContent({ leftCollapsed, rightCollapsed, onToggleLeft, onToggleRigh
                   <label htmlFor="file-upload-input" className="cursor-pointer text-gray-600 hover:text-white dark:text-gray-400">
                     <i className="fas fa-paperclip"></i>
                   </label>
-                  <input type="file" id="file-upload-input" multiple className="hidden" />
+                  <input 
+                    type="file" 
+                    id="file-upload-input" 
+                    multiple 
+                    className="hidden" 
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                  />
                   <button
                     className="bg-cyan-500 hover:bg-cyan-600 text-white rounded-full w-8 h-8 flex items-center justify-center"
                     onClick={handleSendMessage}
