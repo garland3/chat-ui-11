@@ -41,7 +41,7 @@ function Banner() {
             </span>
             <button 
               onClick={() => handleDismiss(originalIndex)} 
-              className="px-2 hover:bg-cyan-700 rounded"
+              className="px-2 hover:bg-cyan-500 rounded dark:hover:bg-cyan-700"
             >
               &times;
             </button>

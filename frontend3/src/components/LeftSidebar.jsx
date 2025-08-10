@@ -14,14 +14,14 @@ function LeftSidebar({ isCollapsed, onToggleCollapse }) {
 
   if (isCollapsed) {
     return (
-      <aside id="left-sidebar" className="w-16 bg-gray-800 flex-shrink-0 flex flex-col p-2 space-y-4 border-r border-gray-700 lg:relative">
+      <aside id="left-sidebar" className="w-16 bg-gray-100 flex-shrink-0 flex flex-col p-2 space-y-4 border-r border-gray-200 lg:relative dark:bg-gray-800 dark:border-gray-700">
         <div className="flex flex-col items-center space-y-4">
           <button 
             onClick={onToggleCollapse}
-            className="p-2 hover:bg-gray-700 rounded-lg transition-all"
+            className="p-2 hover:bg-gray-200 rounded-lg transition-all dark:hover:bg-gray-700"
             title="Expand sidebar"
           >
-            <i className="fas fa-bars text-gray-400"></i>
+            <i className="fas fa-bars text-gray-600 dark:text-gray-400"></i>
           </button>
           <button 
             className="p-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-all"
@@ -35,7 +35,7 @@ function LeftSidebar({ isCollapsed, onToggleCollapse }) {
   }
 
   return (
-    <aside id="left-sidebar" className="w-72 bg-gray-800 flex-shrink-0 flex flex-col p-4 space-y-4 border-r border-gray-700 lg:relative">
+    <aside id="left-sidebar" className="w-72 bg-gray-100 flex-shrink-0 flex flex-col p-4 space-y-4 border-r border-gray-200 lg:relative dark:bg-gray-800 dark:border-gray-700">
       <div className="flex justify-between items-center">
         <h1 className="text-xl font-bold">{config.app_name || 'Chat UI'}</h1>
         <button className="lg:hidden">
@@ -44,10 +44,10 @@ function LeftSidebar({ isCollapsed, onToggleCollapse }) {
       </div>
       {config.features?.workspaces && (
         <div>
-          <label htmlFor="workspace-select" className="text-sm font-semibold text-gray-400 mb-1 block">
+          <label htmlFor="workspace-select" className="text-sm font-semibold text-gray-600 mb-1 block dark:text-gray-400">
             Workspace
           </label>
-          <select id="workspace-select" className="w-full bg-gray-700 border-gray-600 rounded-md p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500">
+          <select id="workspace-select" className="w-full bg-gray-200 border-gray-300 rounded-md p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500 dark:bg-gray-700 dark:border-gray-600">
             {config.workspaces && config.workspaces.map((workspace) => (
               <option key={workspace.id} value={workspace.id}>
                 {workspace.name}
@@ -62,9 +62,9 @@ function LeftSidebar({ isCollapsed, onToggleCollapse }) {
       <div className="flex-grow overflow-y-auto space-y-4">
         {config.features?.chat_history && (
           <div>
-            <h2 className="text-sm font-semibold text-gray-400 mb-2">History</h2>
+            <h2 className="text-sm font-semibold text-gray-600 mb-2 dark:text-gray-400">History</h2>
             <ul id="conversation-list" className="space-y-2">
-              <li className="bg-gray-700 p-2 rounded-lg cursor-pointer hover:bg-gray-600 transition-all">
+              <li className="bg-gray-200 p-2 rounded-lg cursor-pointer hover:bg-gray-300 transition-all dark:bg-gray-700 dark:hover:bg-gray-600">
                 Analyze sales_data.csv
               </li>
               <li className="p-2 rounded-lg cursor-pointer hover:bg-gray-600 transition-all">
@@ -75,12 +75,12 @@ function LeftSidebar({ isCollapsed, onToggleCollapse }) {
         )}
         {config.features?.rag && (
           <div>
-            <h2 className="text-sm font-semibold text-gray-400 mb-2">RAG Sources</h2>
+            <h2 className="text-sm font-semibold text-gray-600 mb-2 dark:text-gray-400">RAG Sources</h2>
             <input
               type="search"
               id="rag-search"
               placeholder="Filter sources..."
-              className="w-full bg-gray-700 border-gray-600 rounded-md p-2 text-sm mb-2 focus:ring-cyan-500 focus:border-cyan-500"
+              className="w-full bg-gray-200 border-gray-300 rounded-md p-2 text-sm mb-2 focus:ring-cyan-500 focus:border-cyan-500 dark:bg-gray-700 dark:border-gray-600"
             />
             <div id="rag-source-list" className="space-y-2"></div>
             <button id="rag-show-more" className="text-cyan-400 text-sm mt-2 hover:underline">
