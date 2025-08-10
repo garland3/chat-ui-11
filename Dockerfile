@@ -11,7 +11,8 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser
 RUN apt-get update && apt-get install -y     python3     python3-pip     python3-venv     nodejs     npm     curl     hostname     sudo     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install uv for better Python dependency management
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    mkdir -p /root/.local/bin
 ENV PATH="/root/.local/bin:$PATH"
 
 # Copy requirements first
@@ -44,8 +45,11 @@ RUN mkdir -p /app/backend/logs
 # Configure sudo for appuser (needed for Playwright browser installation)
 RUN echo "appuser ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
 
-# Copy uv to appuser's home directory and set up environment
-RUN cp -r /root/.local /home/appuser/.local && chown -R appuser:appuser /home/appuser/.local
+# Set up uv for appuser
+RUN mkdir -p /home/appuser/.local/bin && \
+    if [ -f "/root/.local/bin/uv" ]; then cp /root/.local/bin/uv /home/appuser/.local/bin/; fi && \
+    mkdir -p /home/appuser/.cache && \
+    chown -R appuser:appuser /home/appuser/.local /home/appuser/.cache
 
 # Change ownership to non-root user
 RUN chown -R appuser:appuser /app
