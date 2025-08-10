@@ -1,15 +1,18 @@
-v/* markdown.css */
-.markdown > * { margin-block: .5rem; }
+/* markdown.css (tight spacing) */
+.markdown > * { margin-block: .4rem; }
 .markdown > *:first-child { margin-top: 0; }
 .markdown > *:last-child  { margin-bottom: 0; }
 
-.markdown h1, .markdown h2, .markdown h3 { margin-block: .6rem; }
-.markdown p { margin-block: .4rem; line-height: 1.5; }
-.markdown ul, .markdown ol { margin-block: .4rem; padding-left: 1.25rem; }
-.markdown li { margin-block: .2rem; }
+.markdown h1, .markdown h2, .markdown h3 { margin-block: .5rem; }
+.markdown p { margin-block: .35rem; line-height: 1.55; }
+.markdown ul, .markdown ol { margin-block: .35rem; padding-left: 1.15rem; }
+.markdown li { margin-block: .15rem; }
 .markdown blockquote { margin-block: .6rem; }
 .markdown table { margin-block: .6rem; }
 .markdown hr { margin-block: .6rem; }
 
-.markdown pre { margin-block: .5rem; }
-.markdown .codeblock { margin-block: .5rem; } /* we’ll add this class */
+.markdown pre { margin-block: .45rem; }
+.markdown .codeblock { margin-block: .45rem; }
+
+/* Ensure list numbers and first sentence sit on the same line (remove paragraph block inside li) */
+.markdown li > p { display: inline; margin: 0; }

@@ -43,8 +43,8 @@ function CodeBlock({className, children, metastring}) {
 
 export default function MarkdownRenderer({content}) {
   return (
-    <div className="mx-auto max-w-3xl">
-      <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl px-4 py-3">
+    <div className="mx-auto max-w-5xl">
+      <div className="bg-zinc-900/60 border border-zinc-800 rounded-2xl px-6 py-5">
         <ReactMarkdown
           className="markdown"
           remarkPlugins={[remarkGfm, remarkBreaks]}
@@ -60,12 +60,12 @@ export default function MarkdownRenderer({content}) {
               const metastring = codeEl?.props?.metastring||codeEl?.props?.['data-meta']||'';
               return <CodeBlock className={className} metastring={metastring}>{codeEl?.props?.children}</CodeBlock>;
             },
-            h1: ({children}) => <h1 className="text-[22px] font-semibold">{children}</h1>,
-            h2: ({children}) => <h2 className="text-[18px] font-semibold">{children}</h2>,
-            h3: ({children}) => <h3 className="text-[16px] font-semibold">{children}</h3>,
-            p:  ({children}) => <p className="text-zinc-200">{children}</p>,
-            ul: ({children}) => <ul className="list-disc">{children}</ul>,
-            ol: ({children}) => <ol className="list-decimal">{children}</ol>,
+            h1: ({children}) => <h1 className="text-[24px] font-semibold mt-5 first:mt-0 mb-2 leading-tight">{children}</h1>,
+            h2: ({children}) => <h2 className="text-[20px] font-semibold mt-4 mb-1 leading-tight">{children}</h2>,
+            h3: ({children}) => <h3 className="text-[17px] font-semibold mt-3 mb-1 leading-snug">{children}</h3>,
+            p:  ({children}) => <p className="text-zinc-200 leading-[1.55] mb-2 last:mb-0">{children}</p>,
+            ul: ({children}) => <ul className="list-disc pl-5 mb-2 marker:text-zinc-500 space-y-0.5 last:mb-0">{children}</ul>,
+            ol: ({children}) => <ol className="list-decimal pl-5 mb-2 marker:text-zinc-500 space-y-0.5 last:mb-0">{children}</ol>,
             li: ({children}) => <li className="leading-6">{children}</li>,
             blockquote: ({children}) => <blockquote className="border-l-2 border-zinc-700 pl-3 italic text-zinc-300">{children}</blockquote>,
             table: ({children}) => <div><table className="min-w-full border border-zinc-800 rounded-lg">{children}</table></div>,

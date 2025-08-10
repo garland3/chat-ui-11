@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """
-Simple E2E tests using requests and BeautifulSoup.
+Simple E2E tests using requests.
 Tests basic functionality without complex browser automation.
 """
 import requests
 import time
 import sys
-from bs4 import BeautifulSoup
 
 
 def wait_for_server(url, max_retries=30, delay=2):
@@ -47,9 +46,9 @@ def test_static_files():
         # Test the main page
         response = requests.get("http://127.0.0.1:8000/", timeout=10)
         if response.status_code == 200:
-            # Parse HTML to check for basic structure
-            soup = BeautifulSoup(response.text, 'html.parser')
-            if soup.find('title') or soup.find('div'):
+            # Check for basic HTML content (simple string checks)
+            content = response.text
+            if '<html' in content.lower() or '<div' in content.lower() or '<title' in content.lower():
                 print("✅ Main page loads with HTML content")
                 return True
             else:

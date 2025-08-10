@@ -207,16 +207,16 @@ function MainContent({ leftCollapsed, rightCollapsed, onToggleLeft, onToggleRigh
             </button>
           </div>
           <div id="chat-container-wrapper" className="flex-1 flex flex-col overflow-hidden min-h-0">
-            <div id="chat-container" ref={chatContainerRef} className="flex-1 overflow-y-auto p-6 space-y-6 min-h-0">
+            <div id="chat-container" ref={chatContainerRef} className="flex-1 overflow-y-auto p-6 space-y-6 min-h-0 no-scrollbar">
               {messages.length === 0 ? (
                 <WelcomeScreen />
               ) : (
                 messages.map((msg, index) => (
-                  <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} mb-6`}>
-                    <div className={`px-4 py-3 rounded-lg relative group break-words overflow-hidden ${
-                      msg.role === 'user' 
+                  <div key={index} className={`flex mb-8 ${msg.role === 'user' ? 'justify-end' : 'justify-center'}`}>
+                    <div className={`px-6 py-4 rounded-lg relative group break-words overflow-hidden ${
+                      msg.role === 'user'
                         ? 'bg-gray-200 text-gray-900 dark:bg-gray-800 dark:text-gray-300 mr-12 max-w-4xl'
-                        : 'text-gray-900 dark:text-gray-300 w-full'
+                        : 'text-gray-900 dark:text-gray-300 w-full max-w-[110ch] mx-auto'
                     }`}>
                       {editingIndex === index ? (
                         <div className="space-y-3">
