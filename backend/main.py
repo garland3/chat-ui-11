@@ -181,7 +181,7 @@ print(f"USE_NEW_FRONTEND: {USE_NEW_FRONTEND}")
 
 # Serve static files (only if frontend is built) - moved to after routes
 if USE_NEW_FRONTEND:
-    frontend_dist = Path("../frontend3/dist")
+    frontend_dist = Path("../frontend/dist")
 else:
     frontend_dist = Path("../frontend/dist")
 

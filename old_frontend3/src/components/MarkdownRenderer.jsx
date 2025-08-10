@@ -63,9 +63,20 @@ export default function MarkdownRenderer({content}) {
             h1: ({children}) => <h1 className="text-[24px] font-semibold mt-5 first:mt-0 mb-2 leading-tight">{children}</h1>,
             h2: ({children}) => <h2 className="text-[20px] font-semibold mt-4 mb-1 leading-tight">{children}</h2>,
             h3: ({children}) => <h3 className="text-[17px] font-semibold mt-3 mb-1 leading-snug">{children}</h3>,
-            p:  ({children}) => <p className="text-zinc-200 leading-[1.55] mb-2 last:mb-0">{children}</p>,
-            ul: ({children}) => <ul className="list-disc pl-5 mb-2 marker:text-zinc-500 space-y-0.5 last:mb-0">{children}</ul>,
-            ol: ({children}) => <ol className="list-decimal pl-5 mb-2 marker:text-zinc-500 space-y-0.5 last:mb-0">{children}</ol>,
+            p:  ({children, ...props}) => {
+              // Check if this paragraph is inside a list item by checking parent
+              const isInListItem = props.node?.parent?.tagName === 'li';
+              console.log('Paragraph component:', { 
+                isInListItem, 
+                parentTag: props.node?.parent?.tagName,
+                parentType: props.node?.parent?.type,
+                nodeType: props.node?.type,
+                children: typeof children === 'string' ? children.substring(0, 50) : 'complex'
+              });
+              return <p className={`text-zinc-200 leading-[1.55] ${isInListItem ? 'inline m-0' : 'mb-2 last:mb-0'}`}>{children}</p>;
+            },
+            ul: ({children}) => <ul className="list-disc pl-5 mb-2 marker:text-zinc-500 space-y-1 last:mb-0">{children}</ul>,
+            ol: ({children}) => <ol className="list-decimal pl-5 mb-2 marker:text-zinc-500 space-y-1 last:mb-0">{children}</ol>,
             li: ({children}) => <li className="leading-6">{children}</li>,
             blockquote: ({children}) => <blockquote className="border-l-2 border-zinc-700 pl-3 italic text-zinc-300">{children}</blockquote>,
             table: ({children}) => <div><table className="min-w-full border border-zinc-800 rounded-lg">{children}</table></div>,

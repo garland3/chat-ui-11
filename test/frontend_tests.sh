@@ -10,7 +10,7 @@ if [ -z "$PROJECT_ROOT" ]; then
 fi
 
 # Set frontend directory path
-FRONTEND_DIR="$PROJECT_ROOT/frontend3"
+FRONTEND_DIR="$PROJECT_ROOT/frontend"
 
 echo "Frontend directory: $FRONTEND_DIR"
 

@@ -32,14 +32,14 @@ ENV PATH="/root/.local/bin:$PATH"
 COPY requirements.txt .
 
 # Copy and install frontend dependencies (keep all dependencies for testing)
-COPY frontend3/package*.json ./frontend3/
-WORKDIR /app/frontend3
+COPY frontend/package*.json ./frontend/
+WORKDIR /app/frontend
 ENV NPM_CONFIG_CACHE=/app/.npm
 # Install ALL dependencies including devDependencies needed for testing
 RUN npm ci --include=dev
 
 # Build frontend (but keep node_modules for testing)
-COPY frontend3/ .
+COPY frontend/ .
 RUN npm run build
 # DO NOT remove node_modules - we need them for testing
 

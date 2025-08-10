@@ -11,7 +11,7 @@
     "ghcr.io/devcontainers/features/docker-in-docker:2": {}
   },
   "forwardPorts": [8000, 3000],
-  "postCreateCommand": "pip install -r requirements.txt && cd frontend3 && npm install",
+  "postCreateCommand": "pip install -r requirements.txt && cd frontend && npm install",
   "remoteUser": "vscode",
   "customizations": {
     "vscode": {

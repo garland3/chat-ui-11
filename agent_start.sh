@@ -20,8 +20,8 @@ echo "NEW LOG" > /workspaces/chat-ui-11/logs/app.jsonl
 . venv/bin/activate
 
 if [ "$USE_NEW_FRONTEND" = true ]; then
-    echo "Using new frontend in frontend3"
-    cd frontend3
+    echo "Using new frontend in frontend"
+    cd frontend
     npm install
     npm run build
     cd ../backend

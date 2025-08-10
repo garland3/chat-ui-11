@@ -8,7 +8,7 @@ echo "================================="
 
 # Resolve project root
 : "${PROJECT_ROOT:=$(pwd)}"
-FRONTEND_DIR="$PROJECT_ROOT/frontend3"
+FRONTEND_DIR="$PROJECT_ROOT/frontend"
 BACKEND_DIR="$PROJECT_ROOT/backend"
 E2E_DIR="$PROJECT_ROOT/test_e2e"
 

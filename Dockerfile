@@ -19,14 +19,14 @@ ENV PATH="/root/.local/bin:$PATH"
 COPY requirements.txt .
 
 # Copy and install frontend dependencies (for caching)
-COPY frontend3/package*.json ./frontend3/
-WORKDIR /app/frontend3
+COPY frontend/package*.json ./frontend/
+WORKDIR /app/frontend
 ENV NPM_CONFIG_CACHE=/app/.npm
 # Install all dependencies including devDependencies needed for build
 RUN npm ci --include=dev
 
 # Build frontend
-COPY frontend3/ .
+COPY frontend/ .
 # build and delete the node_modules
 RUN  npm run build && rm -rf node_modules
 
