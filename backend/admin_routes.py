@@ -438,7 +438,11 @@ async def get_enhanced_logs(
     """Get enhanced logs with better structure for the React frontend."""
     try:
         # Read logs from the JSONL file directly for better performance
-        log_file = Path("backend/logs/app.jsonl")
+        from otel_config import get_otel_config
+        otel_cfg = get_otel_config()
+        if not otel_cfg:
+            raise HTTPException(status_code=500, detail="OpenTelemetry configuration not available")
+        log_file = otel_cfg.get_log_file_path()
         if not log_file.exists():
             raise HTTPException(status_code=404, detail="Log file not found")
         
@@ -541,7 +545,9 @@ async def get_system_status(admin_user: str = Depends(require_admin)):
         ))
         
         # Check log file
-        log_file = Path("logs/app.log")
+        from otel_config import get_otel_config
+        otel_cfg = get_otel_config()
+        log_file = otel_cfg.get_log_file_path() if otel_cfg else Path("logs/app.jsonl")
         log_status = "healthy" if log_file.exists() else "warning"
         status_info.append(SystemStatus(
             component="Logging",

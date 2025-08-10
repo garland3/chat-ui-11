@@ -84,6 +84,7 @@ class OpenTelemetryConfig:
         self.service_name = service_name
         self.service_version = service_version
         self.is_development = self._is_development()
+        # Determine log level from config manager if available, else environment
         self.log_level = self._get_log_level()
         self.logs_dir = Path("logs")
         self.log_file = self.logs_dir / "app.jsonl"  # JSON Lines format
@@ -101,12 +102,17 @@ class OpenTelemetryConfig:
     
     def _get_log_level(self) -> int:
         """Get log level based on environment."""
-        if self.is_development:
-            # In development, log everything for debugging
-            return logging.DEBUG
-        else:
-            # In production, only log info and above for performance
-            return logging.INFO
+        # Try to load from central config if available
+        try:
+            from config import config_manager  # local import to avoid circular
+            level_name = getattr(config_manager.app_settings, 'log_level', 'INFO').upper()
+        except Exception:
+            level_name = os.getenv("LOG_LEVEL", "INFO").upper()
+
+        level = getattr(logging, level_name, None)
+        if not isinstance(level, int):
+            level = logging.INFO
+        return level
     
     def _setup_telemetry(self):
         """Setup OpenTelemetry tracer."""

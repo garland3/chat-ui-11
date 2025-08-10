@@ -84,6 +84,8 @@ class AppSettings(BaseSettings):
     app_name: str = "Chat UI"
     port: int = 8000
     debug_mode: bool = False
+    # Logging settings
+    log_level: str = "INFO"  # Override default logging level (DEBUG, INFO, WARNING, ERROR)
     
     # RAG settings
     mock_rag: bool = False

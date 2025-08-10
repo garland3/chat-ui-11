@@ -13,7 +13,8 @@ pkill -f python
 sleep 5
 clear
 echo "Clearing log for fresh start"
-echo "NEW LOG" > /workspaces/chat-ui-11/backend/logs/app.jsonl
+mkdir -p /workspaces/chat-ui-11/logs
+echo "NEW LOG" > /workspaces/chat-ui-11/logs/app.jsonl
 
 # cd /workspaces/chat-ui-11
 . venv/bin/activate
