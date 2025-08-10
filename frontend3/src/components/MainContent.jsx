@@ -5,18 +5,34 @@ import WelcomeScreen from './WelcomeScreen';
 
 function MainContent({ leftCollapsed, rightCollapsed, onToggleLeft, onToggleRight, theme, toggleTheme, selectedModel, temperature }) {
   const wsUrl = `ws://${window.location.host}/ws`;
-  const { messages, sendMessage, error, setMessages } = useWebSocket(wsUrl);
+  const { messages, sendMessage, error, setMessages, isThinking } = useWebSocket(wsUrl);
   const [prompt, setPrompt] = useState('');
   const [editingIndex, setEditingIndex] = useState(null);
   const [editText, setEditText] = useState('');
 
   const promptInputRef = useRef(null);
+  const chatContainerRef = useRef(null);
+  const messagesEndRef = useRef(null);
 
   useEffect(() => {
     if (promptInputRef.current) {
       promptInputRef.current.focus();
     }
   }, []);
+
+  // Auto-scroll to bottom when messages change or thinking state changes
+  useEffect(() => {
+    const scrollToBottom = () => {
+      if (messagesEndRef.current) {
+        messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
+    };
+
+    // Use requestAnimationFrame for better timing
+    requestAnimationFrame(() => {
+      setTimeout(scrollToBottom, 50);
+    });
+  }, [messages, isThinking]);
 
   const handleSendMessage = () => {
     if (prompt.trim()) {
@@ -123,16 +139,16 @@ function MainContent({ leftCollapsed, rightCollapsed, onToggleLeft, onToggleRigh
             </button>
           </div>
           <div id="chat-container-wrapper" className="flex-1 flex flex-col overflow-hidden">
-            <div id="chat-container" className="flex-1 overflow-y-auto p-6 space-y-6">
+            <div id="chat-container" ref={chatContainerRef} className="flex-1 overflow-y-auto p-6 space-y-6">
               {messages.length === 0 ? (
                 <WelcomeScreen />
               ) : (
                 messages.map((msg, index) => (
                   <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} mb-6`}>
-                    <div className={`max-w-4xl w-full px-4 py-3 rounded-lg ${
+                    <div className={`max-w-4xl w-full px-4 py-3 rounded-lg relative group ${
                       msg.role === 'user' 
-                        ? 'bg-blue-600 text-white ml-12' 
-                        : 'bg-gray-200 text-gray-900 dark:bg-gray-800 dark:text-gray-300 mr-12'
+                        ? 'bg-gray-200 text-gray-900 dark:bg-gray-800 dark:text-gray-300 mr-12' 
+                        : 'bg-gray-200 text-gray-900 dark:bg-gray-800 dark:text-gray-300 ml-12'
                     }`}>
                       {editingIndex === index ? (
                         <div className="space-y-3">
@@ -164,18 +180,18 @@ function MainContent({ leftCollapsed, rightCollapsed, onToggleLeft, onToggleRigh
                             {msg.content}
                           </div>
                           {msg.role === 'user' && (
-                            <div className="mt-2 pt-2 border-t border-blue-500 flex justify-end">
-                              <div className="flex items-center space-x-3 text-blue-200">
+                            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div className="flex items-center space-x-2 bg-gray-300 dark:bg-gray-700 rounded-lg px-2 py-1">
                                 <button 
                                   onClick={() => handleCopyMessage(msg.content)}
-                                  className="hover:text-white"
+                                  className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-sm"
                                   title="Copy message"
                                 >
                                   <i className="fas fa-copy"></i>
                                 </button>
                                 <button 
                                   onClick={() => handleEditMessage(index)}
-                                  className="hover:text-white"
+                                  className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-sm"
                                   title="Edit message"
                                 >
                                   <i className="fas fa-edit"></i>
@@ -184,18 +200,24 @@ function MainContent({ leftCollapsed, rightCollapsed, onToggleLeft, onToggleRigh
                             </div>
                           )}
                           {msg.role === 'assistant' && (
-                            <div className="mt-2 pt-2 border-t border-gray-300 flex items-center justify-between dark:border-gray-700">
-                              <span className="text-xs text-gray-600 dark:text-gray-500">Assistant</span>
-                              <div className="flex items-center space-x-3 text-gray-600 dark:text-gray-500">
-                                <button className="hover:text-white">
+                            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div className="flex items-center space-x-2 bg-gray-300 dark:bg-gray-700 rounded-lg px-2 py-1">
+                                <button 
+                                  className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-sm"
+                                  title="Thumbs up"
+                                >
                                   <i className="fas fa-thumbs-up"></i>
                                 </button>
-                                <button className="hover:text-white">
+                                <button 
+                                  className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-sm"
+                                  title="Thumbs down"
+                                >
                                   <i className="fas fa-thumbs-down"></i>
                                 </button>
                                 <button 
                                   onClick={() => handleCopyMessage(msg.content)}
-                                  className="hover:text-white"
+                                  className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white text-sm"
+                                  title="Copy message"
                                 >
                                   <i className="fas fa-copy"></i>
                                 </button>
@@ -208,6 +230,21 @@ function MainContent({ leftCollapsed, rightCollapsed, onToggleLeft, onToggleRigh
                   </div>
                 ))
               )}
+              {isThinking && (
+                <div className="flex justify-start mb-6">
+                  <div className="max-w-4xl w-full px-4 py-3 rounded-lg bg-gray-200 text-gray-900 dark:bg-gray-800 dark:text-gray-300 ml-12">
+                    <div className="flex items-center space-x-2">
+                      <div className="flex space-x-1">
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                        <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                      </div>
+                      <span className="text-gray-500 text-sm">Thinking...</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div ref={messagesEndRef} />
             </div>
             {/* -------------------- 
             Main text input area for chat. 

@@ -5,6 +5,7 @@ export function useWebSocket(url) {
   const [socket, setSocket] = useState(null);
   const [messages, setMessages] = useState([]);
   const [error, setError] = useState(null);
+  const [isThinking, setIsThinking] = useState(false);
 
   useEffect(() => {
     const ws = new WebSocket(url);
@@ -18,10 +19,12 @@ export function useWebSocket(url) {
       try {
         const data = JSON.parse(event.data);
         if (data.type === 'chat_response') {
+          setIsThinking(false);
           setMessages((prevMessages) => [...prevMessages, { role: 'assistant', content: data.message }]);
         }
       } catch (error) {
         // Fallback for non-JSON messages
+        setIsThinking(false);
         setMessages((prevMessages) => [...prevMessages, { role: 'assistant', content: event.data }]);
       }
     };
@@ -45,6 +48,9 @@ export function useWebSocket(url) {
       // Add user message to UI immediately
       setMessages((prevMessages) => [...prevMessages, { role: 'user', content: message }]);
       
+      // Set thinking state
+      setIsThinking(true);
+      
       const messageData = {
         type: "chat",
         content: message,
@@ -55,5 +61,5 @@ export function useWebSocket(url) {
     }
   };
 
-  return { messages, sendMessage, error, setMessages };
+  return { messages, sendMessage, error, setMessages, isThinking };
 }
