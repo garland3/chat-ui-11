@@ -54,7 +54,7 @@ function App() {
   }, []);
 
   return (
-    <div className="bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100 font-sans antialiased overflow-hidden h-screen flex flex-col">
+    <div className="bg-white text-gray-900 dark:bg-gray-800 dark:text-gray-100 font-sans antialiased overflow-hidden h-screen flex flex-col">
       <Banner />
       <div id="app" className="flex flex-1 w-screen relative">
         <LeftSidebar 

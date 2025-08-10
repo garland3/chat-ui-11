@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useWebSocket } from '../hooks/useWebSocket';
 import WelcomeScreen from './WelcomeScreen';
@@ -113,7 +112,7 @@ function MainContent({ leftCollapsed, rightCollapsed, onToggleLeft, onToggleRigh
   };
 
   return (
-    <main id="main-content" className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 relative h-screen">
+    <main id="main-content" className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-800 relative h-screen">
       {/* Sidebar Collapse Toggles (Desktop) */}
       <button 
         className="hidden lg:flex absolute top-1/2 -left-3 z-20 w-6 h-16 bg-gray-200 hover:bg-cyan-600 rounded-r-lg items-center justify-center transition-all dark:bg-gray-700 dark:hover:bg-cyan-600"
@@ -176,10 +175,10 @@ function MainContent({ leftCollapsed, rightCollapsed, onToggleLeft, onToggleRigh
               ) : (
                 messages.map((msg, index) => (
                   <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} mb-6`}>
-                    <div className={`max-w-4xl w-full px-4 py-3 rounded-lg relative group break-words overflow-hidden ${
+                    <div className={`px-4 py-3 rounded-lg relative group break-words overflow-hidden ${
                       msg.role === 'user' 
-                        ? 'bg-gray-200 text-gray-900 dark:bg-gray-800 dark:text-gray-300 mr-12' 
-                        : 'bg-gray-200 text-gray-900 dark:bg-gray-800 dark:text-gray-300 ml-12'
+                        ? 'bg-gray-200 text-gray-900 dark:bg-gray-800 dark:text-gray-300 mr-12 max-w-4xl'
+                        : 'text-gray-900 dark:text-gray-300 w-full'
                     }`}>
                       {editingIndex === index ? (
                         <div className="space-y-3">
