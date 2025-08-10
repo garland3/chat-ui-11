@@ -45,8 +45,8 @@ COPY frontend3/ .
 RUN npm run build
 # DO NOT remove node_modules - we need them for testing
 
-# Copy E2E test package files and install dependencies
-COPY test_e2e/package.json test_e2e/package-lock.json ./test_e2e/
+# Copy E2E test directory first, then install dependencies
+COPY test_e2e/ ./test_e2e/
 WORKDIR /app/test_e2e
 RUN npm install
 
@@ -59,7 +59,6 @@ COPY backend/configfiles/llmconfig.yml ./backend/configfiles/
 COPY docs/ ./docs/
 COPY scripts/ ./scripts/
 COPY test/ ./test/
-COPY test_e2e/ ./test_e2e/
 
 # Create logs directory for the backend
 RUN mkdir -p /app/backend/logs
