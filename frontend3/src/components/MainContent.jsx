@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { useWebSocket } from '../hooks/useWebSocket';
 import WelcomeScreen from './WelcomeScreen';
 
-function MainContent({ leftCollapsed, rightCollapsed, onToggleLeft, onToggleRight }) {
+function MainContent({ leftCollapsed, rightCollapsed, onToggleLeft, onToggleRight, theme, toggleTheme }) {
   const wsUrl = `ws://${window.location.host}/ws`;
   const { messages, sendMessage, error } = useWebSocket(wsUrl);
   const [prompt, setPrompt] = useState('');
@@ -53,6 +53,13 @@ function MainContent({ leftCollapsed, rightCollapsed, onToggleLeft, onToggleRigh
             <div id="ws-indicator" className="w-3 h-3 rounded-full bg-green-500"></div>
             <span id="ws-text">Connected</span>
           </div>
+          <button 
+            onClick={toggleTheme} 
+            className="p-2 rounded-full hover:bg-gray-700 transition-colors"
+            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            <i className={`fas ${theme === 'dark' ? 'fa-sun text-yellow-400' : 'fa-moon text-gray-400'}`}></i>
+          </button>
           <button className="lg:hidden">
             <i className="fas fa-cog"></i>
           </button>
