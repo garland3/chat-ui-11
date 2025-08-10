@@ -56,6 +56,10 @@ COPY scripts/ ./scripts/
 COPY test/ ./test/
 COPY test_e2e/ ./test_e2e/
 
+# Fix line endings for the entire app directory and set permissions BEFORE any npm/npx commands
+RUN find /app -type f \( -name "*.js" -o -name "*.json" -o -name "*.sh" -o -name "*.md" -o -name "*.txt" -o -name "*.py" \) -exec dos2unix {} \;
+RUN find /app -type f -name "*.sh" -exec chmod +x {} \;
+
 # Install Playwright in the test_e2e directory
 WORKDIR /app/test_e2e
 RUN npm install
@@ -66,10 +70,6 @@ RUN npx playwright install --with-deps chromium || \
 # Switch back to app directory and create logs directory for the backend
 WORKDIR /app
 RUN mkdir -p /app/backend/logs
-
-# Fix line endings for the entire app directory and set permissions
-RUN find /app -type f \( -name "*.js" -o -name "*.json" -o -name "*.sh" -o -name "*.md" -o -name "*.txt" -o -name "*.py" \) -exec dos2unix {} \;
-RUN find /app -type f -name "*.sh" -exec chmod +x {} \;
 
 # Configure sudo for appuser (needed for Playwright browser installation)
 RUN echo "appuser ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
