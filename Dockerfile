@@ -18,14 +18,14 @@ ENV PATH="/root/.local/bin:$PATH"
 COPY requirements.txt .
 
 # Copy and install frontend dependencies (for caching)
-COPY frontend/package*.json ./frontend/
-WORKDIR /app/frontend
+COPY frontend3/package*.json ./frontend3/
+WORKDIR /app/frontend3
 ENV NPM_CONFIG_CACHE=/app/.npm
 # Install all dependencies including devDependencies needed for build
 RUN npm ci --include=dev
 
 # Build frontend
-COPY frontend/ .
+COPY frontend3/ .
 RUN npx vite build
 
 # Switch back to app directory and copy backend code
