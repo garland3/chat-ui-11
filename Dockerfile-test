@@ -45,8 +45,10 @@ COPY frontend3/ .
 RUN npm run build
 # DO NOT remove node_modules - we need them for testing
 
-# E2E test dependencies will be installed during test execution
-# Skip pre-installing them in the build to avoid file copying issues
+# Copy E2E test package files and install dependencies
+COPY test_e2e/package.json test_e2e/package-lock.json ./test_e2e/
+WORKDIR /app/test_e2e
+RUN npm ci
 
 # Switch back to app directory and copy backend code
 WORKDIR /app
