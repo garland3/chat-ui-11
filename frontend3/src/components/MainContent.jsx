@@ -1,7 +1,8 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useWebSocket } from '../hooks/useWebSocket';
 import WelcomeScreen from './WelcomeScreen';
+import MarkdownRenderer from './MarkdownRenderer';
 
 function MainContent({ leftCollapsed, rightCollapsed, onToggleLeft, onToggleRight, theme, toggleTheme, selectedModel, temperature }) {
   const wsUrl = `ws://${window.location.host}/ws`;
@@ -12,7 +13,27 @@ function MainContent({ leftCollapsed, rightCollapsed, onToggleLeft, onToggleRigh
 
   const promptInputRef = useRef(null);
   const chatContainerRef = useRef(null);
-  const messagesEndRef = useRef(null);
+  const bottomSentinelRef = useRef(null); // sentinel element at bottom for smooth scrolling
+  const autoScrollRef = useRef(true); // whether we should auto-scroll on new content
+  const isScrollingRef = useRef(false); // track if currently programmatically scrolling
+
+  // Scroll event tracking to update whether user is near bottom
+  useEffect(() => {
+    const container = chatContainerRef.current;
+    if (!container) return;
+    const handleScroll = () => {
+      // Don't update scroll state if we're programmatically scrolling
+      if (isScrollingRef.current) return;
+      
+      const threshold = 140; // px distance from bottom considered "near"
+      const distanceFromBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+      autoScrollRef.current = distanceFromBottom < threshold;
+    };
+    container.addEventListener('scroll', handleScroll, { passive: true });
+    // Initialize
+    handleScroll();
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
 
   useEffect(() => {
     if (promptInputRef.current) {
@@ -20,19 +41,29 @@ function MainContent({ leftCollapsed, rightCollapsed, onToggleLeft, onToggleRigh
     }
   }, []);
 
-  // Auto-scroll to bottom when messages change or thinking state changes
-  useEffect(() => {
-    const scrollToBottom = () => {
-      if (messagesEndRef.current) {
-        messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
-      }
-    };
+  // Scroll to bottom sentinel (instead of manual math) if allowed
+  const scrollToBottom = useCallback((behavior = 'smooth') => {
+    isScrollingRef.current = true;
+    if (bottomSentinelRef.current) {
+      bottomSentinelRef.current.scrollIntoView({ behavior, block: 'end' });
+    } else if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTo({ top: chatContainerRef.current.scrollHeight, behavior });
+    }
+    // Reset flag after scroll completes
+    setTimeout(() => {
+      isScrollingRef.current = false;
+    }, behavior === 'smooth' ? 500 : 100);
+  }, []);
 
-    // Use requestAnimationFrame for better timing
-    requestAnimationFrame(() => {
-      setTimeout(scrollToBottom, 50);
-    });
-  }, [messages, isThinking]);
+  // Decide when to auto-scroll: only on new messages if user was near bottom, or if thinking
+  useEffect(() => {
+    const lastMessage = messages[messages.length - 1];
+    const shouldScroll = (autoScrollRef.current && messages.length > 0) || (lastMessage && lastMessage.role === 'user') || isThinking;
+    if (shouldScroll) {
+      // Use rAF + small timeout to ensure DOM (esp. Markdown rendering) has laid out
+      requestAnimationFrame(() => setTimeout(() => scrollToBottom('smooth'), 40));
+    }
+  }, [messages, isThinking, scrollToBottom]);
 
   const handleSendMessage = () => {
     if (prompt.trim()) {
@@ -82,7 +113,7 @@ function MainContent({ leftCollapsed, rightCollapsed, onToggleLeft, onToggleRigh
   };
 
   return (
-    <main id="main-content" className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 relative">
+    <main id="main-content" className="flex-1 flex flex-col bg-gray-50 dark:bg-gray-900 relative h-screen">
       {/* Sidebar Collapse Toggles (Desktop) */}
       <button 
         className="hidden lg:flex absolute top-1/2 -left-3 z-20 w-6 h-16 bg-gray-200 hover:bg-cyan-600 rounded-r-lg items-center justify-center transition-all dark:bg-gray-700 dark:hover:bg-cyan-600"
@@ -126,9 +157,9 @@ function MainContent({ leftCollapsed, rightCollapsed, onToggleLeft, onToggleRigh
       </header>
 
       {/* Side-by-Side Content Panels */}
-      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden">
+      <div className="flex-1 flex flex-col lg:flex-row overflow-hidden min-h-0">
         {/* Chat Panel */}
-        <div id="chat-panel" className="w-full flex flex-col overflow-hidden transition-all">
+        <div id="chat-panel" className="w-full flex flex-col overflow-hidden transition-all min-h-0">
           {/* Mobile Tabs Header */}
           <div className="lg:hidden flex-shrink-0 flex space-x-4 px-4 border-b border-gray-200 dark:border-gray-700">
             <button id="tab-chat" className="tab-button py-3 px-2 text-sm font-semibold text-gray-600 dark:text-gray-400">
@@ -138,14 +169,14 @@ function MainContent({ leftCollapsed, rightCollapsed, onToggleLeft, onToggleRigh
               Canvas
             </button>
           </div>
-          <div id="chat-container-wrapper" className="flex-1 flex flex-col overflow-hidden">
-            <div id="chat-container" ref={chatContainerRef} className="flex-1 overflow-y-auto p-6 space-y-6">
+          <div id="chat-container-wrapper" className="flex-1 flex flex-col overflow-hidden min-h-0">
+            <div id="chat-container" ref={chatContainerRef} className="flex-1 overflow-y-auto p-6 space-y-6 min-h-0">
               {messages.length === 0 ? (
                 <WelcomeScreen />
               ) : (
                 messages.map((msg, index) => (
                   <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} mb-6`}>
-                    <div className={`max-w-4xl w-full px-4 py-3 rounded-lg relative group ${
+                    <div className={`max-w-4xl w-full px-4 py-3 rounded-lg relative group break-words overflow-hidden ${
                       msg.role === 'user' 
                         ? 'bg-gray-200 text-gray-900 dark:bg-gray-800 dark:text-gray-300 mr-12' 
                         : 'bg-gray-200 text-gray-900 dark:bg-gray-800 dark:text-gray-300 ml-12'
@@ -177,7 +208,11 @@ function MainContent({ leftCollapsed, rightCollapsed, onToggleLeft, onToggleRigh
                       ) : (
                         <>
                           <div className="whitespace-pre-wrap">
-                            {msg.content}
+                            {msg.role === 'assistant' ? (
+                              <MarkdownRenderer content={msg.content} />
+                            ) : (
+                              msg.content
+                            )}
                           </div>
                           {msg.role === 'user' && (
                             <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -244,13 +279,14 @@ function MainContent({ leftCollapsed, rightCollapsed, onToggleLeft, onToggleRigh
                   </div>
                 </div>
               )}
-              <div ref={messagesEndRef} />
+              {/* Bottom sentinel for scroll anchoring */}
+              <div ref={bottomSentinelRef} />
             </div>
             {/* -------------------- 
             Main text input area for chat. 
             -----------------------------
             */}
-            <div className="p-4 bg-gray-100 border-t border-gray-200 dark:bg-gray-800 dark:border-gray-700">
+            <div className="flex-shrink-0 p-4 bg-gray-100 border-t border-gray-200 dark:bg-gray-800 dark:border-gray-700">
               <div className="relative bg-gray-200 rounded-lg dark:bg-gray-700">
                 <textarea
                   id="prompt-input"
