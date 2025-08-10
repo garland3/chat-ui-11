@@ -10,6 +10,7 @@ export default function LogViewer() {
   const [error, setError] = useState(null);
   const [levelFilter, setLevelFilter] = useState('');
   const [moduleFilter, setModuleFilter] = useState('');
+  const [hideViewerRequests, setHideViewerRequests] = useState(true);
   const tableContainerRef = useRef(null);
 
   const fetchLogs = useCallback(() => {
@@ -49,8 +50,16 @@ export default function LogViewer() {
   const levels = Array.from(new Set(entries.map(e => e.level))).sort();
   const modules = Array.from(new Set(entries.map(e => e.module))).sort();
 
-  const paginated = entries.slice().reverse().slice(page * pageSize, (page + 1) * pageSize);
-  const totalPages = Math.ceil(entries.length / pageSize) || 1;
+  // Optionally hide the self-referential fetch request log lines to reduce noise
+  const filtered = hideViewerRequests
+    ? entries.filter(e => !(
+        (e.message && e.message.includes('GET /admin/logs/viewer')) ||
+        (e.path && e.path.includes('/admin/logs/viewer'))
+      ))
+    : entries;
+
+  const paginated = filtered.slice().reverse().slice(page * pageSize, (page + 1) * pageSize);
+  const totalPages = Math.ceil(filtered.length / pageSize) || 1;
 
   const changePage = (delta) => {
     setPage(p => Math.min(Math.max(0, p + delta), totalPages - 1));
@@ -77,6 +86,10 @@ export default function LogViewer() {
         {loading && <span className="text-sm text-gray-500">Loading...</span>}
         <button onClick={() => window.location.href='/admin/logs/download'} className="bg-gray-300 dark:bg-gray-700 hover:bg-gray-400 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-100 px-3 py-2 rounded text-sm font-medium">Download</button>
         {error && <span className="text-sm text-red-500">{error.message}</span>}
+        <label className="flex items-center gap-2 text-xs font-medium select-none cursor-pointer ml-2">
+          <input type="checkbox" className="accent-cyan-600" checked={hideViewerRequests} onChange={e => { setPage(0); setHideViewerRequests(e.target.checked); }} />
+          Hide GET /admin/logs/viewer
+        </label>
       </div>
       <div className="flex items-center gap-3 text-xs">
         <div className="flex items-center gap-2">
@@ -90,7 +103,7 @@ export default function LogViewer() {
             {[50,100,250,500].map(s => <option key={s}>{s}</option>)}
           </select>
         </div>
-        <span className="text-gray-500">Total entries: {entries.length}</span>
+  <span className="text-gray-500">Total entries: {entries.length}{hideViewerRequests && filtered.length !== entries.length && ` (showing ${filtered.length})`}</span>
       </div>
       <div ref={tableContainerRef} className="flex-1 overflow-auto border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
         <table className="w-full text-sm">
@@ -117,7 +130,7 @@ export default function LogViewer() {
                 <td className="p-2 font-mono text-[11px] text-gray-700 dark:text-gray-300">{e.logger}</td>
               </tr>
             ))}
-            {!entries.length && !loading && (
+            {!filtered.length && !loading && (
               <tr><td colSpan={6} className="p-4 text-center text-gray-500">No log entries</td></tr>
             )}
           </tbody>
