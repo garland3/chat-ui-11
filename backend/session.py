@@ -45,8 +45,6 @@ class ChatSession:
         self.session_id: str = id(self)
         self.uploaded_files: Dict[str, str] = {}  # filename -> s3_key mapping
         self.file_references: Dict[str, Dict[str, Any]] = {}  # filename -> file metadata
-        # Cache original base64 content for each uploaded or generated file (filename -> base64)
-        self._file_base64_cache: Dict[str, str] = {}
 
         # Initialize message processor
         self.message_processor = MessageProcessor(self)
@@ -66,7 +64,15 @@ class ChatSession:
                 logger.error("Error in callback for event '%s': %s", event, exc, exc_info=True)
 
     async def run(self) -> None:
-        """Receive and handle messages from the client."""
+        """
+        -----------------------------------------
+        ==========================================
+        NOTE: THIS IS THE MAIN FUNCTION WHICH RUNS THE LOGIC TO HANDLE A CHAT
+        Receive and handle messages from the client.
+        ========================================
+        ---------------------------------------
+        - This function listens for incoming WebSocket messages and processes them accordingly.
+        """
         try:
             await self._trigger_callbacks("session_started")
 
@@ -150,8 +156,6 @@ class ChatSession:
                 # Store S3 key and metadata
                 self.uploaded_files[filename] = file_metadata["key"]
                 self.file_references[filename] = file_metadata
-                # Preserve original base64 for later LLM context filtering (size / policy decisions)
-                self._file_base64_cache[filename] = base64_content
                 
                 logger.info(
                     f"File uploaded to S3: {filename} -> {file_metadata['key']} for session {self.session_id}"
@@ -181,8 +185,6 @@ class ChatSession:
             # Store in session
             self.uploaded_files[filename] = file_metadata["key"]
             self.file_references[filename] = file_metadata
-            # Cache content for LLM visibility decisions (tool outputs may be re-used by other tools / context)
-            self._file_base64_cache[filename] = content_base64
             
             logger.info(
                 f"Generated file stored in S3: {filename} -> {file_metadata['key']} for session {self.session_id}"

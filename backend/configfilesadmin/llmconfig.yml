@@ -1,7 +1,7 @@
 models:
   openrouter-gpt-oss:
     model_url: "https://openrouter.ai/api/v1/chat/completions"
-    model_name: "openai/gpt-oss-20b:free"
+    model_name: "openai/gpt-oss-20b"
     api_key: "${OPENROUTER_API_KEY}"
     description: "OpenRouter aggregated GPT-4o model"
     extra_headers:
@@ -11,7 +11,7 @@ models:
 
   openrouter-qween3-coder:
     model_url: "https://openrouter.ai/api/v1/chat/completions"
-    model_name: "qwen/qwen3-coder:free"
+    model_name: "qwen/qwen3-coder"
     api_key: "${OPENROUTER_API_KEY}"
     description: "OpenRouter aggregated Qwen3 Coder model"
     extra_headers:

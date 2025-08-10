@@ -217,26 +217,29 @@ class MessageProcessor:
     def _build_content_with_files(self, content: str) -> str:
         """Append available files to user prompt if any exist, filtered by file policy"""
         try:
-            if not self.session._file_base64_cache:
+            if not self.session.uploaded_files:
                 return content
 
             # Import file filtering functionality
-            from file_config import filter_files_for_llm_context, file_policy
+            from file_config import file_policy
 
-            # Filter files that should be exposed to LLM context
-            llm_visible_files = filter_files_for_llm_context(self.session._file_base64_cache)
-
-            import base64
             file_entries = []
-            for filename, base64_content in self.session._file_base64_cache.items():
+            for filename in self.session.uploaded_files.keys():
                 try:
-                    file_size = len(base64.b64decode(base64_content))
+                    # Get file metadata from session.file_references
+                    file_metadata = self.session.file_references.get(filename, {})
+                    file_size = file_metadata.get("size", 0)
                     category = file_policy.get_file_category(filename)
                     size_kb = file_size / 1024
-                    if filename in llm_visible_files:
+                    
+                    # Determine if file should be exposed to LLM based on metadata
+                    should_expose = file_policy.should_expose_to_llm(filename, file_size)
+                    
+                    if should_expose:
                         file_entries.append(f"- {filename} ({category}, {size_kb:.1f}KB)")
                     else:
                         file_entries.append(f"- {filename} ({category}, {size_kb:.1f}KB) [tool-accessible only]")
+                        
                 except Exception as e:
                     logger.warning(f"Could not analyze file {filename}: {e}")
                     file_entries.append(f"- {filename} [analysis failed]")
@@ -351,11 +354,12 @@ class MessageProcessor:
         )
         
         # Log file upload details for debugging
-        if self.session._file_base64_cache:
-            logger.info(f"User {self.session.user_email} uploaded {len(self.session._file_base64_cache)} files:")
-            for filename, file_data in self.session._file_base64_cache.items():
-                file_size = len(file_data) if file_data else 0
-                logger.info(f"  - {filename} (raw base64 size: {file_size} bytes)")
+        if self.session.uploaded_files:
+            logger.info(f"User {self.session.user_email} has {len(self.session.uploaded_files)} files:")
+            for filename, s3_key in self.session.uploaded_files.items():
+                file_metadata = self.session.file_references.get(filename, {})
+                file_size = file_metadata.get("size", 0)
+                logger.info(f"  - {filename} (size: {file_size} bytes, S3: {s3_key})")
                 
             # Show potential file-related tools that could be used
             available_file_tools = [tool for tool in self.session.selected_tools 
@@ -365,10 +369,8 @@ class MessageProcessor:
                 logger.info(f"Available file processing tools: {available_file_tools}")
             else:
                 logger.warning(f"No file processing tools selected despite file upload")
-        
-        # Log file uploads more clearly (avoid duplicating with earlier log)
-        if not self.session._file_base64_cache:
-            logger.debug("No files uploaded in this message")
+        else:
+            logger.debug("No files uploaded for this user")
     
     def _build_processing_context(self, message: Dict[str, Any], agent_mode: bool = False) -> ProcessingContext:
         """Build processing context from message and session state."""

@@ -6,7 +6,7 @@ in the chat interface, particularly what should be exposed to the LLM directly v
 what should only be processed by tools.
 """
 
-from typing import Set, Dict, Any
+from typing import Set, Dict
 import logging
 
 logger = logging.getLogger(__name__)
@@ -114,30 +114,28 @@ class FilePolicy:
 file_policy = FilePolicy()
 
 
-def filter_files_for_llm_context(uploaded_files: Dict[str, str]) -> Dict[str, int]:
+def filter_files_for_llm_context(file_metadata_dict: Dict[str, Dict]) -> Dict[str, int]:
     """
     Filter uploaded files to determine which should be exposed to LLM context.
     
     Args:
-        uploaded_files: Dict mapping filename to base64 content
+        file_metadata_dict: Dict mapping filename to file metadata with size info
         
     Returns:
-        Dict mapping filename to decoded file size for files that should be exposed to LLM
+        Dict mapping filename to file size for files that should be exposed to LLM
     """
-    import base64
-    
     llm_visible_files = {}
     tool_only_files = {}
     
-    for filename, base64_content in uploaded_files.items():
+    for filename, metadata in file_metadata_dict.items():
         try:
-            # Calculate decoded size
-            decoded_size = len(base64.b64decode(base64_content))
+            # Get file size from metadata
+            file_size = metadata.get("size", 0)
             
-            if file_policy.should_expose_to_llm(filename, decoded_size):
-                llm_visible_files[filename] = decoded_size
+            if file_policy.should_expose_to_llm(filename, file_size):
+                llm_visible_files[filename] = file_size
             else:
-                tool_only_files[filename] = decoded_size
+                tool_only_files[filename] = file_size
                 
         except Exception as e:
             logger.warning(f"Could not analyze file {filename}: {e}")
