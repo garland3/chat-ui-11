@@ -1,7 +1,7 @@
 import React from 'react';
 import { useConfig } from '../hooks/useApi';
 
-function LeftSidebar() {
+function LeftSidebar({ isCollapsed, onToggleCollapse }) {
   const { config, error } = useConfig();
 
   if (error) {
@@ -12,10 +12,32 @@ function LeftSidebar() {
     return <div>Loading...</div>;
   }
 
+  if (isCollapsed) {
+    return (
+      <aside id="left-sidebar" className="w-16 bg-gray-800 flex-shrink-0 flex flex-col p-2 space-y-4 border-r border-gray-700 lg:relative">
+        <div className="flex flex-col items-center space-y-4">
+          <button 
+            onClick={onToggleCollapse}
+            className="p-2 hover:bg-gray-700 rounded-lg transition-all"
+            title="Expand sidebar"
+          >
+            <i className="fas fa-bars text-gray-400"></i>
+          </button>
+          <button 
+            className="p-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg transition-all"
+            title="New Chat"
+          >
+            <i className="fas fa-plus"></i>
+          </button>
+        </div>
+      </aside>
+    );
+  }
+
   return (
     <aside id="left-sidebar" className="w-72 bg-gray-800 flex-shrink-0 flex flex-col p-4 space-y-4 border-r border-gray-700 lg:relative">
       <div className="flex justify-between items-center">
-        <h1 className="text-xl font-bold">Gemini Chat</h1>
+        <h1 className="text-xl font-bold">{config.app_name || 'Chat UI'}</h1>
         <button className="lg:hidden">
           <i className="fas fa-times"></i>
         </button>

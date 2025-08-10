@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useConfig } from '../hooks/useApi';
 
-function RightSidebar() {
+function RightSidebar({ isCollapsed }) {
   const { config, error } = useConfig();
   const [temperature, setTemperature] = useState(0.7);
 
@@ -13,6 +13,10 @@ function RightSidebar() {
     return <div>Loading...</div>;
   }
 
+  if (isCollapsed) {
+    return null;
+  }
+
   return (
     <aside id="right-sidebar" className="w-80 bg-gray-800 flex-shrink-0 flex flex-col p-4 space-y-6 border-l border-gray-700 lg:relative">
       <div className="flex justify-between items-center">
@@ -22,14 +26,11 @@ function RightSidebar() {
         </button>
       </div>
       <div className="bg-gray-700 p-3 rounded-lg">
-        <h3 className="font-semibold mb-2">User Session</h3>
+       
         <p className="text-sm">
           <strong>User:</strong> {config.user}
         </p>
-        <p className="text-sm text-gray-400 truncate">
-          <strong>Token:</strong>
-          <button className="text-cyan-400 ml-2 text-xs">copy</button>
-        </p>
+       
         <button className="w-full mt-3 text-sm bg-red-600/50 hover:bg-red-600/80 text-white py-1 px-3 rounded-lg transition-all">
           Logout
         </button>

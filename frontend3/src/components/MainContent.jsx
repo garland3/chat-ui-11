@@ -1,8 +1,9 @@
 
 import React, { useState } from 'react';
 import { useWebSocket } from '../hooks/useWebSocket';
+import WelcomeScreen from './WelcomeScreen';
 
-function MainContent() {
+function MainContent({ leftCollapsed, rightCollapsed, onToggleLeft, onToggleRight }) {
   const wsUrl = `ws://${window.location.host}/ws`;
   const { messages, sendMessage, error } = useWebSocket(wsUrl);
   const [prompt, setPrompt] = useState('');
@@ -22,13 +23,21 @@ function MainContent() {
   };
 
   return (
-    <main id="main-content" className="flex-1 flex flex-col bg-gray-900 pt-10 relative">
+    <main id="main-content" className="flex-1 flex flex-col bg-gray-900 relative">
       {/* Sidebar Collapse Toggles (Desktop) */}
-      <button className="hidden lg:flex absolute top-1/2 -left-3 z-20 w-6 h-16 bg-gray-700 hover:bg-cyan-600 rounded-r-lg items-center justify-center transition-all">
-        <i id="left-toggle-icon" className="fas fa-chevron-left"></i>
+      <button 
+        className="hidden lg:flex absolute top-1/2 -left-3 z-20 w-6 h-16 bg-gray-700 hover:bg-cyan-600 rounded-r-lg items-center justify-center transition-all"
+        onClick={onToggleLeft}
+        title={leftCollapsed ? "Expand left sidebar" : "Collapse left sidebar"}
+      >
+        <i id="left-toggle-icon" className={`fas ${leftCollapsed ? 'fa-chevron-right' : 'fa-chevron-left'}`}></i>
       </button>
-      <button className="hidden lg:flex absolute top-1/2 -right-3 z-20 w-6 h-16 bg-gray-700 hover:bg-cyan-600 rounded-l-lg items-center justify-center transition-all">
-        <i id="right-toggle-icon" className="fas fa-chevron-right"></i>
+      <button 
+        className="hidden lg:flex absolute top-1/2 -right-3 z-20 w-6 h-16 bg-gray-700 hover:bg-cyan-600 rounded-l-lg items-center justify-center transition-all"
+        onClick={onToggleRight}
+        title={rightCollapsed ? "Expand right sidebar" : "Collapse right sidebar"}
+      >
+        <i id="right-toggle-icon" className={`fas ${rightCollapsed ? 'fa-chevron-left' : 'fa-chevron-right'}`}></i>
       </button>
 
       {/* Main Header */}
@@ -37,7 +46,7 @@ function MainContent() {
           <button className="lg:hidden">
             <i className="fas fa-bars"></i>
           </button>
-          <div className="hidden lg:block text-lg font-semibold">Conversation</div>
+          
         </div>
         <div className="flex items-center space-x-4">
           <div id="websocket-status" className="flex items-center space-x-2 text-sm">
@@ -66,36 +75,11 @@ function MainContent() {
           <div id="chat-container-wrapper" className="flex-1 flex flex-col overflow-hidden">
             <div id="chat-container" className="flex-1 overflow-y-auto p-6 space-y-6">
               {messages.length === 0 ? (
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-gray-700 flex-shrink-0 flex items-center justify-center">
-                    <i className="fas fa-robot text-cyan-400"></i>
-                  </div>
-                  <div className="bg-gray-800 p-3 rounded-lg max-w-2xl w-full">
-                    <div className="prose prose-invert text-gray-300">
-                      Hello! I'm ready to assist. Try asking me to 'generate a plot of sales data'.
-                    </div>
-                    <div className="mt-2 pt-2 border-t border-gray-700 flex items-center justify-between">
-                      <span className="text-xs text-gray-500">Assistant</span>
-                      <div className="flex items-center space-x-3 text-gray-500">
-                        <button className="hover:text-white">
-                          <i className="fas fa-thumbs-up"></i>
-                        </button>
-                        <button className="hover:text-white">
-                          <i className="fas fa-thumbs-down"></i>
-                        </button>
-                        <button className="hover:text-white">
-                          <i className="fas fa-copy"></i>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                <WelcomeScreen />
               ) : (
                 messages.map((msg, index) => (
                   <div key={index} className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded-full bg-gray-700 flex-shrink-0 flex items-center justify-center">
-                      <i className="fas fa-robot text-cyan-400"></i>
-                    </div>
+                    
                     <div className="bg-gray-800 p-3 rounded-lg max-w-2xl w-full">
                       <div className="prose prose-invert text-gray-300">
                         {msg}
@@ -125,7 +109,7 @@ function MainContent() {
                   id="prompt-input"
                   rows="1"
                   className="w-full bg-transparent p-4 pr-24 rounded-lg resize-none focus:outline-none"
-                  placeholder="Ask to generate a plot..."
+                  placeholder="Ask to me anything..."
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   onKeyDown={handleKeyDown}
