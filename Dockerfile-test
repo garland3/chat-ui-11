@@ -61,7 +61,7 @@ RUN find /app -type f \( -name "*.js" -o -name "*.json" -o -name "*.sh" -o -name
 RUN find /app -type f -name "*.sh" -exec chmod +x {} \;
 
 # Install requests and beautifulsoup4 for simple E2E testing
-RUN /home/appuser/.local/bin/uv pip install requests beautifulsoup4
+RUN /root/.local/bin/uv pip install requests beautifulsoup4
 
 # Switch back to app directory and create logs directory for the backend
 WORKDIR /app
