@@ -15,7 +15,15 @@ export function useWebSocket(url) {
     };
 
     ws.onmessage = (event) => {
-      setMessages((prevMessages) => [...prevMessages, event.data]);
+      try {
+        const data = JSON.parse(event.data);
+        if (data.type === 'chat_response') {
+          setMessages((prevMessages) => [...prevMessages, { role: 'assistant', content: data.message }]);
+        }
+      } catch (error) {
+        // Fallback for non-JSON messages
+        setMessages((prevMessages) => [...prevMessages, { role: 'assistant', content: event.data }]);
+      }
     };
 
     ws.onerror = (err) => {
@@ -32,9 +40,18 @@ export function useWebSocket(url) {
     };
   }, [url]);
 
-  const sendMessage = (message) => {
+  const sendMessage = (message, model, temperature) => {
     if (socket) {
-      socket.send(message);
+      // Add user message to UI immediately
+      setMessages((prevMessages) => [...prevMessages, { role: 'user', content: message }]);
+      
+      const messageData = {
+        type: "chat",
+        content: message,
+        model: model,
+        temperature: temperature
+      };
+      socket.send(JSON.stringify(messageData));
     }
   };
 

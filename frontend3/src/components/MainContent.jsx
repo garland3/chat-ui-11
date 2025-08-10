@@ -1,16 +1,24 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useWebSocket } from '../hooks/useWebSocket';
 import WelcomeScreen from './WelcomeScreen';
 
-function MainContent({ leftCollapsed, rightCollapsed, onToggleLeft, onToggleRight, theme, toggleTheme }) {
+function MainContent({ leftCollapsed, rightCollapsed, onToggleLeft, onToggleRight, theme, toggleTheme, selectedModel, temperature }) {
   const wsUrl = `ws://${window.location.host}/ws`;
   const { messages, sendMessage, error } = useWebSocket(wsUrl);
   const [prompt, setPrompt] = useState('');
 
+  const promptInputRef = useRef(null);
+
+  useEffect(() => {
+    if (promptInputRef.current) {
+      promptInputRef.current.focus();
+    }
+  }, []);
+
   const handleSendMessage = () => {
     if (prompt.trim()) {
-      sendMessage(prompt);
+      sendMessage(prompt, selectedModel, temperature);
       setPrompt('');
     }
   };
@@ -85,26 +93,31 @@ function MainContent({ leftCollapsed, rightCollapsed, onToggleLeft, onToggleRigh
                 <WelcomeScreen />
               ) : (
                 messages.map((msg, index) => (
-                  <div key={index} className="flex items-start gap-3">
-                    
-                    <div className="bg-gray-200 p-3 rounded-lg max-w-2xl w-full dark:bg-gray-800">
-                      <div className="prose prose-invert text-gray-900 dark:text-gray-300">
-                        {msg}
+                  <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} mb-6`}>
+                    <div className={`max-w-4xl w-full px-4 py-3 rounded-lg ${
+                      msg.role === 'user' 
+                        ? 'bg-blue-600 text-white ml-12' 
+                        : 'bg-gray-200 text-gray-900 dark:bg-gray-800 dark:text-gray-300 mr-12'
+                    }`}>
+                      <div className="whitespace-pre-wrap">
+                        {msg.content}
                       </div>
-                      <div className="mt-2 pt-2 border-t border-gray-300 flex items-center justify-between dark:border-gray-700">
-                        <span className="text-xs text-gray-600 dark:text-gray-500">Assistant</span>
-                        <div className="flex items-center space-x-3 text-gray-600 dark:text-gray-500">
-                          <button className="hover:text-white">
-                            <i className="fas fa-thumbs-up"></i>
-                          </button>
-                          <button className="hover:text-white">
-                            <i className="fas fa-thumbs-down"></i>
-                          </button>
-                          <button className="hover:text-white">
-                            <i className="fas fa-copy"></i>
-                          </button>
+                      {msg.role === 'assistant' && (
+                        <div className="mt-2 pt-2 border-t border-gray-300 flex items-center justify-between dark:border-gray-700">
+                          <span className="text-xs text-gray-600 dark:text-gray-500">Assistant</span>
+                          <div className="flex items-center space-x-3 text-gray-600 dark:text-gray-500">
+                            <button className="hover:text-white">
+                              <i className="fas fa-thumbs-up"></i>
+                            </button>
+                            <button className="hover:text-white">
+                              <i className="fas fa-thumbs-down"></i>
+                            </button>
+                            <button className="hover:text-white">
+                              <i className="fas fa-copy"></i>
+                            </button>
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </div>
                   </div>
                 ))
@@ -124,6 +137,7 @@ function MainContent({ leftCollapsed, rightCollapsed, onToggleLeft, onToggleRigh
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   onKeyDown={handleKeyDown}
+                  ref={promptInputRef}
                 ></textarea>
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center space-x-3">
                   <label htmlFor="file-upload-input" className="cursor-pointer text-gray-600 hover:text-white dark:text-gray-400">

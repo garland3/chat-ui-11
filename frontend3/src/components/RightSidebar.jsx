@@ -1,9 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useConfig } from '../hooks/useApi';
 
-function RightSidebar({ isCollapsed }) {
+function RightSidebar({ isCollapsed, selectedModel, setSelectedModel, temperature, setTemperature }) {
   const { config, error } = useConfig();
-  const [temperature, setTemperature] = useState(0.7);
+
+  // Set default model when config loads
+  useEffect(() => {
+    if (config && config.models && config.models.length > 0 && !selectedModel) {
+      setSelectedModel(config.models[0]);
+    }
+  }, [config, selectedModel, setSelectedModel]);
 
   if (error) {
     return <div>Error loading config: {error.message}</div>;
@@ -41,7 +47,12 @@ function RightSidebar({ isCollapsed }) {
           <label htmlFor="model-select" className="text-sm font-medium">
             Model
           </label>
-          <select id="model-select" className="w-full mt-1 bg-gray-300 border-gray-400 rounded-md p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500 dark:bg-gray-600 dark:border-gray-500">
+          <select 
+            id="model-select" 
+            value={selectedModel} 
+            onChange={(e) => setSelectedModel(e.target.value)}
+            className="w-full mt-1 bg-gray-300 border-gray-400 rounded-md p-2 text-sm focus:ring-cyan-500 focus:border-cyan-500 dark:bg-gray-600 dark:border-gray-500"
+          >
             {config.models && config.models.map((model) => (
               <option key={model} value={model}>
                 {model}

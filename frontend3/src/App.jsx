@@ -23,6 +23,10 @@ function App() {
     return savedTheme || 'dark'; // Default to dark theme
   });
 
+  // Model and temperature management
+  const [selectedModel, setSelectedModel] = useState('');
+  const [temperature, setTemperature] = useState(0.7);
+
   useEffect(() => {
     if (theme === 'dark') {
       document.documentElement.classList.add('dark');
@@ -64,9 +68,15 @@ function App() {
           onToggleRight={() => setRightCollapsed(!rightCollapsed)}
           theme={theme} // Pass theme to MainContent
           toggleTheme={toggleTheme} // Pass toggleTheme to MainContent
+          selectedModel={selectedModel}
+          temperature={temperature}
         />
         <RightSidebar 
-          isCollapsed={rightCollapsed} 
+          isCollapsed={rightCollapsed}
+          selectedModel={selectedModel}
+          setSelectedModel={setSelectedModel}
+          temperature={temperature}
+          setTemperature={setTemperature}
         />
       </div>
     </div>
