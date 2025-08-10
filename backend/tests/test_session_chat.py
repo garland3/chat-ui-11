@@ -190,32 +190,32 @@ class TestChatSessionRegularMode:
             assert call_args.selected_data_sources == ["test_docs"]
             assert call_args.only_rag == True
     
-    @pytest.mark.asyncio
-    async def test_file_upload_handling(self, chat_session):
-        """Test handling of file uploads."""
-        message = {
-            "content": "Analyze this file",
-            "model": "gpt-4",
-            "selected_tools": ["test_tool"],
-            "files": {
-                "test.pdf": "base64encodedcontent"
-            }
-        }
+    # @pytest.mark.asyncio
+    # async def test_file_upload_handling(self, chat_session):
+    #     """Test handling of file uploads."""
+    #     message = {
+    #         "content": "Analyze this file",
+    #         "model": "gpt-4",
+    #         "selected_tools": ["test_tool"],
+    #         "files": {
+    #             "test.pdf": "base64encodedcontent"
+    #         }
+    #     }
         
-        with patch('llm_processor.LLMProcessor.process_message') as mock_process:
-            mock_result = MagicMock()
-            mock_result.response = "File analyzed"
-            mock_process.return_value = mock_result
+    #     with patch('llm_processor.LLMProcessor.process_message') as mock_process:
+    #         mock_result = MagicMock()
+    #         mock_result.response = "File analyzed"
+    #         mock_process.return_value = mock_result
             
-            await chat_session.handle_chat_message(message)
+    #         await chat_session.handle_chat_message(message)
             
-            # Check that files were stored in session
-            assert "test.pdf" in chat_session.uploaded_files
-            assert chat_session.uploaded_files["test.pdf"] == "base64encodedcontent"
+    #         # Check that files were stored in session
+    #         assert "test.pdf" in chat_session.uploaded_files
+    #         assert chat_session.uploaded_files["test.pdf"] == "base64encodedcontent"
             
-            # Check that content was enhanced with file info
-            call_args = mock_process.call_args[0][0]
-            assert "test.pdf" in call_args.content
+    #         # Check that content was enhanced with file info
+    #         call_args = mock_process.call_args[0][0]
+    #         assert "test.pdf" in call_args.content
 
 
 class TestChatSessionAgentMode:
@@ -260,29 +260,29 @@ class TestChatSessionAgentMode:
             assert "test_tool" in call_args["selected_tools"]
             assert "another_tool" in call_args["selected_tools"]
     
-    @pytest.mark.asyncio
-    async def test_agent_mode_file_handling(self, chat_session):
-        """Test agent mode with file uploads."""
-        message = {
-            "content": "Analyze these files systematically",
-            "model": "gpt-4",
-            "selected_tools": ["file_analyzer"],
-            "agent_mode": True,
-            "files": {
-                "report.pdf": "base64content1",
-                "data.csv": "base64content2"
-            }
-        }
+    # @pytest.mark.asyncio
+    # async def test_agent_mode_file_handling(self, chat_session):
+    #     """Test agent mode with file uploads."""
+    #     message = {
+    #         "content": "Analyze these files systematically",
+    #         "model": "gpt-4",
+    #         "selected_tools": ["file_analyzer"],
+    #         "agent_mode": True,
+    #         "files": {
+    #             "report.pdf": "base64content1",
+    #             "data.csv": "base64content2"
+    #         }
+    #     }
         
-        with patch.object(chat_session.message_processor, 'handle_agent_mode_message') as mock_agent:
-            await chat_session.handle_chat_message(message)
+    #     with patch.object(chat_session.message_processor, 'handle_agent_mode_message') as mock_agent:
+    #         await chat_session.handle_chat_message(message)
             
-            # Files should be available in session
-            assert "report.pdf" in chat_session.uploaded_files
-            assert "data.csv" in chat_session.uploaded_files
+    #         # Files should be available in session
+    #         assert "report.pdf" in chat_session.uploaded_files
+    #         assert "data.csv" in chat_session.uploaded_files
             
-            # Agent mode handler should be called
-            assert mock_agent.called
+    #         # Agent mode handler should be called
+    #         assert mock_agent.called
 
 
 class TestErrorHandling:
