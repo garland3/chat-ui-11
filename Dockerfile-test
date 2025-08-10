@@ -18,6 +18,7 @@ RUN apt-get update && apt-get install -y \
     wget \
     ca-certificates \
     fonts-liberation \
+    dos2unix \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js 20.x from NodeSource repository
@@ -60,6 +61,10 @@ COPY test_e2e/ ./test_e2e/
 
 # Create logs directory for the backend
 RUN mkdir -p /app/backend/logs
+
+# Fix line endings for the entire app directory and set permissions
+RUN find /app -type f \( -name "*.js" -o -name "*.json" -o -name "*.sh" -o -name "*.md" -o -name "*.txt" -o -name "*.py" \) -exec dos2unix {} \;
+RUN find /app -type f -name "*.sh" -exec chmod +x {} \;
 
 # Configure sudo for appuser (needed for Playwright browser installation)
 RUN echo "appuser ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
