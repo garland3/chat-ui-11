@@ -27,6 +27,9 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
     mkdir -p /root/.local/bin
 ENV PATH="/root/.local/bin:$PATH"
 
+# Upgrade npm to latest version to avoid compatibility issues
+RUN npm install -g npm@latest
+
 # Copy requirements first
 COPY requirements.txt .
 
@@ -45,7 +48,7 @@ RUN npm run build
 # Install E2E test dependencies
 COPY test_e2e/package*.json ./test_e2e/
 WORKDIR /app/test_e2e
-RUN npm ci
+RUN npm install
 
 # Switch back to app directory and copy backend code
 WORKDIR /app
