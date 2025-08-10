@@ -56,6 +56,7 @@ COPY backend/configfiles/llmconfig.yml ./backend/configfiles/
 COPY docs/ ./docs/
 COPY scripts/ ./scripts/
 COPY test/ ./test/
+COPY test_e2e/ ./test_e2e/
 
 # Create logs directory for the backend
 RUN mkdir -p /app/backend/logs
