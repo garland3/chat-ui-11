@@ -27,7 +27,8 @@ RUN npm ci --include=dev
 
 # Build frontend
 COPY frontend3/ .
-RUN npx vite build
+# build and delete the node_modules
+RUN  npm run build && rm -rf node_modules
 
 # Switch back to app directory and copy backend code
 WORKDIR /app
