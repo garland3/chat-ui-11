@@ -60,12 +60,8 @@ COPY test_e2e/ ./test_e2e/
 RUN find /app -type f \( -name "*.js" -o -name "*.json" -o -name "*.sh" -o -name "*.md" -o -name "*.txt" -o -name "*.py" \) -exec dos2unix {} \;
 RUN find /app -type f -name "*.sh" -exec chmod +x {} \;
 
-# Install Playwright in the test_e2e directory
-WORKDIR /app/test_e2e
-RUN npm install
-RUN npx playwright install --with-deps chromium || \
-    (echo "Playwright install with system deps failed, installing browser only..." && \
-     npx playwright install chromium)
+# Install requests and beautifulsoup4 for simple E2E testing
+RUN /home/appuser/.local/bin/uv pip install requests beautifulsoup4
 
 # Switch back to app directory and create logs directory for the backend
 WORKDIR /app
