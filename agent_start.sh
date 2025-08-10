@@ -11,7 +11,7 @@ pkill -f uvicorn
 pkill -f python
 # wait a few seconds for processes to terminate
 sleep 5
-
+clear
 echo "Clearing log for fresh start"
 echo "NEW LOG" > /workspaces/chat-ui-11/backend/logs/app.jsonl
 
