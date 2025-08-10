@@ -44,10 +44,8 @@ COPY frontend3/ .
 RUN npm run build
 # DO NOT remove node_modules - we need them for testing
 
-# Install E2E test dependencies
-COPY test_e2e/package.json test_e2e/package-lock.json ./test_e2e/
-WORKDIR /app/test_e2e
-RUN npm install
+# E2E test dependencies will be installed during test execution
+# Skip pre-installing them in the build to avoid file copying issues
 
 # Switch back to app directory and copy backend code
 WORKDIR /app
@@ -87,12 +85,8 @@ ENV PATH="/app/venv/bin:$PATH"
 # Install Python dependencies using uv
 RUN /home/appuser/.local/bin/uv pip install -r requirements.txt
 
-# Pre-install Playwright browsers with system dependencies
-WORKDIR /app/test_e2e
-RUN sudo npx playwright install --with-deps chromium || \
-    (echo "Playwright install with system deps failed, installing browser only..." && \
-     npx playwright install chromium && \
-     echo "Chromium browser installed successfully")
+# Playwright browsers will be installed during E2E test execution
+# Skip pre-installing to simplify build process
 
 # Set environment variables
 ENV PYTHONPATH=/app
