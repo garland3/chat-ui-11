@@ -1,21 +1,53 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 function Banner() {
-  const [isVisible, setIsVisible] = useState(true);
+  const [messages, setMessages] = useState([]);
+  const [dismissedMessages, setDismissedMessages] = useState(new Set());
 
-  if (!isVisible) return null;
+  useEffect(() => {
+    const fetchBannerMessages = async () => {
+      try {
+        const response = await fetch('/api/banners');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.messages && data.messages.length > 0) {
+            setMessages(data.messages);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching banner messages:', error);
+      }
+    };
+
+    fetchBannerMessages();
+  }, []);
+
+  const handleDismiss = (messageIndex) => {
+    setDismissedMessages(prev => new Set([...prev, messageIndex]));
+  };
+
+  const visibleMessages = messages.filter((_, index) => !dismissedMessages.has(index));
+
+  if (visibleMessages.length === 0) return null;
 
   return (
-    <div className="absolute top-0 left-0 right-0 bg-cyan-600 text-white text-center p-2 text-sm z-50 flex justify-between items-center">
-      <span>
-        Welcome to the new Gemini interface! ✨{' '}
-        <a href="#" className="underline font-semibold">
-          Learn more
-        </a>
-      </span>
-      <button onClick={() => setIsVisible(false)} className="px-2">
-        &times;
-      </button>
+    <div className="w-full">
+      {visibleMessages.map((message, index) => {
+        const originalIndex = messages.indexOf(message);
+        return (
+          <div key={originalIndex} className="w-full bg-cyan-600 text-white text-center p-2 text-sm flex justify-between items-center border-b border-cyan-700 last:border-b-0">
+            <span>
+              {message}
+            </span>
+            <button 
+              onClick={() => handleDismiss(originalIndex)} 
+              className="px-2 hover:bg-cyan-700 rounded"
+            >
+              &times;
+            </button>
+          </div>
+        );
+      })}
     </div>
   );
 }

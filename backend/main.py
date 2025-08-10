@@ -69,11 +69,12 @@ from callbacks import (
 import rag_client
 from rag_client import initialize_rag_client
 import banner_client
-from banner_client import initialize_banner_client
+from banner_client import initialize_banner_client, banner_router
 from llm_health_check import health_checker, get_llm_health_status
 from admin_routes import admin_router, setup_configfilesadmin
 from feedback_routes import feedback_router
 from files_routes import router as files_router
+from config_routes import router as config_router
 from mcp_health_check import mcp_health_monitor
 
 mcp_manager: Optional[MCPToolManager] = None
@@ -168,10 +169,12 @@ async def admin_frontend():
         return FileResponse(frontend_dist / "index.html")
     raise HTTPException(404)
 
-# Include admin and feedback routers
+# Include routers
 app.include_router(admin_router)
 app.include_router(feedback_router)
 app.include_router(files_router)
+app.include_router(config_router)
+app.include_router(banner_router)
 
 USE_NEW_FRONTEND = os.getenv("USE_NEW_FRONTEND", "false").lower() == "true"
 print(f"USE_NEW_FRONTEND: {USE_NEW_FRONTEND}")
@@ -200,125 +203,7 @@ async def auth_endpoint():
     return {"message": "Please authenticate through reverse proxy"}
 
 
-@app.get("/api/banners")
-async def get_banners(current_user: str = Depends(get_current_user)):
-    """Get banner messages for display at the top of the UI."""
-    if not banner_client.banner_client:
-        return {"messages": []}
-    
-    try:
-        messages = await banner_client.banner_client.get_banner_messages()
-        return {"messages": messages}
-    except Exception as e:
-        logger.error(f"Error fetching banner messages: {e}", exc_info=True)
-        return {"messages": []}
 
-
-@app.get("/api/config")
-async def get_config(current_user: str = Depends(get_current_user)):
-    """Get available models, tools, and data sources for the user.
-    Only returns MCP servers and tools that the user is authorized to access.
-    """
-    llm_config = config_manager.llm_config
-    
-    # Get RAG data sources for the user
-    rag_data_sources = await rag_client.rag_client.discover_data_sources(current_user)
-    
-    # Get authorized servers for the user - this filters out unauthorized servers completely
-    authorized_servers = mcp_manager.get_authorized_servers(current_user, is_user_in_group)
-    
-    # Add canvas pseudo-tool to authorized servers (available to all users)
-    authorized_servers.append("canvas")
-    
-    # Only build tool information for servers the user is authorized to access
-    tools_info = []
-    prompts_info = []
-    for server_name in authorized_servers:
-        # Handle canvas pseudo-tool
-        if server_name == "canvas":
-            tools_info.append({
-                'server': 'canvas',
-                'tools': ['canvas'],
-                'tool_count': 1,
-                'description': 'Canvas for showing final rendered content: complete code, reports, and polished documents. Use this to finalize your work. Most code and reports will be shown here.',
-                'is_exclusive': False,
-                'author': 'Chat UI Team',
-                'short_description': 'Visual content display',
-                'help_email': 'support@chatui.example.com'
-            })
-        elif server_name in mcp_manager.available_tools:
-            server_tools = mcp_manager.available_tools[server_name]['tools']
-            server_config = mcp_manager.available_tools[server_name]['config']
-            
-            # Only include servers that have tools and user has access to
-            if server_tools:  # Only show servers with actual tools
-                tools_info.append({
-                    'server': server_name,
-                    'tools': [tool.name for tool in server_tools],
-                    'tool_count': len(server_tools),
-                    'description': server_config.get('description', f'{server_name} tools'),
-                    'is_exclusive': server_config.get('is_exclusive', False),
-                    'author': server_config.get('author', 'Unknown'),
-                    'short_description': server_config.get('short_description', server_config.get('description', f'{server_name} tools')),
-                    'help_email': server_config.get('help_email', '')
-                })
-        
-        # Collect prompts from this server if available
-        if server_name in mcp_manager.available_prompts:
-            server_prompts = mcp_manager.available_prompts[server_name]['prompts']
-            server_config = mcp_manager.available_prompts[server_name]['config']
-            if server_prompts:  # Only show servers with actual prompts
-                prompts_info.append({
-                    'server': server_name,
-                    'prompts': [{'name': prompt.name, 'description': prompt.description} for prompt in server_prompts],
-                    'prompt_count': len(server_prompts),
-                    'description': f'{server_name} custom prompts',
-                    'author': server_config.get('author', 'Unknown'),
-                    'short_description': server_config.get('short_description', f'{server_name} custom prompts'),
-                    'help_email': server_config.get('help_email', '')
-                })
-    
-    # Read help page configuration
-    help_config = {}
-    try:
-        import json
-        with open("configfiles/help-config.json", "r", encoding="utf-8") as f:
-            help_config = json.load(f)
-    except Exception as e:
-        logger.warning(f"Could not read configfiles/help-config.json: {e}")
-        help_config = {"title": "Help & Documentation", "sections": []}
-    
-    # Log what the user can see for debugging
-    logger.info(f"User {current_user} has access to {len(authorized_servers)} servers: {authorized_servers}")
-    logger.info(f"Returning {len(tools_info)} server tool groups to frontend for user {current_user}")
-    
-    return {
-        "app_name": app_settings.app_name,
-        "models": list(llm_config.models.keys()),
-        "tools": tools_info,  # Only authorized servers are included
-        "prompts": prompts_info,  # Available prompts from authorized servers
-        "data_sources": rag_data_sources,  # RAG data sources for the user
-        "user": current_user,
-        "active_sessions": session_manager.get_session_count() if session_manager else 0,
-        "authorized_servers": authorized_servers,  # Optional: expose for debugging
-        "agent_mode_available": app_settings.agent_mode_available,  # Whether agent mode UI should be shown
-        "banner_enabled": app_settings.banner_enabled,  # Whether banner system is enabled
-        "help_config": help_config  # Help page configuration from help-config.json
-    }
-
-
-@app.get("/api/sessions")
-async def get_session_info(current_user: str = Depends(get_current_user)):
-    """Get session information for the current user."""
-    if not session_manager:
-        return {"error": "Session manager not initialized"}
-    
-    user_sessions = session_manager.get_sessions_for_user(current_user)
-    return {
-        "total_sessions": session_manager.get_session_count(),
-        "user_sessions": len(user_sessions),
-        "session_ids": [session.session_id for session in user_sessions]
-    }
 
 
 @app.get("/healthz")

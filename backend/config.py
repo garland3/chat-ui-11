@@ -113,6 +113,14 @@ class AppSettings(BaseSettings):
     s3_use_mock: bool = True
     s3_timeout: int = 30
     
+    # Feature flags
+    feature_workspaces_enabled: bool = False
+    feature_rag_enabled: bool = False
+    feature_tools_enabled: bool = False
+    feature_marketplace_enabled: bool = False
+    feature_files_panel_enabled: bool = False
+    feature_chat_history_enabled: bool = False
+    
     model_config = {
         "env_file": "../.env", 
         "env_file_encoding": "utf-8", 

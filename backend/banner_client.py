@@ -4,8 +4,13 @@ import logging
 import os
 from typing import List
 from pathlib import Path
+from fastapi import APIRouter, Depends
+from utils import get_current_user
 
 logger = logging.getLogger(__name__)
+
+# Create the banner router
+banner_router = APIRouter(prefix="/api", tags=["banner"])
 
 
 class BannerClient:
@@ -56,3 +61,17 @@ def initialize_banner_client():
 
 # Global banner client instance - will be initialized in main.py after env vars are loaded
 banner_client = None
+
+
+@banner_router.get("/banners")
+async def get_banners(current_user: str = Depends(get_current_user)):
+    """Get banner messages for display at the top of the UI."""
+    if not banner_client:
+        return {"messages": []}
+    
+    try:
+        messages = await banner_client.get_banner_messages()
+        return {"messages": messages}
+    except Exception as e:
+        logger.error(f"Error fetching banner messages: {e}", exc_info=True)
+        return {"messages": []}

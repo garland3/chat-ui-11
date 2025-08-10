@@ -5,7 +5,12 @@ USE_NEW_FRONTEND=${USE_NEW_FRONTEND:-true}
 START_S3_MOCK=true
 
 # Kill any running uvicorn processes
+echo "Killing any running uvicorn processes... and python processes"
 pkill -f uvicorn
+# also kill python
+pkill -f python
+# wait a few seconds for processes to terminate
+sleep 5
 
 echo "Clearing log for fresh start"
 echo "NEW LOG" > /workspaces/chat-ui-11/backend/logs/app.jsonl
@@ -39,12 +44,12 @@ uvicorn main:app &
 echo "Server started"
 
 
-# print every 3 seconds saying it is running. do 10 times. print second since start
-for i in {1..10}
-do
-    echo "Server running for $((i * 3)) seconds"
-    sleep 3
-done
+# # print every 3 seconds saying it is running. do 10 times. print second since start
+# for i in {1..10}
+# do
+#     echo "Server running for $((i * 3)) seconds"
+#     sleep 3
+# done
 
 # wait X seconds. 
 # waittime=10

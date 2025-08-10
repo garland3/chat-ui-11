@@ -64,24 +64,30 @@ function RightSidebar() {
           />
         </div>
       </div>
-      <div className="bg-gray-700 p-3 rounded-lg space-y-3">
-        <h3 className="font-semibold">Tools</h3>
-        <div id="tool-selection-list" className="space-y-2">
-          {config.tools && config.tools.map((tool) => (
-            <label key={tool.server} className="flex items-center space-x-2 text-sm">
-              <input type="checkbox" className="form-checkbox bg-gray-600 border-gray-500 text-cyan-500 rounded focus:ring-cyan-500" defaultChecked={true} />
-              <span>{tool.server}</span>
-            </label>
-          ))}
+      {config.features?.tools && (
+        <div className="bg-gray-700 p-3 rounded-lg space-y-3">
+          <h3 className="font-semibold">Tools</h3>
+          <div id="tool-selection-list" className="space-y-2">
+            {config.tools && config.tools.map((tool) => (
+              <label key={tool.server} className="flex items-center space-x-2 text-sm">
+                <input type="checkbox" className="form-checkbox bg-gray-600 border-gray-500 text-cyan-500 rounded focus:ring-cyan-500" defaultChecked={true} />
+                <span>{tool.server}</span>
+              </label>
+            ))}
+          </div>
+          {config.features?.marketplace && (
+            <button className="w-full mt-2 text-sm bg-cyan-500/50 hover:bg-cyan-500/80 text-white py-1 px-3 rounded-lg transition-all">
+              Browse Marketplace
+            </button>
+          )}
         </div>
-        <button className="w-full mt-2 text-sm bg-cyan-500/50 hover:bg-cyan-500/80 text-white py-1 px-3 rounded-lg transition-all">
-          Browse Marketplace
-        </button>
-      </div>
-      <div className="bg-gray-700 p-3 rounded-lg flex-grow flex flex-col">
-        <h3 className="font-semibold mb-2">Uploaded Files</h3>
-        <ul id="file-list" className="space-y-2 overflow-y-auto flex-grow"></ul>
-      </div>
+      )}
+      {config.features?.files_panel && (
+        <div className="bg-gray-700 p-3 rounded-lg flex-grow flex flex-col">
+          <h3 className="font-semibold mb-2">Uploaded Files</h3>
+          <ul id="file-list" className="space-y-2 overflow-y-auto flex-grow"></ul>
+        </div>
+      )}
     </aside>
   );
 }
