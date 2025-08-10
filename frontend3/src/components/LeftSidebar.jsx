@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { useConfig } from '../hooks/useApi';
 
 function LeftSidebar({ isCollapsed, onToggleCollapse }) {
@@ -42,6 +43,11 @@ function LeftSidebar({ isCollapsed, onToggleCollapse }) {
           <i className="fas fa-times"></i>
         </button>
       </div>
+      {config.is_in_admin_group && (
+        <Link to="/admin" className="w-full bg-gray-300 hover:bg-gray-400 text-gray-800 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600 font-semibold py-2 px-4 rounded-lg transition-all flex items-center justify-center text-sm">
+          <i className="fas fa-shield-alt mr-2"></i> Admin Panel
+        </Link>
+      )}
       {config.features?.workspaces && (
         <div>
           <label htmlFor="workspace-select" className="text-sm font-semibold text-gray-600 mb-1 block dark:text-gray-400">

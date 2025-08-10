@@ -103,6 +103,7 @@ async def get_config(current_user: str = Depends(get_current_user)):
         "prompts": prompts_info,  # Available prompts from authorized servers
         "data_sources": rag_data_sources,  # RAG data sources for the user
         "user": current_user,
+    "is_in_admin_group": is_user_in_group(current_user, app_settings.admin_group),
         "active_sessions": session_manager.get_session_count() if session_manager else 0,
         "authorized_servers": authorized_servers,  # Optional: expose for debugging
         "agent_mode_available": app_settings.agent_mode_available,  # Whether agent mode UI should be shown

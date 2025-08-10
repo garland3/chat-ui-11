@@ -468,6 +468,7 @@ async def get_enhanced_logs(
                     "timestamp": entry.get("timestamp", ""),
                     "level": entry.get("level", "UNKNOWN"),
                     "module": entry.get("module", entry.get("logger", "")),
+                    "logger": entry.get("logger", ""),
                     "function": entry.get("function", ""),
                     "message": entry.get("message", ""),
                     "trace_id": entry.get("trace_id", ""),
