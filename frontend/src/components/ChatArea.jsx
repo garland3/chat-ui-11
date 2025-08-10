@@ -478,11 +478,11 @@ const ChatArea = () => {
         
         {/* Thinking indicator */}
         {isThinking && (
-          <div className="flex items-start gap-3 max-w-4xl mx-auto">
+          <div className="flex items-start gap-3 w-full">
             <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
               A
             </div>
-            <div className="max-w-[70%] bg-gray-800 rounded-lg p-4">
+            <div className="w-full bg-gray-800 rounded-lg p-4">
               <div className="text-sm font-medium text-gray-300 mb-2">
                 Chat UI
               </div>

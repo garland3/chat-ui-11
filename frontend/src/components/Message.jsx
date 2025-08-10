@@ -542,34 +542,34 @@ const Message = ({ message }) => {
   const avatarText = isUser ? 'Y' : isSystem ? 'S' : 'A'
   const authorName = isUser ? 'You' : isSystem ? 'System' : appName
   
-  const renderContent = () => {
+const renderContent = () => {
     // Handle tool call messages (both regular and agent mode use same UI)
     if (message.type === 'tool_call') {
       return (
-        <div className="text-gray-200">
+        <div className="text-gray-200 selectable-markdown">
           <div className="flex items-center gap-2 mb-3">
             <span className={`px-2 py-1 rounded text-xs font-medium ${
-              message.status === 'calling' ? 'bg-blue-600' : 
+              message.status === 'calling' ? 'bg-blue-600' :
               message.status === 'completed' ? 'bg-green-600' : 'bg-red-600'
             }`}>
-              {message.status === 'calling' ? 'CALLING' : 
+              {message.status === 'calling' ? 'CALLING' :
                message.status === 'completed' ? 'SUCCESS' : 'FAILED'}
             </span>
             <span className="font-medium">{message.tool_name}</span>
             <span className="text-gray-400 text-sm">({message.server_name})</span>
           </div>
-          
+
           {/* Arguments Section */}
           {message.arguments && Object.keys(message.arguments).length > 0 && (
             <div className="mb-4">
               <div className="border-l-4 border-blue-500 pl-4">
-                <button 
+                <button
                   onClick={() => setToolInputCollapsed(!toolInputCollapsed)}
                   className="w-full text-left text-sm font-semibold text-blue-400 mb-2 flex items-center gap-2 hover:text-blue-300 transition-colors"
                 >
                   <span className={`transform transition-transform duration-200 ${toolInputCollapsed ? 'rotate-0' : 'rotate-90'}`}>
                     ▶
-                  </span> 
+                  </span>
                   Input Arguments {toolInputCollapsed ? `(${Object.keys(message.arguments).length} params)` : ''}
                 </button>
                 {!toolInputCollapsed && (
@@ -582,28 +582,28 @@ const Message = ({ message }) => {
               </div>
             </div>
           )}
-          
+
           {/* Separator Line */}
           {message.arguments && Object.keys(message.arguments).length > 0 && message.result && (
             <div className="my-4">
               <hr className="border-gray-600" />
             </div>
           )}
-          
+
           {/* Result Section */}
           {message.result && (
             <div className="mb-2">
               <div className="border-l-4 border-green-500 pl-4">
-                <button 
+                <button
                   onClick={() => setToolOutputCollapsed(!toolOutputCollapsed)}
                   className="w-full text-left text-sm font-semibold text-green-400 mb-2 flex items-center gap-2 hover:text-green-300 transition-colors"
                 >
                   <span className={`transform transition-transform duration-200 ${toolOutputCollapsed ? 'rotate-0' : 'rotate-90'}`}>
                     ▶
-                  </span> 
+                  </span>
                   Output Result {toolOutputCollapsed ? '(click to expand)' : ''}
                 </button>
-                
+
                 {!toolOutputCollapsed && (
                   <>
                     {/* Check for returned file and show download button */}
@@ -616,21 +616,21 @@ const Message = ({ message }) => {
                       parsedResult = message.result
                     }
                   }
-                  
+
                   // Check for multiple files first
-                  const hasMultipleFiles = parsedResult && 
-                    typeof parsedResult === 'object' && 
-                    parsedResult.returned_files && 
+                  const hasMultipleFiles = parsedResult &&
+                    typeof parsedResult === 'object' &&
+                    parsedResult.returned_files &&
                     Array.isArray(parsedResult.returned_files) &&
                     parsedResult.returned_file_names &&
                     parsedResult.returned_file_contents
-                  
+
                   // Check for single file (backward compatibility)
-                  const hasSingleFile = parsedResult && 
-                    typeof parsedResult === 'object' && 
-                    parsedResult.returned_file_name && 
+                  const hasSingleFile = parsedResult &&
+                    typeof parsedResult === 'object' &&
+                    parsedResult.returned_file_name &&
                     parsedResult.returned_file_base64
-                  
+
                   if (hasMultipleFiles) {
                     return (
                       <div className="mb-3">
@@ -668,10 +668,10 @@ const Message = ({ message }) => {
                       </div>
                     )
                   }
-                  
+
                   return null
                 })()}
-                
+
                 <div className="bg-gray-900 border border-gray-700 rounded-lg p-3 max-h-64 overflow-y-auto">
                   <pre className="text-xs text-gray-300 overflow-x-auto whitespace-pre-wrap">
                     {(() => {
@@ -688,22 +688,22 @@ const Message = ({ message }) => {
         </div>
       )
     }
-    
+
     if (isUser || isSystem) {
       return <div className="text-gray-200">{message.content}</div>
     }
-    
+
     // Render markdown for assistant messages
     // Process content to handle both strings and structured objects
     const content = processMessageContent(message.content)
-    
+
     try {
       const markdownHtml = marked.parse(content)
       const sanitizedHtml = DOMPurify.sanitize(markdownHtml)
-      
+
       return (
-        <div 
-          className="prose prose-invert max-w-none"
+        <div
+          className="prose prose-invert max-w-none selectable-markdown"
           dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
         />
       )
@@ -719,14 +719,14 @@ const Message = ({ message }) => {
   }
 
   return (
-    <div className={`flex items-start gap-3 max-w-4xl mx-auto group ${isUser ? 'flex-row-reverse' : ''}`}>
+    <div className={`flex items-start gap-3 ${isUser ? 'flex-row-reverse' : 'w-full'} group`}>
       {/* Avatar */}
       <div className={`w-8 h-8 rounded-full ${avatarBg} flex items-center justify-center text-white text-sm font-medium flex-shrink-0`}>
         {avatarText}
       </div>
       
       {/* Message Content */}
-      <div className={`max-w-[70%] ${isUser ? 'bg-blue-600' : 'bg-gray-800'} rounded-lg p-4`}>
+      <div className={`${isUser ? 'max-w-[70%] bg-blue-600' : 'w-full bg-gray-800'} rounded-lg p-4`}>
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <div className="text-sm font-medium text-gray-300">
