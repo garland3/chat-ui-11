@@ -6,9 +6,9 @@ from typing import Any, Callable, Dict, List, Optional
 
 from fastapi import WebSocket, WebSocketDisconnect
 
-from mcp_client import MCPToolManager
-from message_processor import MessageProcessor
-from s3_client import s3_client
+from modules.mcp_tools import MCPToolManager
+from core.message_processor import MessageProcessor
+from modules.file_storage import s3_client
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ class ChatSession:
         self._callbacks = callbacks
 
         # Initialize messages with system prompt
-        from prompt_utils import load_system_prompt
+        from core.prompt_utils import load_system_prompt
 
         system_content = load_system_prompt(user_email)
         self.messages: List[Dict[str, Any]] = [

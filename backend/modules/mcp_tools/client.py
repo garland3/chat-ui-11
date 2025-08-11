@@ -5,8 +5,8 @@ import os
 from typing import Dict, List, Any
 
 from fastmcp import Client
-from config import config_manager
-from auth_utils import create_authorization_manager
+from modules.config import config_manager
+from core.auth_utils import create_authorization_manager
 
 logger = logging.getLogger(__name__)
 

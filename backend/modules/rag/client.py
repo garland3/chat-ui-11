@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Any
 from fastapi import HTTPException
 from pydantic import BaseModel
 
-from http_client import create_rag_client
+from core.http_client import create_rag_client
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +40,7 @@ class RAGClient:
     """Client for communicating with RAG mock API."""
     
     def __init__(self):
-        from config import config_manager
+        from modules.config import config_manager
         app_settings = config_manager.app_settings
         self.mock_mode = app_settings.mock_rag
         self.base_url = app_settings.rag_mock_url

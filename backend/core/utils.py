@@ -6,10 +6,10 @@ from typing import Any, Dict, List
 import requests
 from fastapi import Request, WebSocket
 
-from auth import is_user_in_group
-from config import config_manager
-from mcp_client import MCPToolManager
-from auth_utils import create_authorization_manager
+from core.auth import is_user_in_group
+from modules.config import config_manager
+from modules.mcp_tools import MCPToolManager
+from core.auth_utils import create_authorization_manager
 
 logger = logging.getLogger(__name__)
 
