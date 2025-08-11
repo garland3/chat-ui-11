@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom' // Import Link
 import { ChatProvider, useChat } from './contexts/ChatContext'
 import { WSProvider } from './contexts/WSContext'
 import { MarketplaceProvider } from './contexts/MarketplaceContext'
@@ -13,6 +13,7 @@ import MarketplacePanel from './components/MarketplacePanel'
 import BannerPanel from './components/BannerPanel'
 import HelpPage from './components/HelpPage'
 import AdminDashboard from './components/AdminDashboard'
+import LogViewer from './components/LogViewer' // Import LogViewer
 import FeedbackButton from './components/FeedbackButton'
 import FileManagerPanel from './components/FileManagerPanel'
 import FilesPage from './components/FilesPage'
@@ -158,6 +159,7 @@ function AppRoutes() {
       <Route path="/help" element={<HelpPage />} />
       <Route path="/admin" element={<AdminDashboard />} />
       <Route path="/files" element={<FilesPage />} />
+      <Route path="/admin/logview" element={<LogViewer />} /> {/* New route for LogViewer */}
     </Routes>
   )
 }
