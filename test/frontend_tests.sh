@@ -35,6 +35,6 @@ fi
 export PATH="$PWD/node_modules/.bin:$PATH"
 
 # Run tests with proper configuration
-timeout 300 npm test -- --run --config vite.config.test.js
+timeout 300 npm test -- --run
 
 echo "Frontend tests completed successfully!"
