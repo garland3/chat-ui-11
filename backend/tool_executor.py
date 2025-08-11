@@ -450,7 +450,7 @@ class ToolExecutor:
         canvas_files = []  # Files that should be displayed in canvas
         
         if context.should_send_ui_updates() and parsed_result:
-            logger.info(f"About to save tool files to session for tool {tool_name}")
+            # logger.info(f"About to save tool files to session for tool {tool_name}")
             files_saved = await self.file_manager.save_tool_files_to_session(parsed_result, context.session, tool_name)
             logger.info(f"Session now has {len(context.session.uploaded_files)} files: {list(context.session.uploaded_files.keys())}")
             
@@ -488,7 +488,7 @@ class ToolExecutor:
             })
         
         # Filter out large base64 content from tool results for LLM context
-        logger.info(f"About to filter content for LLM: {len(content_text)} chars")
+        # logger.info(f"About to filter content for LLM: {len(content_text)} chars")
         filtered_content_for_llm = self.file_manager.filter_large_base64_from_tool_result(content_text)
         logger.info(f"Filtered content for LLM: {len(filtered_content_for_llm)} chars")
         
