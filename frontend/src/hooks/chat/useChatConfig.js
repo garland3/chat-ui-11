@@ -19,6 +19,7 @@ export function useChatConfig() {
   const [features, setFeatures] = useState(DEFAULT_FEATURES)
   const [currentModel, setCurrentModel] = useState('')
   const [onlyRag, setOnlyRag] = useState(true)
+  const [agentModeAvailable, setAgentModeAvailable] = useState(false)
 
   useEffect(() => {
     (async () => {
@@ -36,7 +37,9 @@ export function useChatConfig() {
         setPrompts(cfg.prompts || [])
         setDataSources(cfg.data_sources || [])
         setUser(cfg.user || 'Unknown')
-        setFeatures({ ...DEFAULT_FEATURES, ...(cfg.features || {}) })
+  setFeatures({ ...DEFAULT_FEATURES, ...(cfg.features || {}) })
+  // Agent mode availability flag from backend
+  setAgentModeAvailable(!!cfg.agent_mode_available)
         if (!currentModel && cfg.models?.length) setCurrentModel(cfg.models[0])
       } catch (e) {
         // Fallback demo data
@@ -46,6 +49,7 @@ export function useChatConfig() {
         setDataSources(['demo_documents'])
         setUser('Demo User')
         setCurrentModel('gpt-4o')
+  setAgentModeAvailable(true)
       }
     })()
   }, [currentModel])
@@ -62,6 +66,7 @@ export function useChatConfig() {
     currentModel,
     setCurrentModel,
     onlyRag,
-    setOnlyRag
+  setOnlyRag,
+  agentModeAvailable
   }
 }

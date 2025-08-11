@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 import yaml
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, AliasChoices
 from pydantic_settings import BaseSettings
 
 logger = logging.getLogger(__name__)
@@ -98,8 +98,18 @@ class AppSettings(BaseSettings):
     banner_api_key: str = ""
     
     # Agent settings
-    agent_mode_available: bool = True
+    # Renamed to feature_agent_mode_available to align with other FEATURE_* flags.
+    feature_agent_mode_available: bool = Field(
+        True, 
+        description="Agent mode availability feature flag",
+        validation_alias=AliasChoices("FEATURE_AGENT_MODE_AVAILABLE", "AGENT_MODE_AVAILABLE")
+    )  # Accept both old and new env var names
     agent_max_steps: int = 10
+    # Backward compatibility: support old AGENT_MODE_AVAILABLE env if present
+    @property
+    def agent_mode_available(self) -> bool:
+        """Maintain backward compatibility for code still referencing agent_mode_available."""
+        return self.feature_agent_mode_available
     
     # LLM Health Check settings
     llm_health_check_interval: int = 5  # minutes
@@ -127,7 +137,7 @@ class AppSettings(BaseSettings):
         "env_file": "../.env", 
         "env_file_encoding": "utf-8", 
         "extra": "ignore",
-        "env_prefix": ""
+    "env_prefix": "",
     }
 
 

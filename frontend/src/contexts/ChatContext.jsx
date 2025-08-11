@@ -20,7 +20,8 @@ export const ChatProvider = ({ children }) => {
 	// State slices
 	const config = useChatConfig()
 	const selections = useSelections()
-	const agent = useAgentMode(true)
+	// Pass through dynamic availability from backend config
+	const agent = useAgentMode(config.agentModeAvailable)
 	const files = useFiles()
 	const { messages, addMessage, mapMessages, resetMessages } = useMessages()
 
