@@ -1,0 +1,67 @@
+import { useEffect, useState } from 'react'
+
+const DEFAULT_FEATURES = {
+  workspaces: false,
+  rag: false,
+  tools: false,
+  marketplace: false,
+  files_panel: false,
+  chat_history: false
+}
+
+export function useChatConfig() {
+  const [appName, setAppName] = useState('Chat UI')
+  const [user, setUser] = useState('Unknown')
+  const [models, setModels] = useState([])
+  const [tools, setTools] = useState([])
+  const [prompts, setPrompts] = useState([])
+  const [dataSources, setDataSources] = useState([])
+  const [features, setFeatures] = useState(DEFAULT_FEATURES)
+  const [currentModel, setCurrentModel] = useState('')
+  const [onlyRag, setOnlyRag] = useState(true)
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch('/api/config')
+        if (!res.ok) throw new Error(res.status)
+        const cfg = await res.json()
+        setAppName(cfg.app_name || 'Chat UI')
+        setModels(cfg.models || [])
+        const uniqueTools = (cfg.tools || []).map(server => ({
+          ...server,
+            tools: Array.from(new Set(server.tools))
+        }))
+        setTools(uniqueTools)
+        setPrompts(cfg.prompts || [])
+        setDataSources(cfg.data_sources || [])
+        setUser(cfg.user || 'Unknown')
+        setFeatures({ ...DEFAULT_FEATURES, ...(cfg.features || {}) })
+        if (!currentModel && cfg.models?.length) setCurrentModel(cfg.models[0])
+      } catch (e) {
+        // Fallback demo data
+        setAppName('Chat UI (Demo)')
+        setModels(['gpt-4o', 'gpt-4o-mini'])
+        setTools([{ server: 'canvas', tools: ['canvas'], description: 'Create and display visual content', tool_count: 1, is_exclusive: false }])
+        setDataSources(['demo_documents'])
+        setUser('Demo User')
+        setCurrentModel('gpt-4o')
+      }
+    })()
+  }, [currentModel])
+
+  return {
+    appName,
+    user,
+    models,
+    tools,
+    prompts,
+    dataSources,
+    features,
+    setFeatures,
+    currentModel,
+    setCurrentModel,
+    onlyRag,
+    setOnlyRag
+  }
+}
