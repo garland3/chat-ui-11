@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 
-const POLL_INTERVAL = 5000; // 5s refresh
+const DEFAULT_POLL_INTERVAL = 5000; // 5s refresh
 
 export default function LogViewer() {
   const [entries, setEntries] = useState([]);
@@ -11,7 +11,13 @@ export default function LogViewer() {
   const [levelFilter, setLevelFilter] = useState('');
   const [moduleFilter, setModuleFilter] = useState('');
   const [hideViewerRequests, setHideViewerRequests] = useState(true);
+  const [autoScrollEnabled, setAutoScrollEnabled] = useState(true); // State for auto-scroll
+  const [pollIntervalInput, setPollIntervalInput] = useState(String(DEFAULT_POLL_INTERVAL / 1000)); // Input for poll interval in seconds
+  const [pollInterval, setPollInterval] = useState(DEFAULT_POLL_INTERVAL); // Actual poll interval in ms
+
   const tableContainerRef = useRef(null);
+  const isScrolledToBottom = useRef(true); // Track if user has scrolled up
+  const intervalIdRef = useRef(null); // Ref to store interval ID
 
   const fetchLogs = useCallback(() => {
     setLoading(true);
@@ -30,22 +36,60 @@ export default function LogViewer() {
       .then(data => {
         setEntries(data.entries || []);
         setError(null);
-        // After updating entries, scroll to top (newest) if container exists
+        // After updating entries, scroll to bottom if auto-scroll is enabled and user hasn't scrolled up
         requestAnimationFrame(() => {
-          if (tableContainerRef.current) {
-            tableContainerRef.current.scrollTop = 0;
+          if (tableContainerRef.current && autoScrollEnabled && isScrolledToBottom.current) {
+            tableContainerRef.current.scrollTop = tableContainerRef.current.scrollHeight;
           }
         });
       })
       .catch(err => setError(err))
       .finally(() => setLoading(false));
-  }, [levelFilter, moduleFilter]);
+  }, [levelFilter, moduleFilter, autoScrollEnabled]); // Added autoScrollEnabled to dependencies
 
   useEffect(() => {
+    // Clear existing interval before setting a new one
+    if (intervalIdRef.current) {
+      clearInterval(intervalIdRef.current);
+    }
+    // Fetch logs immediately and then set interval
     fetchLogs();
-    const id = setInterval(fetchLogs, POLL_INTERVAL);
-    return () => clearInterval(id);
-  }, [fetchLogs]);
+    intervalIdRef.current = setInterval(fetchLogs, pollInterval);
+
+    // Cleanup interval on component unmount or when pollInterval changes
+    return () => clearInterval(intervalIdRef.current);
+  }, [fetchLogs, pollInterval]); // Depend on pollInterval
+
+  // Handle scroll event to determine if user has manually scrolled up
+  const handleScroll = useCallback(() => {
+    if (tableContainerRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = tableContainerRef.current;
+      isScrolledToBottom.current = scrollTop + clientHeight >= scrollHeight - 10; // Allow a small buffer
+    }
+  }, []);
+
+  useEffect(() => {
+    const container = tableContainerRef.current;
+    if (container) {
+      container.addEventListener('scroll', handleScroll);
+    }
+    return () => {
+      if (container) {
+        container.removeEventListener('scroll', handleScroll);
+      }
+    };
+  }, [handleScroll]);
+
+  const handlePollIntervalChange = (e) => {
+    setPollIntervalInput(e.target.value);
+    const intervalInSeconds = parseInt(e.target.value, 10);
+    if (!isNaN(intervalInSeconds) && intervalInSeconds > 0) {
+      setPollInterval(intervalInSeconds * 1000);
+    } else {
+      // Reset to default or handle invalid input appropriately
+      setPollInterval(DEFAULT_POLL_INTERVAL);
+    }
+  };
 
   const levels = Array.from(new Set(entries.map(e => e.level))).sort();
   const modules = Array.from(new Set(entries.map(e => e.module))).sort();
@@ -90,6 +134,22 @@ export default function LogViewer() {
           <input type="checkbox" className="accent-cyan-600" checked={hideViewerRequests} onChange={e => { setPage(0); setHideViewerRequests(e.target.checked); }} />
           Hide GET /admin/logs/viewer
         </label>
+        {/* Auto-scroll toggle */}
+        <label className="flex items-center gap-2 text-xs font-medium select-none cursor-pointer ml-2">
+          <input type="checkbox" className="accent-cyan-600" checked={autoScrollEnabled} onChange={e => setAutoScrollEnabled(e.target.checked)} />
+          Auto-scroll
+        </label>
+        {/* Poll interval input */}
+        <div className="flex items-center gap-2">
+          <label className="block text-xs font-semibold">Update Frequency (s)</label>
+          <input
+            type="number"
+            value={pollIntervalInput}
+            onChange={handlePollIntervalChange}
+            min="1"
+            className="bg-gray-200 dark:bg-gray-700 p-1 rounded text-sm w-16 text-center"
+          />
+        </div>
       </div>
       <div className="flex items-center gap-3 text-xs">
         <div className="flex items-center gap-2">
@@ -105,7 +165,7 @@ export default function LogViewer() {
         </div>
   <span className="text-gray-500">Total entries: {entries.length}{hideViewerRequests && filtered.length !== entries.length && ` (showing ${filtered.length})`}</span>
       </div>
-      <div ref={tableContainerRef} className="flex-1 overflow-auto border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100">
+      <div ref={tableContainerRef} className="flex-1 overflow-auto border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100" onScroll={handleScroll}> {/* Added onScroll handler */}
         <table className="w-full text-sm">
           <thead className="bg-gray-100 dark:bg-gray-800 sticky top-0">
             <tr>

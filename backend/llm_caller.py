@@ -61,7 +61,7 @@ class LLMCaller:
                 if expanded.startswith("${") and expanded.endswith("}"):
                     continue
                 headers[h_key] = expanded
-        payload = {"model": model_id, "messages": messages, "max_tokens": 1000, "temperature": 0.7}
+        payload = {"model": model_id, "messages": messages, "max_tokens": model_config.max_tokens, "temperature": 0.7}
 
         try:
             total_chars = sum(len(str(msg.get('content', ''))) for msg in messages)
@@ -173,7 +173,7 @@ class LLMCaller:
             "messages": messages,
             "tools": tools_schema,
             "tool_choice": tool_choice,
-            "max_tokens": 1000,
+            "max_tokens": model_config.max_tokens,
             "temperature": 0.7,
         }
 

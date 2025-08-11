@@ -27,7 +27,7 @@ class ModelConfig(BaseModel):
     model_url: str
     api_key: str
     description: Optional[str] = None
-    max_tokens: Optional[int] = 1000
+    max_tokens: Optional[int] = 10000
     temperature: Optional[float] = 0.7
     # Optional extra HTTP headers (e.g. for providers like OpenRouter)
     extra_headers: Optional[Dict[str, str]] = None

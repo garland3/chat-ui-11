@@ -33,7 +33,7 @@ if [ "$ONLY_FRONTEND" = false ] && [ "$ONLY_BACKEND" = false ]; then
 fi
 
 # cd /workspaces/chat-ui-11
-. venv/bin/activate
+. .venv/bin/activate
 
 # Build frontend if not backend only
 if [ "$ONLY_BACKEND" = false ]; then
@@ -82,7 +82,7 @@ if [ "$START_S3_MOCK" = true ]; then
     echo "S3 mock service started on http://127.0.0.1:8003"
 fi
 
-uvicorn main:app &
+uvicorn main:app --port 8000 &
 echo "Server started"
 
 
