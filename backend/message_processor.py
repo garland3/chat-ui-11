@@ -377,9 +377,11 @@ class MessageProcessor:
         content = message.get("content", "")
         
         # Debug: Log exactly what content is being processed
-        logger.info(f"Processing context for user {self.session.user_email}:")
-        logger.info(f"  Original content: '{content[:100]}{'...' if len(content) > 100 else ''}'")
-        logger.info(f"  Messages in context: {len(self.session.messages)}")
+        logger.info(
+            f"Processing context for user {self.session.user_email}:\n"
+            f"  Original content: '{content[:100]}{'...' if len(content) > 100 else ''}'\n"
+            f"  Messages in context: {len(self.session.messages)}"
+        )
         
         return ProcessingContext(
             user_email=self.session.user_email,

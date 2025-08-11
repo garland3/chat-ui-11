@@ -134,7 +134,7 @@ class FileManager:
         try:
             import re
             
-            logger.info(f"Filtering tool result content: {len(content_text)} chars")
+            # logger.info(f"Filtering tool result content: {len(content_text)} chars")
             
             # Check if this looks like JSON
             if content_text.strip().startswith('{'):
@@ -220,7 +220,7 @@ class ToolExecutor:
             logger.warning("No tool calls provided to execute")
             return []
             
-        logger.info(f"Executing {len(tool_calls)} tool calls for user {context.user_email}")
+        # logger.info(f"Executing {len(tool_calls)} tool calls for user {context.user_email}")
         results = []
         
         for i, tool_call in enumerate(tool_calls):
@@ -348,7 +348,7 @@ class ToolExecutor:
         server_name = mapping["server"]
         tool_name = mapping["tool_name"]
         
-        logger.info(f"TOOL MAPPING: {tool_call['function']['name']} -> server: {server_name}, tool: {tool_name}")
+        # logger.info(f"TOOL MAPPING: {tool_call['function']['name']} -> server: {server_name}, tool: {tool_name}")
         
         if context.agent_mode:
             logger.info(f"AGENT MODE: Executing tool {tool_name} on server {server_name}")

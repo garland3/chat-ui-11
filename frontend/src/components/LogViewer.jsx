@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 
-const DEFAULT_POLL_INTERVAL = 5000; // 5s refresh
+const DEFAULT_POLL_INTERVAL = 60000; // 60s refresh
 
 export default function LogViewer() {
   const [entries, setEntries] = useState([]);
@@ -11,6 +11,7 @@ export default function LogViewer() {
   const [levelFilter, setLevelFilter] = useState('');
   const [moduleFilter, setModuleFilter] = useState('');
   const [hideViewerRequests, setHideViewerRequests] = useState(true);
+  const [hideMiddleware, setHideMiddleware] = useState(false); // State for hiding middleware logs
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(true); // State for auto-scroll
   const [pollIntervalInput, setPollIntervalInput] = useState(String(DEFAULT_POLL_INTERVAL / 1000)); // Input for poll interval in seconds
   const [pollInterval, setPollInterval] = useState(DEFAULT_POLL_INTERVAL); // Actual poll interval in ms
@@ -95,12 +96,12 @@ export default function LogViewer() {
   const modules = Array.from(new Set(entries.map(e => e.module))).sort();
 
   // Optionally hide the self-referential fetch request log lines to reduce noise
-  const filtered = hideViewerRequests
+  const filtered = (hideViewerRequests
     ? entries.filter(e => !(
         (e.message && e.message.includes('GET /admin/logs/viewer')) ||
         (e.path && e.path.includes('/admin/logs/viewer'))
       ))
-    : entries;
+    : entries).filter(e => !(hideMiddleware && e.module === 'middleware'));
 
   const paginated = filtered.slice().reverse().slice(page * pageSize, (page + 1) * pageSize);
   const totalPages = Math.ceil(filtered.length / pageSize) || 1;
@@ -138,6 +139,11 @@ export default function LogViewer() {
         <label className="flex items-center gap-2 text-xs font-medium select-none cursor-pointer ml-2">
           <input type="checkbox" className="accent-cyan-600" checked={autoScrollEnabled} onChange={e => setAutoScrollEnabled(e.target.checked)} />
           Auto-scroll
+        </label>
+        {/* Middleware toggle */}
+        <label className="flex items-center gap-2 text-xs font-medium select-none cursor-pointer ml-2">
+          <input type="checkbox" className="accent-cyan-600" checked={hideMiddleware} onChange={e => { setPage(0); setHideMiddleware(e.target.checked); }} />
+          Hide Middleware Calls
         </label>
         {/* Poll interval input */}
         <div className="flex items-center gap-2">

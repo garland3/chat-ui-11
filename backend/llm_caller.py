@@ -63,16 +63,16 @@ class LLMCaller:
                 headers[h_key] = expanded
         payload = {"model": model_id, "messages": messages, "max_tokens": model_config.max_tokens, "temperature": 0.7}
 
+        VERBOSE = True
+
         try:
             total_chars = sum(len(str(msg.get('content', ''))) for msg in messages)
             logger.info(f"Plain LLM call: {len(messages)} messages, {total_chars} chars")
-            
-            # Debug: Log the actual messages being sent to LLM
-            logger.debug(f"Messages being sent to LLM:")
-            for i, msg in enumerate(messages):
-                content_preview = str(msg.get('content', ''))[:200] + ('...' if len(str(msg.get('content', ''))) > 200 else '')
-                logger.debug(f"  [{i}] {msg.get('role', 'unknown')}: {content_preview}")
-            
+          
+            # if verbose, just print the "message"   list
+            if VERBOSE: 
+                logging.info(f"Messages are: {[m for m in messages]}")
+
             loop = asyncio.get_event_loop()
             response = await loop.run_in_executor(
                 None, lambda: requests.post(api_url, headers=headers, json=payload, timeout=30)

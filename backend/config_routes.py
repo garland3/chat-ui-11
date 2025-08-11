@@ -92,9 +92,11 @@ async def get_config(current_user: str = Depends(get_current_user)):
         logger.warning(f"Could not read configfiles/help-config.json: {e}")
         help_config = {"title": "Help & Documentation", "sections": []}
     
-    # Log what the user can see for debugging
-    logger.info(f"User {current_user} has access to {len(authorized_servers)} servers: {authorized_servers}")
-    logger.info(f"Returning {len(tools_info)} server tool groups to frontend for user {current_user}")
+# Log what the user can see for debugging
+    logger.info(
+        f"User {current_user} has access to {len(authorized_servers)} servers: {authorized_servers}\n"
+        f"Returning {len(tools_info)} server tool groups to frontend for user {current_user}"
+    )
     
     return {
         "app_name": app_settings.app_name,
