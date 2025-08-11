@@ -50,14 +50,15 @@ export const ChatProvider = ({ children }) => {
   const [customUIContent, setCustomUIContent] = useState(null)
 
   // Feature flags
-  const [features, setFeatures] = useState({
+  const DEFAULT_FEATURES = {
     workspaces: false,
     rag: false,
     tools: false,
     marketplace: false,
     files_panel: false,
     chat_history: false
-  })
+  }
+  const [features, setFeatures] = useState(DEFAULT_FEATURES)
   
   // Files state
   const [sessionFiles, setSessionFiles] = useState({
@@ -141,6 +142,7 @@ export const ChatProvider = ({ children }) => {
         throw new Error(`HTTP error! status: ${response.status}`)
       }
       const config = await response.json()
+      console.log(config.features);
       
       setAppName(config.app_name || 'Chat UI')
       setModels(config.models || [])
@@ -159,7 +161,9 @@ export const ChatProvider = ({ children }) => {
       setDataSources(config.data_sources || [])
       setUser(config.user || 'Unknown')
       setAgentModeAvailable(config.agent_mode_available !== false)
-      setFeatures(config.features || {})
+  // Merge with defaults so missing flags default to false
+  const mergedFeatures = { ...DEFAULT_FEATURES, ...(config.features || {}) }
+  setFeatures(mergedFeatures)
       
       // Auto-select first model if available
       if (config.models && config.models.length > 0 && !currentModel) {
@@ -167,6 +171,7 @@ export const ChatProvider = ({ children }) => {
       }
     } catch (error) {
       console.error('Error loading config:', error)
+      console.log('DEBUG: loadConfig catch block executed. Falling back to demo data.');
       // Fallback to demo data when backend is not available
       setAppName('Chat UI (Demo)')
       setModels(['gpt-4o', 'gpt-4o-mini'])
@@ -1205,7 +1210,11 @@ export const ChatProvider = ({ children }) => {
     // File tagging
     taggedFiles,
     toggleFileTag,
-    clearTaggedFiles
+  clearTaggedFiles,
+
+  // Features
+  features,
+  setFeatures
   }
 
   return (

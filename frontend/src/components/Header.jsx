@@ -210,15 +210,22 @@ const Header = ({ onToggleRag, onToggleTools, onToggleFiles, onToggleCanvas, onC
         </button>
 
         {/* Tools Panel Toggle */}
-        {features?.tools && (
-          <button
+        {(() => {
+          if (features?.tools) {
+            return (
+              <button
             onClick={onToggleTools}
-            className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
+            className="p-2 rounded-lg bg-yellow-500 border border-red-500 block"
             title="Toggle Tools"
           >
             <Wrench className="w-5 h-5" />
           </button>
-        )}
+            );
+          } else {
+            console.log('DEBUG: Wrench icon is not rendering because features.tools is false or undefined.');
+            return null; // Render nothing if not showing
+          }
+        })()}
         
         {/* File Manager Panel Toggle */}
         {features?.files_panel && (
