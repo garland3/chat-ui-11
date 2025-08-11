@@ -14,6 +14,10 @@ while getopts "fb" opt; do
   esac
 done
 
+# clear the log by setting to ""
+# backend/logs/app.jsonl
+
+
 # Configuration
 USE_NEW_FRONTEND=${USE_NEW_FRONTEND:-true}
 START_S3_MOCK=true
@@ -28,8 +32,8 @@ if [ "$ONLY_FRONTEND" = false ] && [ "$ONLY_BACKEND" = false ]; then
     sleep 5
     clear
     echo "Clearing log for fresh start"
-    mkdir -p /workspaces/chat-ui-11/logs
-    echo "NEW LOG" > /workspaces/chat-ui-11/logs/app.jsonl
+    mkdir -p ./backend/logs
+    echo "NEW LOG" > ./backend/logs/app.jsonl
 fi
 
 # cd /workspaces/chat-ui-11
