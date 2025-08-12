@@ -17,10 +17,11 @@ from dotenv import load_dotenv
 
 # Import from core (glue layer)
 from core.chat_session import ChatSession
-from core.orchestrator import orchestrator
-# from core.session import session_manager
 from core.middleware import AuthMiddleware
 from core.otel_config import setup_opentelemetry
+
+# Import from infrastructure
+from infrastructure.app_factory import app_factory
 
 # Import routes
 from core.admin_routes import admin_router
@@ -43,8 +44,7 @@ async def lifespan(app: FastAPI):
     logger.info("Starting Chat UI Backend with modular architecture")
     
     # Initialize configuration
-    config = orchestrator.get_config_manager()
-    # app_settings = config.app_settings
+    config = app_factory.get_config_manager()
     
     logger.info(f"Backend initialized with {len(config.llm_config.models)} LLM models")
     logger.info(f"MCP servers configured: {len(config.mcp_config.servers)}")
@@ -94,7 +94,7 @@ async def websocket_endpoint(websocket: WebSocket):
             data = await websocket.receive_json()
             await session.handle_message(data)
     except WebSocketDisconnect:
-        session_manager.end_session(session.session_id)
+        await session.end_session()
         logger.info(f"WebSocket connection closed for session {session.session_id}")
 
 

@@ -10,8 +10,8 @@ from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from s3_client import s3_client
-from utils import get_current_user
+from core.utils import get_current_user
+from infrastructure.app_factory import app_factory
 
 logger = logging.getLogger(__name__)
 
@@ -54,6 +54,7 @@ async def upload_file(
 ) -> FileResponse:
     """Upload a file to S3 storage."""
     try:
+        s3_client = app_factory.get_file_storage()
         result = await s3_client.upload_file(
             user_email=current_user,
             filename=request.filename,
@@ -77,6 +78,7 @@ async def get_file(
 ) -> FileContentResponse:
     """Get a file from S3 storage."""
     try:
+        s3_client = app_factory.get_file_storage()
         result = await s3_client.get_file(current_user, file_key)
         
         if not result:
@@ -101,6 +103,7 @@ async def list_files(
 ) -> List[FileResponse]:
     """List files for the current user."""
     try:
+        s3_client = app_factory.get_file_storage()
         result = await s3_client.list_files(
             user_email=current_user,
             file_type=file_type,
@@ -121,6 +124,7 @@ async def delete_file(
 ) -> Dict[str, str]:
     """Delete a file from S3 storage."""
     try:
+        s3_client = app_factory.get_file_storage()
         success = await s3_client.delete_file(current_user, file_key)
         
         if not success:
@@ -148,6 +152,7 @@ async def get_user_file_stats(
         raise HTTPException(status_code=403, detail="Access denied")
     
     try:
+        s3_client = app_factory.get_file_storage()
         result = await s3_client.get_user_stats(current_user)
         return result
         
@@ -159,11 +164,12 @@ async def get_user_file_stats(
 @router.get("/files/health")
 async def files_health_check():
     """Health check for files service."""
+    s3_client = app_factory.get_file_storage()
     return {
         "status": "healthy",
         "service": "files-api",
         "s3_config": {
-            "endpoint": s3_client.base_url,
-            "use_mock": s3_client.use_mock
+            "endpoint": s3_client.base_url if hasattr(s3_client, 'base_url') else "unknown",
+            "use_mock": s3_client.use_mock if hasattr(s3_client, 'use_mock') else False
         }
     }

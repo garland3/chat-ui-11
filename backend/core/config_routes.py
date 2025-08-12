@@ -6,9 +6,8 @@ from typing import Optional
 from fastapi import APIRouter, Depends
 
 from core.auth import is_user_in_group
-from config import config_manager
-from utils import get_current_user
-import rag_client
+from core.utils import get_current_user
+from infrastructure.app_factory import app_factory
 
 logger = logging.getLogger(__name__)
 
@@ -20,13 +19,16 @@ async def get_config(current_user: str = Depends(get_current_user)):
     """Get available models, tools, and data sources for the user.
     Only returns MCP servers and tools that the user is authorized to access.
     """
-    from main import mcp_manager, session_manager
-    
+    config_manager = app_factory.get_config_manager()
     llm_config = config_manager.llm_config
     app_settings = config_manager.app_settings
     
     # Get RAG data sources for the user
-    rag_data_sources = await rag_client.rag_client.discover_data_sources(current_user)
+    rag_client = app_factory.get_rag_client()
+    rag_data_sources = await rag_client.discover_data_sources(current_user)
+    
+    # Get MCP manager
+    mcp_manager = app_factory.get_mcp_manager()
     
     # Get authorized servers for the user - this filters out unauthorized servers completely
     authorized_servers = mcp_manager.get_authorized_servers(current_user, is_user_in_group)
@@ -106,7 +108,7 @@ async def get_config(current_user: str = Depends(get_current_user)):
         "data_sources": rag_data_sources,  # RAG data sources for the user
         "user": current_user,
     "is_in_admin_group": is_user_in_group(current_user, app_settings.admin_group),
-        "active_sessions": session_manager.get_session_count() if session_manager else 0,
+        "active_sessions": 0,  # TODO: Implement session counting in ChatService
         "authorized_servers": authorized_servers,  # Optional: expose for debugging
         "agent_mode_available": app_settings.agent_mode_available,  # Whether agent mode UI should be shown
         "banner_enabled": app_settings.banner_enabled,  # Whether banner system is enabled
@@ -125,22 +127,9 @@ async def get_config(current_user: str = Depends(get_current_user)):
 @router.get("/sessions")
 async def get_session_info(current_user: str = Depends(get_current_user)):
     """Get session information for the current user."""
-    from main import session_manager
-    
-    if not session_manager:
-        return {"error": "Session manager not initialized"}
-    
-    user_sessions = session_manager.get_sessions_for_user(current_user)
+    # TODO: Implement session info retrieval from ChatService
     return {
-        "total_sessions": session_manager.get_session_count(),
-        "user_sessions": len(user_sessions),
-        "sessions": [
-            {
-                "id": session.id,
-                "user": session.user_email,
-                "messages": len(session.messages),
-                "model": session.model_name,
-                "tools": session.selected_tools
-            } for session in user_sessions
-        ]
+        "total_sessions": 0,
+        "user_sessions": 0,
+        "sessions": []
     }
