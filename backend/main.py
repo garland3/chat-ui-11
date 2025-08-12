@@ -62,8 +62,11 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Get config for middleware
+config = app_factory.get_config_manager()
+
 # Add middleware
-app.add_middleware(AuthMiddleware)
+app.add_middleware(AuthMiddleware, debug_mode=config.app_settings.debug_mode)
 
 # Include routers
 app.include_router(admin_router)
@@ -71,14 +74,34 @@ app.include_router(config_router)
 app.include_router(feedback_router)
 app.include_router(files_router)
 
-# Serve static files
+# Serve frontend build (Vite)
 static_dir = Path(__file__).parent.parent / "frontend" / "dist"
 if static_dir.exists():
-    app.mount("/static", StaticFiles(directory=static_dir), name="static")
-    
+    # Serve the SPA entry
     @app.get("/")
     async def read_root():
         return FileResponse(str(static_dir / "index.html"))
+
+    # Serve hashed asset files under /assets (CSS/JS/images from Vite build)
+    assets_dir = static_dir / "assets"
+    if assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=assets_dir), name="assets")
+
+    # Common top-level static files in the Vite build
+    @app.get("/favicon.ico")
+    async def favicon():
+        path = static_dir / "favicon.ico"
+        return FileResponse(str(path))
+
+    @app.get("/vite.svg")
+    async def vite_svg():
+        path = static_dir / "vite.svg"
+        return FileResponse(str(path))
+
+    @app.get("/logo.png")
+    async def logo_png():
+        path = static_dir / "logo.png"
+        return FileResponse(str(path))
 
 # WebSocket endpoint for chat
 @app.websocket("/ws")

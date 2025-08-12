@@ -59,19 +59,22 @@ class RAGClient:
         try:
             import sys
             import os
-            # Add the rag-mock directory to the path
-            rag_mock_path = os.path.join(os.path.dirname(__file__), "..", "mocks", "rag-mock")
-            rag_mock_path = os.path.abspath(rag_mock_path)
+            # Add the repo-level mocks/rag-mock directory to the path
+            # Current file: backend/modules/rag/client.py
+            # Repo mock app: mocks/rag-mock/main_rag_mock.py
+            rag_mock_path = os.path.abspath(
+                os.path.join(os.path.dirname(__file__), "..", "..", "..", "mocks", "rag-mock")
+            )
             logger.info(f"Adding RAG mock path to sys.path: {rag_mock_path}")
-            
+
             if rag_mock_path not in sys.path:
                 sys.path.insert(0, rag_mock_path)
-            
+
             from fastapi.testclient import TestClient
-            # Import the app from the rag mock
+            # Import the app from the RAG mock
             logger.info("Importing main_rag_mock module...")
             from main_rag_mock import app as rag_app
-            
+
             self.test_client = TestClient(rag_app)
             logger.info("RAG TestClient initialized successfully")
         except Exception as exc:
