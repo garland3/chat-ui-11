@@ -5,7 +5,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends
 
-from auth import is_user_in_group
+from core.auth import is_user_in_group
 from config import config_manager
 from utils import get_current_user
 import rag_client

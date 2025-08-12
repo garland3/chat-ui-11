@@ -70,14 +70,6 @@ class MessageOrchestrator:
         return self.config
 
 
-from core.session import session_manager
-
-# Global orchestrator instance
+# # Global orchestrator instance
 orchestrator = MessageOrchestrator()
 
-def create_chat_session(websocket):
-    """Create a new chat session managed by the session manager."""
-    return session_manager.create_session(websocket)
-
-# Add create_chat_session method to orchestrator
-orchestrator.create_chat_session = create_chat_session

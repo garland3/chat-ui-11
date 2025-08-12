@@ -8,14 +8,17 @@ from Phase 1 of the refactoring plan.
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
+from uuid import uuid4
 
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 
 # Import from core (glue layer)
+from core.chat_session import ChatSession
 from core.orchestrator import orchestrator
+# from core.session import session_manager
 from core.middleware import AuthMiddleware
 from core.otel_config import setup_opentelemetry
 
@@ -41,7 +44,7 @@ async def lifespan(app: FastAPI):
     
     # Initialize configuration
     config = orchestrator.get_config_manager()
-    app_settings = config.app_settings
+    # app_settings = config.app_settings
     
     logger.info(f"Backend initialized with {len(config.llm_config.models)} LLM models")
     logger.info(f"MCP servers configured: {len(config.mcp_config.servers)}")
@@ -78,23 +81,21 @@ if static_dir.exists():
         return FileResponse(str(static_dir / "index.html"))
 
 # WebSocket endpoint for chat
-@app.websocket("/chat")
-async def websocket_endpoint(websocket):
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
     """
     Main chat WebSocket endpoint.
-    
-    This would use the orchestrator to handle chat sessions
-    in a clean, modular way.
     """
-    # TODO: Implement using the orchestrator pattern
-    # This is where the session management would integrate with
-    # the orchestrator to handle chat messages
-
-
-    logger.info("WebSocket chat endpoint called - needs orchestrator integration")
-    # Start a new session object.
-    session = orchestrator.create_chat_session(websocket)
-    await websocket.close()
+    await websocket.accept()
+    ## get a uuid
+    session = ChatSession(uuid=uuid4(), websocket=websocket)
+    try:
+        while True:
+            data = await websocket.receive_json()
+            await session.handle_message(data)
+    except WebSocketDisconnect:
+        session_manager.end_session(session.session_id)
+        logger.info(f"WebSocket connection closed for session {session.session_id}")
 
 
 if __name__ == "__main__":

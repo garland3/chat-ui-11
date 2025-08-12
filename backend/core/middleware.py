@@ -7,7 +7,7 @@ from fastapi.responses import RedirectResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
-from auth import get_user_from_header
+from core.auth import get_user_from_header
 
 logger = logging.getLogger(__name__)
 
