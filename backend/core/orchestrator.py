@@ -36,17 +36,18 @@ class MessageOrchestrator:
         
         logger.info("Message orchestrator initialized with all modules")
     
-    async def process_message(self, session_context, message):
-        """
-        Coordinate message processing between modules.
+    # async def process_message(self, session_context, message):
+    #     """
+    #     Coordinate message processing between modules.
         
-        This is where the orchestration logic would go to replace
-        the complex interdependencies that existed before.
-        """
-        # This would contain the coordinated logic between modules
-        # For now, this is a placeholder for the proper implementation
-        logger.info("Processing message through orchestrator")
-        pass
+    #     This is where the orchestration logic would go to replace
+    #     the complex interdependencies that existed before.
+    #     """
+    #     # This would contain the coordinated logic between modules
+    #     # For now, this is a placeholder for the proper implementation
+    #     logger.info("Processing message through orchestrator")
+    #     pass
+    
     
     def get_mcp_manager(self) -> MCPToolManager:
         """Get the MCP tools manager."""
