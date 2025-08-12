@@ -1,7 +1,7 @@
 """Domain models for sessions."""
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 from uuid import UUID, uuid4
 
@@ -13,8 +13,8 @@ class Session:
     """Domain model for a chat session."""
     id: UUID = field(default_factory=uuid4)
     user_email: Optional[str] = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     history: ConversationHistory = field(default_factory=ConversationHistory)
     context: Dict[str, Any] = field(default_factory=dict)
     active: bool = True
@@ -33,4 +33,4 @@ class Session:
     
     def update_timestamp(self) -> None:
         """Update the last modified timestamp."""
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(timezone.utc)

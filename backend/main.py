@@ -1,8 +1,6 @@
 """
-Refactored FastAPI backend using the new modular architecture.
-
-This is a simplified main.py that uses the orchestrator pattern
-from Phase 1 of the refactoring plan.
+Basic chat backend implementing the modular architecture.
+Focuses on essential chat functionality only.
 """
 
 import logging
@@ -15,19 +13,16 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 
-# Import from core (glue layer)
-from core.chat_session import ChatSession
+# Import from core (only essential middleware and config)
 from core.middleware import AuthMiddleware
 from core.otel_config import setup_opentelemetry
 
 # Import from infrastructure
 from infrastructure.app_factory import app_factory
+from infrastructure.transport.websocket_connection_adapter import WebSocketConnectionAdapter
 
-# Import routes
-from routes.admin_routes import admin_router
+# Import essential routes
 from routes.config_routes import router as config_router
-from routes.feedback_routes import feedback_router
-from routes.files_routes import router as files_router
 
 # Load environment variables from the parent directory
 load_dotenv(dotenv_path="../.env")
@@ -57,7 +52,7 @@ async def lifespan(app: FastAPI):
 # Create FastAPI app with minimal setup
 app = FastAPI(
     title="Chat UI Backend",
-    description="Modular chat backend with MCP integration", 
+    description="Basic chat backend with modular architecture", 
     version="2.0.0",
     lifespan=lifespan,
 )
@@ -68,11 +63,8 @@ config = app_factory.get_config_manager()
 # Add middleware
 app.add_middleware(AuthMiddleware, debug_mode=config.app_settings.debug_mode)
 
-# Include routers
-app.include_router(admin_router)
+# Include essential routes
 app.include_router(config_router)
-app.include_router(feedback_router)
-app.include_router(files_router)
 
 # Serve frontend build (Vite)
 static_dir = Path(__file__).parent.parent / "frontend" / "dist"
@@ -107,18 +99,56 @@ if static_dir.exists():
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     """
-    Main chat WebSocket endpoint.
+    Main chat WebSocket endpoint using new architecture.
     """
     await websocket.accept()
-    ## get a uuid
-    session = ChatSession(uuid=uuid4(), websocket=websocket)
+    session_id = uuid4()
+    
+    # Create connection adapter and chat service
+    connection_adapter = WebSocketConnectionAdapter(websocket)
+    chat_service = app_factory.create_chat_service(connection_adapter)
+    
+    logger.info(f"WebSocket connection established for session {session_id}")
+    
     try:
         while True:
             data = await websocket.receive_json()
-            await session.handle_message(data)
+            message_type = data.get("type")
+            
+            if message_type == "chat":
+                # Handle chat message directly through service
+                response = await chat_service.handle_chat_message(
+                    session_id=session_id,
+                    content=data.get("content", ""),
+                    model=data.get("model", ""),
+                    selected_tools=data.get("selected_tools"),
+                    selected_data_sources=data.get("selected_data_sources"),
+                    only_rag=data.get("only_rag", False),
+                    tool_choice_required=data.get("tool_choice_required", False),
+                    user_email=data.get("user"),
+                    agent_mode=data.get("agent_mode", False),
+                    agent_max_steps=data.get("agent_max_steps", 10)
+                )
+                await websocket.send_json(response)
+                
+            elif message_type == "download_file":
+                # Handle file download
+                response = await chat_service.handle_download_file(
+                    session_id=session_id,
+                    filename=data.get("filename", "")
+                )
+                await websocket.send_json(response)
+                
+            else:
+                logger.warning(f"Unknown message type: {message_type}")
+                await websocket.send_json({
+                    "type": "error",
+                    "message": f"Unknown message type: {message_type}"
+                })
+                
     except WebSocketDisconnect:
-        await session.end_session()
-        logger.info(f"WebSocket connection closed for session {session.session_id}")
+        chat_service.end_session(session_id)
+        logger.info(f"WebSocket connection closed for session {session_id}")
 
 
 if __name__ == "__main__":

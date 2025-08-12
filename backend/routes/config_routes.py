@@ -14,6 +14,12 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api", tags=["config"])
 
 
+@router.get("/banners")
+async def get_banners(current_user: str = Depends(get_current_user)):
+    """Get banners for the user. For basic chat, return empty list."""
+    return []
+
+
 @router.get("/config")
 async def get_config(current_user: str = Depends(get_current_user)):
     """Get available models, tools, and data sources for the user.
@@ -27,62 +33,66 @@ async def get_config(current_user: str = Depends(get_current_user)):
     rag_client = app_factory.get_rag_client()
     rag_data_sources = await rag_client.discover_data_sources(current_user)
     
-    # Get MCP manager
-    mcp_manager = app_factory.get_mcp_manager()
-    
-    # Get authorized servers for the user - this filters out unauthorized servers completely
-    authorized_servers = mcp_manager.get_authorized_servers(current_user, is_user_in_group)
-    
-    # Add canvas pseudo-tool to authorized servers (available to all users)
-    authorized_servers.append("canvas")
-    
-    # Only build tool information for servers the user is authorized to access
+    # Check if tools are enabled
     tools_info = []
     prompts_info = []
-    for server_name in authorized_servers:
-        # Handle canvas pseudo-tool
-        if server_name == "canvas":
-            tools_info.append({
-                'server': 'canvas',
-                'tools': ['canvas'],
-                'tool_count': 1,
-                'description': 'Canvas for showing final rendered content: complete code, reports, and polished documents. Use this to finalize your work. Most code and reports will be shown here.',
-                'is_exclusive': False,
-                'author': 'Chat UI Team',
-                'short_description': 'Visual content display',
-                'help_email': 'support@chatui.example.com'
-            })
-        elif server_name in mcp_manager.available_tools:
-            server_tools = mcp_manager.available_tools[server_name]['tools']
-            server_config = mcp_manager.available_tools[server_name]['config']
-            
-            # Only include servers that have tools and user has access to
-            if server_tools:  # Only show servers with actual tools
-                tools_info.append({
-                    'server': server_name,
-                    'tools': [tool.name for tool in server_tools],
-                    'tool_count': len(server_tools),
-                    'description': server_config.get('description', f'{server_name} tools'),
-                    'is_exclusive': server_config.get('is_exclusive', False),
-                    'author': server_config.get('author', 'Unknown'),
-                    'short_description': server_config.get('short_description', server_config.get('description', f'{server_name} tools')),
-                    'help_email': server_config.get('help_email', '')
-                })
+    authorized_servers = []
+    
+    if app_settings.feature_tools_enabled:
+        # Get MCP manager
+        mcp_manager = app_factory.get_mcp_manager()
         
-        # Collect prompts from this server if available
-        if server_name in mcp_manager.available_prompts:
-            server_prompts = mcp_manager.available_prompts[server_name]['prompts']
-            server_config = mcp_manager.available_prompts[server_name]['config']
-            if server_prompts:  # Only show servers with actual prompts
-                prompts_info.append({
-                    'server': server_name,
-                    'prompts': [{'name': prompt.name, 'description': prompt.description} for prompt in server_prompts],
-                    'prompt_count': len(server_prompts),
-                    'description': f'{server_name} custom prompts',
-                    'author': server_config.get('author', 'Unknown'),
-                    'short_description': server_config.get('short_description', f'{server_name} custom prompts'),
-                    'help_email': server_config.get('help_email', '')
+        # Get authorized servers for the user - this filters out unauthorized servers completely
+        authorized_servers = mcp_manager.get_authorized_servers(current_user, is_user_in_group)
+        
+        # Add canvas pseudo-tool to authorized servers (available to all users)
+        authorized_servers.append("canvas")
+        
+        # Only build tool information for servers the user is authorized to access
+        for server_name in authorized_servers:
+            # Handle canvas pseudo-tool
+            if server_name == "canvas":
+                tools_info.append({
+                    'server': 'canvas',
+                    'tools': ['canvas'],
+                    'tool_count': 1,
+                    'description': 'Canvas for showing final rendered content: complete code, reports, and polished documents. Use this to finalize your work. Most code and reports will be shown here.',
+                    'is_exclusive': False,
+                    'author': 'Chat UI Team',
+                    'short_description': 'Visual content display',
+                    'help_email': 'support@chatui.example.com'
                 })
+            elif server_name in mcp_manager.available_tools:
+                server_tools = mcp_manager.available_tools[server_name]['tools']
+                server_config = mcp_manager.available_tools[server_name]['config']
+                
+                # Only include servers that have tools and user has access to
+                if server_tools:  # Only show servers with actual tools
+                    tools_info.append({
+                        'server': server_name,
+                        'tools': [tool.name for tool in server_tools],
+                        'tool_count': len(server_tools),
+                        'description': server_config.get('description', f'{server_name} tools'),
+                        'is_exclusive': server_config.get('is_exclusive', False),
+                        'author': server_config.get('author', 'Unknown'),
+                        'short_description': server_config.get('short_description', server_config.get('description', f'{server_name} tools')),
+                        'help_email': server_config.get('help_email', '')
+                    })
+            
+            # Collect prompts from this server if available
+            if server_name in mcp_manager.available_prompts:
+                server_prompts = mcp_manager.available_prompts[server_name]['prompts']
+                server_config = mcp_manager.available_prompts[server_name]['config']
+                if server_prompts:  # Only show servers with actual prompts
+                    prompts_info.append({
+                        'server': server_name,
+                        'prompts': [{'name': prompt.name, 'description': prompt.description} for prompt in server_prompts],
+                        'prompt_count': len(server_prompts),
+                        'description': f'{server_name} custom prompts',
+                        'author': server_config.get('author', 'Unknown'),
+                        'short_description': server_config.get('short_description', f'{server_name} custom prompts'),
+                        'help_email': server_config.get('help_email', '')
+                    })
     
     # Read help page configuration
     help_config = {}
@@ -124,12 +134,12 @@ async def get_config(current_user: str = Depends(get_current_user)):
     }
 
 
-@router.get("/sessions")
-async def get_session_info(current_user: str = Depends(get_current_user)):
-    """Get session information for the current user."""
-    # TODO: Implement session info retrieval from ChatService
-    return {
-        "total_sessions": 0,
-        "user_sessions": 0,
-        "sessions": []
-    }
+# @router.get("/sessions")
+# async def get_session_info(current_user: str = Depends(get_current_user)):
+#     """Get session information for the current user."""
+#     # TODO: Implement session info retrieval from ChatService
+#     return {
+#         "total_sessions": 0,
+#         "user_sessions": 0,
+#         "sessions": []
+#     }

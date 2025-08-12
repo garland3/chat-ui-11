@@ -109,8 +109,8 @@ class ChatMessage(BaseModel):
 
 class ChatCompletionRequest(BaseModel):
     messages: List[ChatMessage] = Field(..., description="A list of messages comprising the conversation so far.")
-    user_name: str = Field(..., description="The username of the individual making the request.", example="alice")
-    data_source: str = Field(..., description="The specific data source to query for context.", example="kubernetes_cluster_logs")
+    user_name: str = Field(..., description="The username of the individual making the request.", json_schema_extra={"example": "alice"})
+    data_source: str = Field(..., description="The specific data source to query for context.", json_schema_extra={"example": "kubernetes_cluster_logs"})
     model: str = "gpt-4-rag-mock" # Mock model name
     stream: bool = False # Mock streaming parameter
 
@@ -232,7 +232,7 @@ RAG_METADATA_DB = {
     summary="Discover data sources accessible by a user"
 )
 async def discover_data_sources(
-    user_name: str = Path(..., description="The username to check permissions for.", example="test@test.com")
+    user_name: str = Path(..., description="The username to check permissions for.", json_schema_extra={"example": "test@test.com"})
 ):
     """
     Checks all available data sources and returns a list of the ones

@@ -1,7 +1,7 @@
 """Domain models for messages."""
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
@@ -34,7 +34,7 @@ class Message:
     id: UUID = field(default_factory=uuid4)
     role: MessageRole = MessageRole.USER
     content: str = ""
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
     metadata: Dict[str, Any] = field(default_factory=dict)
     
     def to_dict(self) -> Dict[str, Any]:
@@ -54,7 +54,7 @@ class Message:
             id=UUID(data["id"]) if "id" in data else uuid4(),
             role=MessageRole(data.get("role", "user")),
             content=data.get("content", ""),
-            timestamp=datetime.fromisoformat(data["timestamp"]) if "timestamp" in data else datetime.utcnow(),
+            timestamp=datetime.fromisoformat(data["timestamp"]) if "timestamp" in data else datetime.now(timezone.utc),
             metadata=data.get("metadata", {})
         )
 
