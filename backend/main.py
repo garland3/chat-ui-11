@@ -24,10 +24,10 @@ from core.otel_config import setup_opentelemetry
 from infrastructure.app_factory import app_factory
 
 # Import routes
-from core.admin_routes import admin_router
-from core.config_routes import router as config_router
-from core.feedback_routes import feedback_router
-from core.files_routes import router as files_router
+from routes.admin_routes import admin_router
+from routes.config_routes import router as config_router
+from routes.feedback_routes import feedback_router
+from routes.files_routes import router as files_router
 
 # Load environment variables from the parent directory
 load_dotenv(dotenv_path="../.env")
