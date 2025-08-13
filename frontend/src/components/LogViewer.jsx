@@ -130,7 +130,8 @@ export default function LogViewer() {
 
   return (
     <div className="p-4 space-y-4 h-full flex flex-col">
-      <div className="flex flex-col gap-4 md:flex-row md:items-end"> {/* Changed to flex-col for smaller screens, flex-row for larger */}
+      {/* First row: Filters and Action Buttons */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-end">
         <div>
           <label className="block text-xs font-semibold mb-1">Level</label>
           <select value={levelFilter} onChange={e => setLevelFilter(e.target.value)} className="bg-gray-200 dark:bg-gray-700 p-2 rounded text-sm">
@@ -146,31 +147,32 @@ export default function LogViewer() {
             </select>
         </div>
         <button onClick={fetchLogs} className="bg-cyan-500 hover:bg-cyan-600 text-white px-4 py-2 rounded text-sm font-semibold">Refresh</button>
-        {loading && <span className="text-sm text-gray-500">Loading...</span>}
-        <button onClick={clearLogs} className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded text-sm font-semibold">Clear Logs</button> {/* New button */}
+        <button onClick={clearLogs} className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded text-sm font-semibold">Clear Logs</button>
         <button onClick={() => window.location.href='/admin/logs/download'} className="bg-gray-300 dark:bg-gray-700 hover:bg-gray-400 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-100 px-3 py-2 rounded text-sm font-medium">Download</button>
+        {loading && <span className="text-sm text-gray-500">Loading...</span>}
         {error && <span className="text-sm text-red-500">{error.message}</span>}
-        <div className="flex items-center gap-2"> {/* Wrap checkbox in a div */}
+      </div>
+      
+      {/* Second row: Toggles and Settings */}
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="flex items-center gap-2">
           <label className="flex items-center gap-2 text-xs font-medium select-none cursor-pointer">
             <input type="checkbox" className="accent-cyan-600" checked={hideViewerRequests} onChange={e => { setPage(0); setHideViewerRequests(e.target.checked); }} />
             Hide GET /admin/logs/viewer
           </label>
         </div>
-        {/* Auto-scroll toggle */}
-        <div className="flex items-center gap-2"> {/* Wrap checkbox in a div */}
+        <div className="flex items-center gap-2">
           <label className="flex items-center gap-2 text-xs font-medium select-none cursor-pointer">
             <input type="checkbox" className="accent-cyan-600" checked={autoScrollEnabled} onChange={e => setAutoScrollEnabled(e.target.checked)} />
             Auto-scroll
           </label>
         </div>
-        {/* Middleware toggle */}
-        <div className="flex items-center gap-2"> {/* Wrap checkbox in a div */}
+        <div className="flex items-center gap-2">
           <label className="flex items-center gap-2 text-xs font-medium select-none cursor-pointer">
             <input type="checkbox" className="accent-cyan-600" checked={hideMiddleware} onChange={e => { setPage(0); setHideMiddleware(e.target.checked); }} />
             Hide Middleware Calls
           </label>
         </div>
-        {/* Poll interval input */}
         <div className="flex items-center gap-2">
           <label className="block text-xs font-semibold">Update Frequency (s)</label>
           <input
