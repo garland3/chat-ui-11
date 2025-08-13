@@ -155,69 +155,64 @@ async def admin_dashboard(admin_user: str = Depends(require_admin)):
         "user": admin_user,
         "available_endpoints": [
             "/admin/banners",
-            "/admin/mcp-config", 
-            "/admin/llm-config",
-            "/admin/help-config",
-            "/admin/logs",
-            "/admin/logs/viewer",
-            "/admin/logs/download",
-            "/admin/logs/stats",
-            "/admin/system-status",
-            "/admin/mcp-health",
-            "/admin/trigger-health-check",
-            "/admin/reload-config"
+            "/admin/logs/viewer", 
+            "/admin/logs/clear"
         ]
     }
 
 
-# # --- Banner Management ---
+# --- Banner Management ---
 
-# @admin_router.get("/banners")
-# async def get_banner_config(admin_user: str = Depends(require_admin)):
-#     """Get current banner messages configuration."""
-#     try:
-#         # For now, we'll create a simple messages.txt file in configfilesadmin
-#         messages_file = get_admin_config_path("messages.txt")
+@admin_router.get("/banners")
+async def get_banner_config(admin_user: str = Depends(require_admin)):
+    """Get current banner messages configuration."""
+    try:
+        # Set up configfilesadmin directory first
+        setup_configfilesadmin()
         
-#         if not messages_file.exists():
-#             # Create with default content
-#             default_content = "System status: All services operational\n"
-#             write_file_content(messages_file, default_content)
+        # For now, we'll create a simple messages.txt file in configfilesadmin
+        messages_file = get_admin_config_path("messages.txt")
         
-#         content = get_file_content(messages_file)
-#         messages = [line.strip() for line in content.splitlines() if line.strip()]
+        if not messages_file.exists():
+            # Create with default content
+            default_content = "System status: All services operational\n"
+            write_file_content(messages_file, default_content)
         
-#         return {
-#             "messages": messages,
-#             "file_path": str(messages_file),
-#             "last_modified": messages_file.stat().st_mtime if messages_file.exists() else None
-#         }
-#     except Exception as e:
-#         logger.error(f"Error getting banner config: {e}")
-#         raise HTTPException(status_code=500, detail=str(e))
+        content = get_file_content(messages_file)
+        messages = [line.strip() for line in content.splitlines() if line.strip()]
+        
+        return {
+            "messages": messages,
+            "file_path": str(messages_file),
+            "last_modified": messages_file.stat().st_mtime if messages_file.exists() else None
+        }
+    except Exception as e:
+        logger.error(f"Error getting banner config: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
-# @admin_router.post("/banners")
-# async def update_banner_config(
-#     update: BannerMessageUpdate,
-#     admin_user: str = Depends(require_admin)
-# ):
-#     """Update banner messages configuration."""
-#     try:
-#         messages_file = get_admin_config_path("messages.txt")
-#         content = "\n".join(update.messages) + "\n" if update.messages else ""
+@admin_router.post("/banners")
+async def update_banner_config(
+    update: BannerMessageUpdate,
+    admin_user: str = Depends(require_admin)
+):
+    """Update banner messages configuration."""
+    try:
+        setup_configfilesadmin()
+        messages_file = get_admin_config_path("messages.txt")
+        content = "\n".join(update.messages) + "\n" if update.messages else ""
         
-#         write_file_content(messages_file, content)
+        write_file_content(messages_file, content)
         
-#         logger.info(f"Banner messages updated by {admin_user}")
-#         return {
-#             "message": "Banner messages updated successfully",
-#             "messages": update.messages,
-#             "updated_by": admin_user
-#         }
-#     except Exception as e:
-#         logger.error(f"Error updating banner config: {e}")
-#         raise HTTPException(status_code=500, detail=str(e))
+        logger.info(f"Banner messages updated by {admin_user}")
+        return {
+            "message": "Banner messages updated successfully",
+            "messages": update.messages,
+            "updated_by": admin_user
+        }
+    except Exception as e:
+        logger.error(f"Error updating banner config: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # # --- MCP Configuration ---
@@ -340,189 +335,187 @@ async def admin_dashboard(admin_user: str = Depends(require_admin)):
 #         raise HTTPException(status_code=500, detail=str(e))
 
 
-# # --- Log Management ---
+# --- Log Management ---
 
-# @admin_router.get("/logs")
-# async def get_app_logs(
-#     lines: int = 500,
-#     admin_user: str = Depends(require_admin)
-# ):
-#     """Get application logs in structured JSON format."""
-#     try:
-#         otel_config = get_otel_config()
-#         if not otel_config:
-#             raise HTTPException(status_code=500, detail="OpenTelemetry configuration not available")
+@admin_router.get("/logs/viewer")
+async def get_enhanced_logs(
+    lines: int = 500,
+    level_filter: str = None,
+    module_filter: str = None,
+    admin_user: str = Depends(require_admin)
+):
+    """Get enhanced logs with better structure for the React frontend."""
+    try:
+        # Use a simple approach to read logs from the basic log file
+        log_file = Path("logs/app.log")
+        if not log_file.exists():
+            # Try fallback locations
+            fallback_locations = [Path("logs/app.jsonl"), Path("../logs/app.log")]
+            for fallback in fallback_locations:
+                if fallback.exists():
+                    log_file = fallback
+                    break
+            else:
+                raise HTTPException(status_code=404, detail="Log file not found")
         
-#         # Get structured logs from OpenTelemetry
-#         logs = otel_config.read_logs(lines)
-#         stats = otel_config.get_log_stats()
+        # Read last N lines efficiently
+        from collections import deque
+        entries = []
+        modules = set()
+        levels = set()
         
-#         return {
-#             "logs": logs,
-#             "stats": stats,
-#             "format": "json",
-#             "total_logs": len(logs),
-#             "requested_lines": lines,
-#             "log_file": str(otel_config.get_log_file_path())
-#         }
-#     except Exception as e:
-#         logger.error(f"Error getting logs: {e}")
-#         raise HTTPException(status_code=500, detail=str(e))
-
-
-# @admin_router.get("/logs/download")
-# async def download_app_logs(admin_user: str = Depends(require_admin)):
-#     """Download the complete OpenTelemetry log file."""
-#     try:
-#         otel_config = get_otel_config()
-#         if not otel_config:
-#             raise HTTPException(status_code=500, detail="OpenTelemetry configuration not available")
-        
-#         log_file = otel_config.get_log_file_path()
-        
-#         if not log_file.exists():
-#             raise HTTPException(status_code=404, detail="Log file not found")
-        
-#         # Import FileResponse here to avoid circular imports
-#         from fastapi.responses import FileResponse
-        
-#         return FileResponse(
-#             path=str(log_file),
-#             filename=f"otel_logs_{log_file.stat().st_mtime}.jsonl",
-#             media_type="application/x-ndjson"  # JSON Lines format
-#         )
-#     except Exception as e:
-#         logger.error(f"Error downloading logs: {e}")
-#         raise HTTPException(status_code=500, detail=str(e))
-
-
-# @admin_router.get("/logs/stats")
-# async def get_log_stats(admin_user: str = Depends(require_admin)):
-#     """Get OpenTelemetry log file statistics and configuration."""
-#     try:
-#         otel_config = get_otel_config()
-#         if not otel_config:
-#             raise HTTPException(status_code=500, detail="OpenTelemetry configuration not available")
-        
-#         stats = otel_config.get_log_stats()
-        
-#         return {
-#             "otel_config": {
-#                 "service_name": otel_config.service_name,
-#                 "service_version": otel_config.service_version,
-#                 "is_development": otel_config.is_development,
-#                 "log_level": logging.getLevelName(otel_config.log_level),
-#                 "log_file_path": str(otel_config.log_file)
-#             },
-#             "file_stats": stats,
-#             "logging_format": "JSON Lines (JSONL)",
-#             "features": [
-#                 "Structured JSON logging",
-#                 "OpenTelemetry trace correlation",
-#                 "Environment-based log levels",
-#                 "Ready for OTLP export"
-#             ]
-#         }
-#     except Exception as e:
-#         logger.error(f"Error getting log stats: {e}")
-#         raise HTTPException(status_code=500, detail=str(e))
-
-
-# @admin_router.get("/logs/viewer")
-# async def get_enhanced_logs(
-#     lines: int = 500,
-#     level_filter: str = None,
-#     module_filter: str = None,
-#     admin_user: str = Depends(require_admin)
-# ):
-#     """Get enhanced logs with better structure for the React frontend."""
-#     try:
-#         # Read logs from the JSONL file directly for better performance
-#         from otel_config import get_otel_config
-#         otel_cfg = get_otel_config()
-#         if not otel_cfg:
-#             raise HTTPException(status_code=500, detail="OpenTelemetry configuration not available")
-#         log_file = otel_cfg.get_log_file_path()
-#         if not log_file.exists():
-#             raise HTTPException(status_code=404, detail="Log file not found")
-        
-#         # Read last N lines efficiently
-#         from collections import deque
-#         with log_file.open("r", encoding="utf-8") as f:
-#             lines_deque = deque(f, maxlen=lines + 1)  # +1 for potential "NEW LOG" line
-        
-#         entries = []
-#         modules = set()
-#         levels = set()
-        
-#         for line in lines_deque:
-#             line = line.strip()
-#             if line == "NEW LOG":
-#                 continue
+        try:
+            with log_file.open("r", encoding="utf-8") as f:
+                lines_deque = deque(f, maxlen=lines + 100)  # Extra buffer for filtering
             
-#             try:
-#                 entry = json.loads(line)
+            for line in lines_deque:
+                line = line.strip()
+                if not line or line == "NEW LOG":
+                    continue
                 
-#                 # Extract key fields
-#                 processed_entry = {
-#                     "timestamp": entry.get("timestamp", ""),
-#                     "level": entry.get("level", "UNKNOWN"),
-#                     "module": entry.get("module", entry.get("logger", "")),
-#                     "logger": entry.get("logger", ""),
-#                     "function": entry.get("function", ""),
-#                     "message": entry.get("message", ""),
-#                     "trace_id": entry.get("trace_id", ""),
-#                     "span_id": entry.get("span_id", ""),
-#                     "line": entry.get("line", ""),
-#                     "thread_name": entry.get("thread_name", ""),
-#                     "extras": {k: v for k, v in entry.items() if k.startswith("extra_")}
-#                 }
+                try:
+                    # Try to parse as JSON first (for structured logs)
+                    entry = json.loads(line)
+                    processed_entry = {
+                        "timestamp": entry.get("timestamp", ""),
+                        "level": entry.get("level", "UNKNOWN"),
+                        "module": entry.get("module", entry.get("logger", "")),
+                        "logger": entry.get("logger", ""),
+                        "function": entry.get("function", ""),
+                        "message": entry.get("message", ""),
+                        "trace_id": entry.get("trace_id", ""),
+                        "span_id": entry.get("span_id", ""),
+                        "line": entry.get("line", ""),
+                        "thread_name": entry.get("thread_name", ""),
+                        "extras": {k: v for k, v in entry.items() if k.startswith("extra_")}
+                    }
+                except json.JSONDecodeError:
+                    # Handle plain text logs - simple parsing
+                    import re
+                    # Try to extract basic info from log line format like "2024-01-01 12:00:00 - INFO - module - message"
+                    log_pattern = r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})[,\s-]*(\w+)[,\s-]*([^-]*)[,\s-]*(.*)'
+                    match = re.match(log_pattern, line)
+                    if match:
+                        timestamp, level, module, message = match.groups()
+                        processed_entry = {
+                            "timestamp": timestamp.strip(),
+                            "level": level.strip().upper(),
+                            "module": module.strip(),
+                            "logger": module.strip(),
+                            "function": "",
+                            "message": message.strip(),
+                            "trace_id": "",
+                            "span_id": "",
+                            "line": "",
+                            "thread_name": "",
+                            "extras": {}
+                        }
+                    else:
+                        # Fallback for unparseable lines
+                        processed_entry = {
+                            "timestamp": "",
+                            "level": "INFO",
+                            "module": "unknown",
+                            "logger": "unknown", 
+                            "function": "",
+                            "message": line,
+                            "trace_id": "",
+                            "span_id": "",
+                            "line": "",
+                            "thread_name": "",
+                            "extras": {}
+                        }
                 
-#                 # Apply filters
-#                 if level_filter and processed_entry["level"] != level_filter:
-#                     continue
-#                 if module_filter and processed_entry["module"] != module_filter:
-#                     continue
+                # Apply filters
+                if level_filter and processed_entry["level"] != level_filter:
+                    continue
+                if module_filter and processed_entry["module"] != module_filter:
+                    continue
                 
-#                 entries.append(processed_entry)
-#                 modules.add(processed_entry["module"])
-#                 levels.add(processed_entry["level"])
+                entries.append(processed_entry)
+                modules.add(processed_entry["module"])
+                levels.add(processed_entry["level"])
                 
-#             except json.JSONDecodeError:
-#                 # Handle parse errors
-#                 entries.append({
-#                     "timestamp": "",
-#                     "level": "ERROR",
-#                     "module": "parser",
-#                     "function": "parse_log",
-#                     "message": f"Failed to parse log line: {line}",
-#                     "trace_id": "",
-#                     "span_id": "",
-#                     "line": "",
-#                     "thread_name": "",
-#                     "extras": {},
-#                     "parse_error": True,
-#                     "raw_line": line
-#                 })
+                # Stop if we have enough entries after filtering
+                if len(entries) >= lines:
+                    break
+                    
+        except Exception as e:
+            logger.error(f"Error reading log file {log_file}: {e}")
+            # Return a minimal response if log reading fails
+            entries = [{
+                "timestamp": "",
+                "level": "ERROR",
+                "module": "admin",
+                "logger": "admin", 
+                "function": "get_enhanced_logs",
+                "message": f"Error reading log file: {str(e)}",
+                "trace_id": "",
+                "span_id": "",
+                "line": "",
+                "thread_name": "",
+                "extras": {}
+            }]
+            modules = {"admin"}
+            levels = {"ERROR"}
         
-#         return {
-#             "entries": entries,
-#             "metadata": {
-#                 "total_entries": len(entries),
-#                 "unique_modules": sorted(list(modules)),
-#                 "unique_levels": sorted(list(levels)),
-#                 "log_file_path": str(log_file),
-#                 "requested_lines": lines,
-#                 "filters_applied": {
-#                     "level": level_filter,
-#                     "module": module_filter
-#                 }
-#             }
-#         }
+        return {
+            "entries": entries,
+            "metadata": {
+                "total_entries": len(entries),
+                "unique_modules": sorted(list(modules)),
+                "unique_levels": sorted(list(levels)),
+                "log_file_path": str(log_file),
+                "requested_lines": lines,
+                "filters_applied": {
+                    "level": level_filter,
+                    "module": module_filter
+                }
+            }
+        }
         
-#     except Exception as e:
-#         logger.error(f"Error getting enhanced logs: {e}")
-#         raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        logger.error(f"Error getting enhanced logs: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@admin_router.post("/logs/clear")
+async def clear_app_logs(admin_user: str = Depends(require_admin)):
+    """Clear application logs."""
+    try:
+        log_file = Path("logs/app.log")
+        jsonl_file = Path("logs/app.jsonl")
+        
+        cleared_files = []
+        
+        # Clear the main log file
+        if log_file.exists():
+            with open(log_file, 'w') as f:
+                f.write("")
+            cleared_files.append(str(log_file))
+            
+        # Clear JSONL log file if it exists
+        if jsonl_file.exists():
+            with open(jsonl_file, 'w') as f:
+                f.write("")
+            cleared_files.append(str(jsonl_file))
+        
+        if not cleared_files:
+            return {
+                "message": "No log files found to clear",
+                "cleared_by": admin_user,
+                "files_cleared": []
+            }
+        
+        logger.info(f"Log files cleared by {admin_user}: {cleared_files}")
+        return {
+            "message": "Log files cleared successfully",
+            "cleared_by": admin_user,
+            "files_cleared": cleared_files
+        }
+    except Exception as e:
+        logger.error(f"Error clearing logs: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # # --- System Status ---

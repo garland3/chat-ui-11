@@ -203,6 +203,7 @@ export const ChatProvider = ({ children }) => {
 		setAgentMaxSteps: agent.setAgentMaxSteps,
 		agentModeAvailable: agent.agentModeAvailable,
 		currentAgentStep: agent.currentAgentStep,
+		isInAdminGroup: config.isInAdminGroup,
 		messages,
 		isWelcomeVisible,
 		isThinking,

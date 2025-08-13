@@ -20,6 +20,7 @@ export function useChatConfig() {
   const [currentModel, setCurrentModel] = useState('')
   const [onlyRag, setOnlyRag] = useState(true)
   const [agentModeAvailable, setAgentModeAvailable] = useState(false)
+  const [isInAdminGroup, setIsInAdminGroup] = useState(false)
 
   useEffect(() => {
     (async () => {
@@ -40,6 +41,8 @@ export function useChatConfig() {
   setFeatures({ ...DEFAULT_FEATURES, ...(cfg.features || {}) })
   // Agent mode availability flag from backend
   setAgentModeAvailable(!!cfg.agent_mode_available)
+        // Admin group membership flag from backend
+        setIsInAdminGroup(!!cfg.is_in_admin_group)
         if (!currentModel && cfg.models?.length) setCurrentModel(cfg.models[0])
       } catch (e) {
         // Fallback demo data
@@ -67,6 +70,7 @@ export function useChatConfig() {
     setCurrentModel,
     onlyRag,
   setOnlyRag,
-  agentModeAvailable
+  agentModeAvailable,
+  isInAdminGroup
   }
 }

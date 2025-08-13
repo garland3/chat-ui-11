@@ -23,6 +23,7 @@ from infrastructure.transport.websocket_connection_adapter import WebSocketConne
 
 # Import essential routes
 from routes.config_routes import router as config_router
+from routes.admin_routes import admin_router
 
 # Load environment variables from the parent directory
 load_dotenv(dotenv_path="../.env")
@@ -65,6 +66,7 @@ app.add_middleware(AuthMiddleware, debug_mode=config.app_settings.debug_mode)
 
 # Include essential routes
 app.include_router(config_router)
+app.include_router(admin_router)
 
 # Serve frontend build (Vite)
 static_dir = Path(__file__).parent.parent / "frontend" / "dist"

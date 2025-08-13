@@ -321,13 +321,16 @@ const AdminDashboard = () => {
           />
 
           {/* MCP Configuration */}
+          {/*
           <MCPConfigurationCard 
             openModal={openModal} 
             addNotification={addNotification} 
             systemStatus={systemStatus} 
           />
+          */}
 
           {/* LLM Configuration */}
+          {/*
           <div className="bg-gray-800 rounded-lg p-6">
             <div className="flex items-center gap-3 mb-4">
               <Database className="w-6 h-6 text-green-400" />
@@ -344,8 +347,10 @@ const AdminDashboard = () => {
               Edit LLM Config
             </button>
           </div>
+          */}
 
           {/* Help Configuration */}
+          {/*
           <div className="bg-gray-800 rounded-lg p-6">
             <div className="flex items-center gap-3 mb-4">
               <FileText className="w-6 h-6 text-yellow-400" />
@@ -362,6 +367,7 @@ const AdminDashboard = () => {
               Edit Help Config
             </button>
           </div>
+          */}
 
           {/* System Logs */}
           <div className="bg-gray-800 rounded-lg p-6">
@@ -383,6 +389,7 @@ const AdminDashboard = () => {
           </div>
 
           {/* System Health */}
+          {/*
           <div className="bg-gray-800 rounded-lg p-6">
             <div className="flex items-center gap-3 mb-4">
               <Activity className="w-6 h-6 text-orange-400" />
@@ -413,8 +420,10 @@ const AdminDashboard = () => {
               </button>
             </div>
           </div>
+          */}
 
           {/* Configuration Management */}
+          {/*
           <div className="bg-gray-800 rounded-lg p-6 md:col-span-2 lg:col-span-1">
             <div className="flex items-center gap-3 mb-4">
               <RotateCcw className="w-6 h-6 text-indigo-400" />
@@ -431,8 +440,10 @@ const AdminDashboard = () => {
               Reload Config
             </button>
           </div>
+          */}
 
           {/* User Feedback */}
+          {/*
           <div className="bg-gray-800 rounded-lg p-6">
             <div className="flex items-center gap-3 mb-4">
               <Heart className="w-6 h-6 text-pink-400" />
@@ -449,6 +460,7 @@ const AdminDashboard = () => {
               View Feedback
             </button>
           </div>
+          */}
         </div>
       </div>
 

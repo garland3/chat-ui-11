@@ -19,7 +19,8 @@ const Header = ({ onToggleRag, onToggleTools, onToggleFiles, onToggleCanvas, onC
     downloadChatAsText,
     messages,
     clearChat,
-    features
+    features,
+    isInAdminGroup
   } = useChat()
   const { connectionStatus, isConnected } = useWS()
   const [dropdownOpen, setDropdownOpen] = useState(false)
@@ -191,14 +192,16 @@ const Header = ({ onToggleRag, onToggleTools, onToggleFiles, onToggleCanvas, onC
           </button>
         )}
 
-        {/* Admin Button */}
-        <button
-          onClick={() => navigate('/admin')}
-          className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
-          title="Admin Dashboard"
-        >
-          <Shield className="w-5 h-5" />
-        </button>
+        {/* Admin Button - Only show for admin users */}
+        {isInAdminGroup && (
+          <button
+            onClick={() => navigate('/admin')}
+            className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
+            title="Admin Dashboard"
+          >
+            <Shield className="w-5 h-5" />
+          </button>
+        )}
 
         {/* Help Button */}
         <button

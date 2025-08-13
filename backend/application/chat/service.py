@@ -126,6 +126,8 @@ class ChatService:
         messages: List[Dict[str, str]]
     ) -> Dict[str, Any]:
         """Handle plain LLM call without tools or RAG."""
+        # Note: The actual implementation of call_plain is in backend/modules/llm/caller.py
+        # The self.llm instance is an LLMCaller object injected via AppFactory
         response_content = await self.llm.call_plain(model, messages)
         
         # Add assistant message to history

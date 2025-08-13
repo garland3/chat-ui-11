@@ -14,6 +14,15 @@ def is_user_in_group(user_id: str, group_id: str) -> bool:
     Returns:
         True if user is authorized for the group
     """
+    # Check if this is debug mode and test user should have admin access
+    from modules.config.manager import config_manager
+    app_settings = config_manager.app_settings
+    
+    if (app_settings.debug_mode and 
+        user_id == app_settings.test_user and 
+        group_id == app_settings.admin_group):
+        return True
+    
     # Mock implementation - in production this would query actual auth system
     mock_groups = {
         "test@test.com": ["users", "mcp_basic", "admin"],

@@ -119,6 +119,7 @@ class AppSettings(BaseSettings):
     
     # Admin settings
     admin_group: str = "admin"
+    test_user: str = "test@test.com"  # Test user for development
     
     # S3 storage settings
     s3_endpoint: str = "http://127.0.0.1:8003"
