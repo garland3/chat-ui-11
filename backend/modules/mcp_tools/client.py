@@ -2,11 +2,12 @@
 
 import logging
 import os
-from typing import Dict, List, Any
+from typing import Dict, List, Any, Optional
 
 from fastmcp import Client
 from modules.config import config_manager
 from core.auth_utils import create_authorization_manager
+from domain.messages.models import ToolCall, ToolResult
 
 logger = logging.getLogger(__name__)
 
@@ -345,6 +346,97 @@ class MCPToolManager:
             logger.error(f"Error getting authorized servers for {user_email}: {e}", exc_info=True)
             return []
     
+    def get_available_tools(self) -> List[str]:
+        """Get list of available tool names."""
+        available_tools = []
+        for server_name, server_data in self.available_tools.items():
+            if server_name == "canvas":
+                available_tools.append("canvas_canvas")
+            else:
+                for tool in server_data.get('tools', []):
+                    available_tools.append(f"{server_name}_{tool.name}")
+        return available_tools
+    
+    def get_tools_schema(self, tool_names: List[str]) -> List[Dict[str, Any]]:
+        """Get schemas for specified tools."""
+        # Extract server names from tool names
+        server_names = []
+        for tool_name in tool_names:
+            if tool_name.startswith("canvas_"):
+                server_names.append("canvas")
+            else:
+                # Extract server name (everything before the last underscore)
+                parts = tool_name.split("_")
+                if len(parts) >= 2:
+                    server_name = "_".join(parts[:-1])
+                    if server_name in self.available_tools:
+                        server_names.append(server_name)
+        
+        # Remove duplicates while preserving order
+        server_names = list(dict.fromkeys(server_names))
+        
+        # Get tools for these servers
+        tools_data = self.get_tools_for_servers(server_names)
+        return tools_data.get('tools', [])
+    
+    async def execute_tool(
+        self,
+        tool_call: ToolCall,
+        context: Optional[Dict[str, Any]] = None
+    ) -> ToolResult:
+        """Execute a tool call."""
+        # Handle canvas pseudo-tool
+        if tool_call.name == "canvas_canvas":
+            # Canvas tool just returns the content - it's handled by frontend
+            content = tool_call.arguments.get("content", "")
+            return ToolResult(
+                tool_call_id=tool_call.id,
+                content=f"Canvas content displayed: {content[:100]}..." if len(content) > 100 else f"Canvas content displayed: {content}",
+                success=True
+            )
+        
+        # Parse server and tool name from tool_call.name
+        parts = tool_call.name.split("_")
+        if len(parts) < 2:
+            return ToolResult(
+                tool_call_id=tool_call.id,
+                content=f"Invalid tool name format: {tool_call.name}",
+                success=False,
+                error=f"Invalid tool name format: {tool_call.name}"
+            )
+        
+        # Extract server name (everything except the last part)
+        server_name = "_".join(parts[:-1])
+        actual_tool_name = parts[-1]
+        
+        try:
+            result = await self.call_tool(server_name, actual_tool_name, tool_call.arguments)
+            return ToolResult(
+                tool_call_id=tool_call.id,
+                content=str(result),
+                success=True
+            )
+        except Exception as e:
+            logger.error(f"Error executing tool {tool_call.name}: {e}")
+            return ToolResult(
+                tool_call_id=tool_call.id,
+                content=f"Error executing tool: {str(e)}",
+                success=False,
+                error=str(e)
+            )
+    
+    async def execute_tool_calls(
+        self,
+        tool_calls: List[ToolCall],
+        context: Optional[Dict[str, Any]] = None
+    ) -> List[ToolResult]:
+        """Execute multiple tool calls."""
+        results = []
+        for tool_call in tool_calls:
+            result = await self.execute_tool(tool_call, context)
+            results.append(result)
+        return results
+
     async def cleanup(self):
         """Cleanup all clients."""
         logger.info("Cleaning up MCP clients")

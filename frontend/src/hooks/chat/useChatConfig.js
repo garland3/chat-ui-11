@@ -18,7 +18,7 @@ export function useChatConfig() {
   const [dataSources, setDataSources] = useState([])
   const [features, setFeatures] = useState(DEFAULT_FEATURES)
   const [currentModel, setCurrentModel] = useState('')
-  const [onlyRag, setOnlyRag] = useState(true)
+  const [onlyRag, setOnlyRag] = useState(false)
   const [agentModeAvailable, setAgentModeAvailable] = useState(false)
   const [isInAdminGroup, setIsInAdminGroup] = useState(false)
 

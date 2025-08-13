@@ -76,6 +76,16 @@ class ChatService:
         Returns:
             Response dictionary to send to client
         """
+        # Log all input arguments with content trimmed to 100 chars
+        content_preview = content[:100] + "..." if len(content) > 100 else content
+        logger.info(
+            f"handle_chat_message called - session_id: {session_id}, "
+            f"content: '{content_preview}', model: {model}, "
+            f"selected_tools: {selected_tools}, selected_data_sources: {selected_data_sources}, "
+            f"only_rag: {only_rag}, tool_choice_required: {tool_choice_required}, "
+            f"user_email: {user_email}, agent_mode: {agent_mode}, "
+            f"kwargs: {kwargs}"
+        )
         # Get or create session
         session = self.sessions.get(session_id)
         if not session:
@@ -179,28 +189,49 @@ class ChatService:
         tool_choice_required: bool
     ) -> Dict[str, Any]:
         """Handle LLM call with tools (and optionally RAG)."""
-        if not self.tool_manager:
-            raise ValidationError("Tool manager not configured")
-        
-        # Get tool schemas
-        tools_schema = self.tool_manager.get_tools_schema(selected_tools)
-        tool_choice = "required" if tool_choice_required else "auto"
+        try:
+            if not self.tool_manager:
+                raise ValidationError("Tool manager not configured")
+            
+            # Get tool schemas
+            logger.info(f"Getting tools schema for selected tools: {selected_tools}")
+            tools_schema = self.tool_manager.get_tools_schema(selected_tools)
+            tool_choice = "required" if tool_choice_required else "auto"
+            
+            logger.info(f"Got {len(tools_schema)} tool schemas, tool_choice: {tool_choice}")
+        except Exception as e:
+            logger.error(f"Error getting tools schema: {e}", exc_info=True)
+            raise ValidationError(f"Failed to get tools schema: {str(e)}")
         
         # Call LLM with tools
-        if data_sources and user_email:
-            llm_response = await self.llm.call_with_rag_and_tools(
-                model, messages, data_sources, tools_schema, user_email, tool_choice
-            )
-        else:
-            llm_response = await self.llm.call_with_tools(
-                model, messages, tools_schema, tool_choice
-            )
+        try:
+            if data_sources and user_email:
+                logger.info(f"Calling LLM with RAG and tools for user {user_email}")
+                llm_response = await self.llm.call_with_rag_and_tools(
+                    model, messages, data_sources, tools_schema, user_email, tool_choice
+                )
+            else:
+                logger.info(f"Calling LLM with tools only")
+                llm_response = await self.llm.call_with_tools(
+                    model, messages, tools_schema, tool_choice
+                )
+            
+            logger.info(f"LLM response received, has_tool_calls: {llm_response.has_tool_calls()}")
+        except Exception as e:
+            logger.error(f"Error calling LLM with tools: {e}", exc_info=True)
+            raise ValidationError(f"Failed to call LLM with tools: {str(e)}")
         
         # Process tool calls if present
         if llm_response.has_tool_calls():
-            tool_results = await self._execute_tool_calls(
-                llm_response.tool_calls, session
-            )
+            try:
+                logger.info(f"Executing {len(llm_response.tool_calls)} tool calls")
+                tool_results = await self._execute_tool_calls(
+                    llm_response.tool_calls, session
+                )
+                logger.info(f"Tool execution completed, got {len(tool_results)} results")
+            except Exception as e:
+                logger.error(f"Error executing tool calls: {e}", exc_info=True)
+                raise ValidationError(f"Failed to execute tool calls: {str(e)}")
             
             # Add tool results to messages and call LLM again
             for tool_call, result in zip(llm_response.tool_calls, tool_results):

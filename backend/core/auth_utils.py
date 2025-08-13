@@ -22,9 +22,15 @@ def create_authorization_manager(auth_check_func: Optional[Callable] = None) -> 
             """Simple auth check - allows everything for basic chat."""
             return True
         
-        def filter_authorized_servers(self, servers, user_email, auth_check_func):
+        def filter_authorized_servers(self, user_email, servers_config, get_server_groups_func):
             """Filter servers based on authorization - for basic chat, allow all."""
-            return servers
+            # For now, return all server names as a list
+            if hasattr(servers_config, 'servers'):
+                return list(servers_config.servers.keys())
+            elif isinstance(servers_config, dict):
+                return list(servers_config.keys())
+            else:
+                return []
         
         def __call__(self, *args, **kwargs):
             return self.check_authorization(*args, **kwargs)

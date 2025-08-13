@@ -1,4 +1,13 @@
 models:
+  openrouter-llama-3-370B:
+    model_url: "https://openrouter.ai/api/v1/chat/completions"
+    model_name: "meta-llama/llama-3-70b-instruct"
+    api_key: "${OPENROUTER_API_KEY}"
+    description: "OpenRouter aggregated Llama 3 70B model"
+    extra_headers:
+      HTTP-Referer: "${OPENROUTER_SITE_URL}"
+      X-Title: "${OPENROUTER_SITE_NAME}"
+      
   openrouter-gpt-oss:
     model_url: "https://openrouter.ai/api/v1/chat/completions"
     model_name: "openai/gpt-oss-20b"
