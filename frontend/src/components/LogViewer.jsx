@@ -51,8 +51,8 @@ export default function LogViewer() {
   // Function to clear all logs
   const clearLogs = useCallback(() => {
     setLoading(true);
-    fetch('/admin/logs/clear', { // Assuming this endpoint exists
-      method: 'DELETE', // Or POST, depending on backend implementation
+    fetch('/admin/logs/clear', {
+      method: 'POST', // Correct method as defined in admin_routes.py
       headers: {
         'X-User-Email': 'test@test.com'
       }

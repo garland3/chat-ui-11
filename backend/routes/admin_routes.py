@@ -346,11 +346,11 @@ async def get_enhanced_logs(
 ):
     """Get enhanced logs with better structure for the React frontend."""
     try:
-        # Use a simple approach to read logs from the basic log file
-        log_file = Path("logs/app.log")
+        # Use OpenTelemetry JSONL log file first, then fallback to plain text
+        log_file = Path("logs/app.jsonl")
         if not log_file.exists():
             # Try fallback locations
-            fallback_locations = [Path("logs/app.jsonl"), Path("../logs/app.log")]
+            fallback_locations = [Path("logs/app.log"), Path("../logs/app.jsonl"), Path("../logs/app.log")]
             for fallback in fallback_locations:
                 if fallback.exists():
                     log_file = fallback
