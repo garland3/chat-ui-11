@@ -9,7 +9,7 @@ from interfaces.tools import ToolManagerProtocol
 from interfaces.transport import ChatConnectionProtocol
 from modules.config import ConfigManager
 from modules.file_storage import S3StorageClient
-from modules.llm import LLMCaller
+from modules.llm.litellm_caller import LiteLLMCaller
 from modules.mcp_tools import MCPToolManager
 from modules.rag import RAGClient
 
@@ -28,7 +28,10 @@ class AppFactory:
         self.config_manager = ConfigManager()
         
         # Initialize modules
-        self.llm_caller = LLMCaller(self.config_manager.llm_config)
+        self.llm_caller = LiteLLMCaller(
+            self.config_manager.llm_config, 
+            debug_mode=self.config_manager.app_settings.debug_mode
+        )
         self.mcp_tools = MCPToolManager()
         self.rag_client = RAGClient()
         self.file_storage = S3StorageClient()
@@ -58,7 +61,7 @@ class AppFactory:
         """Get the configuration manager."""
         return self.config_manager
     
-    def get_llm_caller(self) -> LLMCaller:
+    def get_llm_caller(self) -> LiteLLMCaller:
         """Get the LLM caller."""
         return self.llm_caller
     

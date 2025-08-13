@@ -9,6 +9,7 @@ python-dotenv
 fastmcp
 requests
 httpx
+litellm
 duckduckgo-search
 PyPDF2
 reportlab
