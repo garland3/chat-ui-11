@@ -29,7 +29,7 @@ if [ "$ONLY_FRONTEND" = false ] && [ "$ONLY_BACKEND" = false ]; then
     # also kill python
     pkill -f python
     # wait a few seconds for processes to terminate
-    sleep 5
+    sleep 2
     clear
     echo "Clearing log for fresh start"
     mkdir -p ./backend/logs

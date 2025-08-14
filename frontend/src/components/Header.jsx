@@ -14,7 +14,6 @@ const Header = ({ onToggleRag, onToggleTools, onToggleFiles, onToggleCanvas, onC
     agentModeAvailable,
     agentModeEnabled,
     setAgentModeEnabled,
-    selectedTools,
     downloadChat,
     downloadChatAsText,
     messages,
