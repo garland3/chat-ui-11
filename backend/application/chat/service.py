@@ -234,20 +234,31 @@ class ChatService:
                 raise ValidationError(f"Failed to execute tool calls: {str(e)}")
             
             # Add tool results to messages and call LLM again
-            for tool_call, result in zip(llm_response.tool_calls, tool_results):
-                messages.append({
-                    "role": "assistant",
-                    "content": None,
-                    "tool_calls": [tool_call]
-                })
+            # First add the assistant message with both content and tool calls
+            messages.append({
+                "role": "assistant",
+                "content": llm_response.content,  # Preserve original content
+                "tool_calls": llm_response.tool_calls
+            })
+            
+            # Then add tool results
+            for result in tool_results:
                 messages.append({
                     "role": "tool",
                     "content": result.content,
                     "tool_call_id": result.tool_call_id
                 })
             
-            # Get final response after tool execution
-            final_response = await self.llm.call_plain(model, messages)
+            # Check if any tool calls were canvas tools (no follow-up needed)
+            canvas_tool_calls = [tc for tc in llm_response.tool_calls if tc.name == "canvas_canvas"]
+            has_only_canvas_tools = len(canvas_tool_calls) == len(llm_response.tool_calls)
+            
+            if has_only_canvas_tools:
+                # Canvas tools don't need follow-up, just return the original content
+                final_response = llm_response.content or "Content displayed in canvas."
+            else:
+                # Get final response after tool execution for non-canvas tools
+                final_response = await self.llm.call_plain(model, messages)
             
             # Add to history
             assistant_message = Message(
