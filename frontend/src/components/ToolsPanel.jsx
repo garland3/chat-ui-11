@@ -1,9 +1,11 @@
-import { X, Trash2 } from 'lucide-react'
+import { X, Trash2, Search } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import { useState } from 'react'
 import { useChat } from '../contexts/ChatContext'
 import { useMarketplace } from '../contexts/MarketplaceContext'
 
 const ToolsPanel = ({ isOpen, onClose }) => {
+  const [searchTerm, setSearchTerm] = useState('')
   const navigate = useNavigate()
   const { 
     selectedTools, 
@@ -62,6 +64,34 @@ const ToolsPanel = ({ isOpen, onClose }) => {
   })
   
   const serverList = Object.values(allServers)
+
+  // Filter servers based on search term
+  const filteredServers = serverList.filter(server => {
+    if (!searchTerm) return true
+    
+    const searchLower = searchTerm.toLowerCase()
+    
+    // Search in server name and description
+    if (server.server.toLowerCase().includes(searchLower) || 
+        server.description.toLowerCase().includes(searchLower)) {
+      return true
+    }
+    
+    // Search in tool names
+    if (server.tools.some(tool => tool.toLowerCase().includes(searchLower))) {
+      return true
+    }
+    
+    // Search in prompt names and descriptions
+    if (server.prompts.some(prompt => 
+      prompt.name.toLowerCase().includes(searchLower) || 
+      prompt.description.toLowerCase().includes(searchLower)
+    )) {
+      return true
+    }
+    
+    return false
+  })
 
   const toggleServerItems = (serverName) => {
     console.log('🔧 [TOOLS DEBUG] toggleServerItems called for server:', serverName)
@@ -169,16 +199,20 @@ const ToolsPanel = ({ isOpen, onClose }) => {
 
         {/* Tool Choice Controls */}
         <div className="p-6 border-b border-gray-700 flex-shrink-0">
-          <div className="flex gap-4">
+          <div className="flex gap-4 mb-4">
             <button
               onClick={navigateToMarketplace}
               className="px-6 py-3 rounded-lg border bg-blue-600 border-blue-500 text-white hover:bg-blue-700 font-medium transition-colors"
             >
               Add from Marketplace
             </button>
+          </div>
+          
+          {/* Required Tool Call Section */}
+          <div className="space-y-2">
             <button
               onClick={() => setToolChoiceRequired(!toolChoiceRequired)}
-              className={`px-6 py-3 rounded-lg border font-medium transition-colors ${
+              className={`w-full px-6 py-3 rounded-lg border font-medium transition-colors ${
                 toolChoiceRequired
                   ? 'bg-blue-600 border-blue-500 text-white'
                   : 'bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600'
@@ -186,6 +220,21 @@ const ToolsPanel = ({ isOpen, onClose }) => {
             >
               {toolChoiceRequired ? 'Required Tool Call (Active)' : 'Required Tool Call'}
             </button>
+            <p className="text-sm text-gray-400">
+              When enabled, Claude must use one of your selected tools to respond. Useful for ensuring tool usage in workflows.
+            </p>
+          </div>
+
+          {/* Search Bar */}
+          <div className="mt-4 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Search tools and integrations..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
           </div>
         </div>
 
@@ -202,10 +251,15 @@ const ToolsPanel = ({ isOpen, onClose }) => {
                 Browse Marketplace
               </button>
             </div>
+          ) : filteredServers.length === 0 ? (
+            <div className="text-gray-400 text-center py-12">
+              <div className="text-lg mb-4">No results found</div>
+              <p className="text-gray-500">Try adjusting your search terms</p>
+            </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {serverList.map(server => (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {filteredServers.map(server => (
                   <div key={server.server} className="bg-gray-700 rounded-lg p-4 space-y-3">
                     {/* Server Header */}
                     <div className="space-y-2">

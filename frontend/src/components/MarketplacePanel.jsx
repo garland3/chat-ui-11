@@ -1,9 +1,11 @@
 import { useNavigate } from 'react-router-dom'
-import { ArrowLeft, Check, X } from 'lucide-react'
+import { ArrowLeft, Check, X, Search } from 'lucide-react'
+import { useState } from 'react'
 import { useChat } from '../contexts/ChatContext'
 import { useMarketplace } from '../contexts/MarketplaceContext'
 
 const MarketplacePanel = () => {
+  const [searchTerm, setSearchTerm] = useState('')
   const navigate = useNavigate()
   const { tools, prompts } = useChat()
   const {
@@ -56,6 +58,41 @@ const MarketplacePanel = () => {
   })
   
   const serverList = Object.values(allServers)
+  
+  // Filter servers based on search term
+  const filteredServers = serverList.filter(server => {
+    if (!searchTerm) return true
+    
+    const searchLower = searchTerm.toLowerCase()
+    
+    // Search in server name, description, and short description
+    if (server.server.toLowerCase().includes(searchLower) || 
+        server.description.toLowerCase().includes(searchLower) ||
+        (server.short_description && server.short_description.toLowerCase().includes(searchLower))) {
+      return true
+    }
+    
+    // Search in author
+    if (server.author && server.author.toLowerCase().includes(searchLower)) {
+      return true
+    }
+    
+    // Search in tool names
+    if (server.tools.some(tool => tool.toLowerCase().includes(searchLower))) {
+      return true
+    }
+    
+    // Search in prompt names and descriptions
+    if (server.prompts.some(prompt => 
+      prompt.name.toLowerCase().includes(searchLower) || 
+      prompt.description.toLowerCase().includes(searchLower)
+    )) {
+      return true
+    }
+    
+    return false
+  })
+  
   const selectedCount = selectedServers.size
   const totalCount = serverList.length
 
@@ -93,18 +130,43 @@ const MarketplacePanel = () => {
       <div className="flex-1 overflow-y-auto">
         <div className="w-full px-6 py-6">
         {/* Controls */}
-        <div className="flex gap-4 mb-6">
-          <button
-            onClick={deselectAllServers}
-            className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors"
-          >
-            Deselect All
-          </button>
+        <div className="space-y-4 mb-6">
+          <div className="flex gap-4">
+            <button
+              onClick={deselectAllServers}
+              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 rounded-lg transition-colors"
+            >
+              Deselect All
+            </button>
+          </div>
+          
+          {/* Search Bar */}
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Search marketplace..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-gray-800 border border-gray-600 rounded-lg text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            />
+          </div>
         </div>
 
         {/* Server Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {serverList.map((server) => {
+        {filteredServers.length === 0 && searchTerm ? (
+          <div className="text-center py-12">
+            <Search className="w-16 h-16 text-gray-500 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-300 mb-2">
+              No results found
+            </h3>
+            <p className="text-gray-500">
+              Try adjusting your search terms or browse all available servers.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {filteredServers.map((server) => {
             const isSelected = isServerSelected(server.server)
             
             return (
@@ -210,7 +272,8 @@ const MarketplacePanel = () => {
               </div>
             )
           })}
-        </div>
+          </div>
+        )}
 
         {serverList.length === 0 && (
           <div className="text-center py-12">
