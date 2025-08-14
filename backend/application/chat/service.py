@@ -1,7 +1,7 @@
 """Chat service - core business logic for chat operations."""
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Callable, Awaitable
 from uuid import UUID
 
 from domain.errors import SessionError, ValidationError
@@ -19,6 +19,9 @@ from interfaces.tools import ToolManagerProtocol
 from interfaces.transport import ChatConnectionProtocol
 
 logger = logging.getLogger(__name__)
+
+# Type hint for the update callback
+UpdateCallback = Callable[[Dict[str, Any]], Awaitable[None]]
 
 
 class ChatService:
@@ -68,6 +71,7 @@ class ChatService:
         tool_choice_required: bool = False,
         user_email: Optional[str] = None,
         agent_mode: bool = False,
+        update_callback: Optional[UpdateCallback] = None,
         **kwargs
     ) -> Dict[str, Any]:
         """
@@ -100,6 +104,8 @@ class ChatService:
         session.history.add_message(user_message)
         session.update_timestamp()
         
+    # (Deprecated) inline notify previously used deeper in call stack. Logic now centralized in _safe_notify.
+        
         try:
             # Get conversation history for LLM
             messages = session.history.get_messages_for_llm()
@@ -111,7 +117,14 @@ class ChatService:
                 )
             elif selected_tools and not only_rag:
                 response = await self._handle_tools_mode(
-                    session, model, messages, selected_tools, selected_data_sources, user_email, tool_choice_required
+                    session=session,
+                    model=model,
+                    messages=messages,
+                    selected_tools=selected_tools,
+                    data_sources=selected_data_sources,
+                    user_email=user_email,
+                    tool_choice_required=tool_choice_required,
+                    update_callback=update_callback
                 )
             elif selected_data_sources:
                 response = await self._handle_rag_mode(
@@ -186,7 +199,8 @@ class ChatService:
         selected_tools: List[str],
         data_sources: Optional[List[str]],
         user_email: Optional[str],
-        tool_choice_required: bool
+    tool_choice_required: bool,
+    update_callback: Optional[UpdateCallback] = None
     ) -> Dict[str, Any]:
         """Handle LLM call with tools (and optionally RAG)."""
         try:
@@ -221,44 +235,23 @@ class ChatService:
             logger.error(f"Error calling LLM with tools: {e}", exc_info=True)
             raise ValidationError(f"Failed to call LLM with tools: {str(e)}")
         
+        # Immediately stream initial content if available
+        if llm_response.content and update_callback:
+            await self._safe_notify(update_callback, {
+                "type": "chat_response",
+                "message": llm_response.content,
+                "has_pending_tools": llm_response.has_tool_calls()
+            })
+        
         # Process tool calls if present
         if llm_response.has_tool_calls():
-            try:
-                logger.info(f"Executing {len(llm_response.tool_calls)} tool calls")
-                tool_results = await self._execute_tool_calls(
-                    llm_response.tool_calls, session
-                )
-                logger.info(f"Tool execution completed, got {len(tool_results)} results")
-            except Exception as e:
-                logger.error(f"Error executing tool calls: {e}", exc_info=True)
-                raise ValidationError(f"Failed to execute tool calls: {str(e)}")
-            
-            # Add tool results to messages and call LLM again
-            # First add the assistant message with both content and tool calls
-            messages.append({
-                "role": "assistant",
-                "content": llm_response.content,  # Preserve original content
-                "tool_calls": llm_response.tool_calls
-            })
-            
-            # Then add tool results
-            for result in tool_results:
-                messages.append({
-                    "role": "tool",
-                    "content": result.content,
-                    "tool_call_id": result.tool_call_id
-                })
-            
-            # Check if any tool calls were canvas tools (no follow-up needed)
-            canvas_tool_calls = [tc for tc in llm_response.tool_calls if tc.name == "canvas_canvas"]
-            has_only_canvas_tools = len(canvas_tool_calls) == len(llm_response.tool_calls)
-            
-            if has_only_canvas_tools:
-                # Canvas tools don't need follow-up, just return the original content
-                final_response = llm_response.content or "Content displayed in canvas."
-            else:
-                # Get final response after tool execution for non-canvas tools
-                final_response = await self.llm.call_plain(model, messages)
+            final_response = await self._handle_tools_with_updates(
+                llm_response=llm_response,
+                messages=messages,
+                model=model,
+                session=session,
+                update_callback=update_callback
+            )
             
             # Add to history
             assistant_message = Message(
@@ -274,15 +267,20 @@ class ChatService:
             }
         else:
             # No tool calls, just return the response
+            final_response = llm_response.content
             assistant_message = Message(
                 role=MessageRole.ASSISTANT,
-                content=llm_response.content
+                content=final_response
             )
             session.history.add_message(assistant_message)
             
+            # Send completion notification (no tools path) via callback
+            if update_callback:
+                await self._safe_notify(update_callback, {"type": "response_complete"})
+            
             return {
                 "type": MessageType.CHAT_RESPONSE.value,
-                "message": llm_response.content
+                "message": final_response
             }
     
     async def _handle_agent_mode(
@@ -393,47 +391,106 @@ class ChatService:
             "message": final_response
         }
     
-    async def _execute_tool_calls(
+    async def _handle_tools_with_updates(
         self,
-        tool_calls: List[Dict[str, Any]],
-        session: Session
-    ) -> List[ToolResult]:
-        """Execute tool calls and return results."""
-        if not self.tool_manager:
-            raise ValidationError("Tool manager not configured")
+        llm_response,
+        messages: List[Dict],
+        model: str,
+        session: Session,
+    update_callback: Optional[UpdateCallback]
+    ):
+        """Handle tool execution with streaming updates."""
+        # Add the assistant message with tool calls to conversation
+        messages.append({
+            "role": "assistant",
+            "content": llm_response.content,
+            "tool_calls": llm_response.tool_calls
+        })
         
-        results = []
-        for tool_call_dict in tool_calls:
-            tool_call = ToolCall(
-                id=tool_call_dict.get("id", ""),
-                name=tool_call_dict.get("function", {}).get("name", ""),
-                arguments=tool_call_dict.get("function", {}).get("arguments", {})
-            )
+        # Execute tools with real-time updates
+        tool_results = []
+        for tool_call in llm_response.tool_calls:
+            # Send tool start notification
+            if update_callback:
+                await self._safe_notify(update_callback, {
+                    "type": "tool_start",
+                    "tool_call_id": tool_call.id,
+                    "tool_name": tool_call.name
+                })
             
-            # Parse arguments if they're a string
-            if isinstance(tool_call.arguments, str):
-                import json
-                try:
-                    tool_call.arguments = json.loads(tool_call.arguments)
-                except json.JSONDecodeError:
-                    tool_call.arguments = {}
+            try:
+                # Convert to ToolCall object and execute
+                tool_call_obj = ToolCall(
+                    id=tool_call.id,
+                    name=tool_call.name,
+                    arguments=tool_call.arguments
+                )
+                
+                result = await self.tool_manager.execute_tool(
+                    tool_call_obj,
+                    context={"session_id": session.id, "user_email": session.user_email}
+                )
+                tool_results.append(result)
+                
+                # Send tool completion notification
+                if update_callback:
+                    await self._safe_notify(update_callback, {
+                        "type": "tool_complete",
+                        "tool_call_id": tool_call.id,
+                        "tool_name": tool_call.name,
+                        "success": result.success
+                    })
+                
+            except Exception as e:
+                logger.error(f"Error executing tool {tool_call.name}: {e}")
+                # Send tool error notification
+                if update_callback:
+                    await self._safe_notify(update_callback, {
+                        "type": "tool_error",
+                        "tool_call_id": tool_call.id,
+                        "tool_name": tool_call.name,
+                        "error": str(e)
+                    })
+                raise
+        
+        # Add tool results to messages
+        for result in tool_results:
+            messages.append({
+                "role": "tool",
+                "content": result.content,
+                "tool_call_id": result.tool_call_id
+            })
+        
+        # Check if we need final synthesis
+        canvas_tool_calls = [tc for tc in llm_response.tool_calls if tc.name == "canvas_canvas"]
+        has_only_canvas_tools = len(canvas_tool_calls) == len(llm_response.tool_calls)
+        
+        if has_only_canvas_tools:
+            # Canvas tools don't need follow-up, just return the original content
+            final_response = llm_response.content or "Content displayed in canvas."
+        else:
+            # Get final synthesis from LLM
+            final_response = await self.llm.call_plain(model, messages)
             
-            result = await self.tool_manager.execute_tool(
-                tool_call,
-                context={"session_id": session.id, "user_email": session.user_email}
-            )
-            results.append(result)
-            
-            # Send tool result update if connection available
-            if self.connection:
-                await self.connection.send_json({
-                    "type": MessageType.INTERMEDIATE_UPDATE.value,
-                    "update_type": "tool_result",
-                    "tool_name": tool_call.name,
-                    "result": result.content
+            if final_response and final_response.strip() and update_callback:
+                # Send synthesis response
+                await self._safe_notify(update_callback, {
+                    "type": "tool_synthesis",
+                    "message": final_response
                 })
         
-        return results
+        # Send completion notification
+        if update_callback:
+            await self._safe_notify(update_callback, {"type": "response_complete"})
+        
+        return final_response
+
+    async def _safe_notify(self, cb: UpdateCallback, message: Dict[str, Any]) -> None:
+        """Invoke callback safely, logging but suppressing exceptions."""
+        try:
+            await cb(message)
+        except Exception as e:
+            logger.warning(f"Update callback failed: {e}")
     
     async def handle_download_file(
         self,

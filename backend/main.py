@@ -13,6 +13,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 
+# Import domain errors
+from domain.errors import ValidationError
+
 # Import from core (only essential middleware and config)
 from core.middleware import AuthMiddleware
 from core.otel_config import setup_opentelemetry
@@ -118,20 +121,37 @@ async def websocket_endpoint(websocket: WebSocket):
             message_type = data.get("type")
             
             if message_type == "chat":
-                # Handle chat message directly through service
-                response = await chat_service.handle_chat_message(
-                    session_id=session_id,
-                    content=data.get("content", ""),
-                    model=data.get("model", ""),
-                    selected_tools=data.get("selected_tools"),
-                    selected_data_sources=data.get("selected_data_sources"),
-                    only_rag=data.get("only_rag", False),
-                    tool_choice_required=data.get("tool_choice_required", False),
-                    user_email=data.get("user"),
-                    agent_mode=data.get("agent_mode", False),
-                    agent_max_steps=data.get("agent_max_steps", 10)
-                )
-                await websocket.send_json(response)
+                # Define the WebSocket update callback
+                async def websocket_update_callback(message: dict):
+                    await websocket.send_json(message)
+                
+                # Handle chat message with streaming updates
+                try:
+                    response = await chat_service.handle_chat_message(
+                        session_id=session_id,
+                        content=data.get("content", ""),
+                        model=data.get("model", ""),
+                        selected_tools=data.get("selected_tools"),
+                        selected_data_sources=data.get("selected_data_sources"),
+                        only_rag=data.get("only_rag", False),
+                        tool_choice_required=data.get("tool_choice_required", False),
+                        user_email=data.get("user"),
+                        agent_mode=data.get("agent_mode", False),
+                        agent_max_steps=data.get("agent_max_steps", 10),
+                        update_callback=websocket_update_callback
+                    )
+                    # Final response is already sent via callbacks, but we keep this for backward compatibility
+                except ValidationError as e:
+                    await websocket.send_json({
+                        "type": "error",
+                        "message": str(e)
+                    })
+                except Exception as e:
+                    logger.error(f"Error in chat handler: {e}", exc_info=True)
+                    await websocket.send_json({
+                        "type": "error",
+                        "message": "An unexpected error occurred"
+                    })
                 
             elif message_type == "download_file":
                 # Handle file download
