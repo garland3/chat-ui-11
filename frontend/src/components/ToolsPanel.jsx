@@ -1,4 +1,4 @@
-import { X, Trash2, Search } from 'lucide-react'
+import { X, Trash2, Search, Plus, Wrench, ChevronDown, ChevronUp } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useState } from 'react'
 import { useChat } from '../contexts/ChatContext'
@@ -6,6 +6,7 @@ import { useMarketplace } from '../contexts/MarketplaceContext'
 
 const ToolsPanel = ({ isOpen, onClose }) => {
   const [searchTerm, setSearchTerm] = useState('')
+  const [expandedServers, setExpandedServers] = useState(new Set())
   const navigate = useNavigate()
   const { 
     selectedTools, 
@@ -141,25 +142,15 @@ const ToolsPanel = ({ isOpen, onClose }) => {
     }
   }
 
-  const getServerButtonText = (serverName) => {
-    const server = serverList.find(s => s.server === serverName)
-    if (!server) return 'Select All'
 
-    const serverToolKeys = server.tools.map(tool => `${serverName}_${tool}`)
-    const serverPromptKeys = server.prompts.map(prompt => `${serverName}_${prompt.name}`)
-    const allKeys = [...serverToolKeys, ...serverPromptKeys]
-    
-    const selectedToolCount = serverToolKeys.filter(key => selectedTools.has(key)).length
-    const selectedPromptCount = serverPromptKeys.filter(key => selectedPrompts.has(key)).length
-    const selectedCount = selectedToolCount + selectedPromptCount
-
-    if (selectedCount === 0) {
-      return 'Select All'
-    } else if (selectedCount === allKeys.length) {
-      return 'Deselect All'
+  const toggleServerExpansion = (serverName) => {
+    const newExpanded = new Set(expandedServers)
+    if (newExpanded.has(serverName)) {
+      newExpanded.delete(serverName)
     } else {
-      return `Select All (${selectedCount}/${allKeys.length})`
+      newExpanded.add(serverName)
     }
+    setExpandedServers(newExpanded)
   }
 
   const isServerSelected = (serverName) => {
@@ -197,51 +188,44 @@ const ToolsPanel = ({ isOpen, onClose }) => {
           </button>
         </div>
 
-        {/* Tool Choice Controls */}
-        <div className="p-6 border-b border-gray-700 flex-shrink-0">
-          <div className="flex gap-4 mb-4">
-            <button
-              onClick={navigateToMarketplace}
-              className="px-6 py-3 rounded-lg border bg-blue-600 border-blue-500 text-white hover:bg-blue-700 font-medium transition-colors"
-            >
-              Add from Marketplace
-            </button>
-          </div>
+        {/* Controls Section */}
+        <div className="p-6 border-b border-gray-700 flex-shrink-0 space-y-6">
+          {/* Add from Marketplace Button */}
+          <button
+            onClick={navigateToMarketplace}
+            className="w-full px-6 py-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors flex items-center justify-center gap-3"
+          >
+            <Plus className="w-5 h-5" />
+            Add from Marketplace
+          </button>
           
-          {/* Required Tool Call Section */}
-          <div className="space-y-2">
+          {/* Required Tool Usage Toggle */}
+          <div className="flex items-center justify-between p-4 bg-gray-700 rounded-lg">
+            <div>
+              <h3 className="text-white font-medium">Required Tool Usage</h3>
+              <p className="text-sm text-gray-400 mt-1">
+                When enabled, the model must use one of your selected tools to respond.
+              </p>
+            </div>
             <button
               onClick={() => setToolChoiceRequired(!toolChoiceRequired)}
-              className={`w-full px-6 py-3 rounded-lg border font-medium transition-colors ${
-                toolChoiceRequired
-                  ? 'bg-blue-600 border-blue-500 text-white'
-                  : 'bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600'
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-800 ${
+                toolChoiceRequired ? 'bg-blue-600' : 'bg-gray-600'
               }`}
             >
-              {toolChoiceRequired ? 'Required Tool Call (Active)' : 'Required Tool Call'}
+              <span
+                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                  toolChoiceRequired ? 'translate-x-6' : 'translate-x-1'
+                }`}
+              />
             </button>
-            <p className="text-sm text-gray-400">
-              When enabled, Claude must use one of your selected tools to respond. Useful for ensuring tool usage in workflows.
-            </p>
-          </div>
-
-          {/* Search Bar */}
-          <div className="mt-4 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-            <input
-              type="text"
-              placeholder="Search tools and integrations..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
           </div>
         </div>
 
-        {/* Tools & Prompts List */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 min-h-0">
+        {/* Tools List */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0">
           {serverList.length === 0 ? (
-            <div className="text-gray-400 text-center py-12">
+            <div className="text-gray-400 text-center py-12 px-6">
               <div className="text-lg mb-4">No servers selected</div>
               <p className="mb-6 text-gray-500">Add MCP servers from the marketplace to enable tools and integrations</p>
               <button
@@ -251,114 +235,203 @@ const ToolsPanel = ({ isOpen, onClose }) => {
                 Browse Marketplace
               </button>
             </div>
-          ) : filteredServers.length === 0 ? (
-            <div className="text-gray-400 text-center py-12">
-              <div className="text-lg mb-4">No results found</div>
-              <p className="text-gray-500">Try adjusting your search terms</p>
-            </div>
           ) : (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {filteredServers.map(server => (
-                  <div key={server.server} className="bg-gray-700 rounded-lg p-4 space-y-3">
-                    {/* Server Header */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-white font-semibold text-lg capitalize">
-                          {server.server}
-                        </h3>
-                        <div className="flex items-center gap-2">
-                          {server.tool_count > 0 && (
-                            <span className="text-xs text-gray-300 bg-gray-600 px-2 py-1 rounded">
-                              {server.tool_count} tools
-                            </span>
-                          )}
-                          {server.prompt_count > 0 && (
-                            <span className="text-xs text-purple-300 bg-purple-600 px-2 py-1 rounded">
-                              {server.prompt_count} prompts
-                            </span>
-                          )}
-                          {server.is_exclusive && (
-                            <span className="px-2 py-1 bg-orange-600 text-xs rounded text-white">
-                              Exclusive
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      
-                      <button
-                        onClick={() => toggleServerItems(server.server)}
-                        className={`w-full px-3 py-2 rounded text-sm font-medium transition-colors ${
-                          isServerSelected(server.server)
-                            ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                            : 'bg-gray-700 hover:bg-gray-600 text-gray-200'
-                        }`}
-                      >
-                        {getServerButtonText(server.server)}
-                      </button>
-                      
-                      <p className="text-sm text-gray-400">{server.description}</p>
-                    </div>
-
-                    {/* Tools and Prompts */}
-                    <div className="flex flex-wrap gap-2">
-                      {/* Tools */}
-                      {server.tools.map(tool => {
-                        const toolKey = `${server.server}_${tool}`
-                        const isSelected = selectedTools.has(toolKey)
-                        
-                        return (
-                          <button
-                            key={toolKey}
-                            onClick={() => toggleTool(toolKey)}
-                            className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
-                              isSelected
-                                ? 'bg-blue-600 text-white shadow-md'
-                                : 'bg-gray-600 hover:bg-gray-500 text-gray-200'
-                            }`}
-                          >
-                            {tool}
-                          </button>
-                        )
-                      })}
-                      
-                      {/* Prompts */}
-                      {server.prompts.map(prompt => {
-                        const promptKey = `${server.server}_${prompt.name}`
-                        const isSelected = selectedPrompts.has(promptKey)
-                        
-                        return (
-                          <button
-                            key={promptKey}
-                            onClick={() => togglePrompt(promptKey)}
-                            className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
-                              isSelected
-                                ? 'bg-purple-600 text-white shadow-md'
-                                : 'bg-purple-700 hover:bg-purple-600 text-gray-200'
-                            }`}
-                            title={prompt.description}
-                          >
-                            {prompt.name}
-                          </button>
-                        )
-                      })}
-                    </div>
-                  </div>
-                ))}
+              {/* Section Header */}
+              <div className="px-6 py-4 border-b border-gray-700">
+                <h3 className="text-lg font-semibold text-white">
+                  Your Installed Tools ({serverList.reduce((total, server) => total + server.tool_count + server.prompt_count, 0)})
+                </h3>
               </div>
               
-              {/* Clear Browser Memory Button */}
-              <div className="mt-8 pt-6 border-t border-gray-600 text-center">
-                <button
-                  onClick={clearToolsAndPrompts}
-                  className="px-6 py-3 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium transition-colors flex items-center justify-center gap-2 mx-auto"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Clear All Selections
-                </button>
-                <p className="text-sm text-gray-400 mt-2">
-                  Clears all saved tool and prompt selections
-                </p>
+              {/* Search Bar */}
+              <div className="px-6 py-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+                  <input
+                    type="text"
+                    placeholder="Search installed tools..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="w-full pl-10 pr-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+              
+              {filteredServers.length === 0 ? (
+                <div className="text-gray-400 text-center py-12 px-6">
+                  <div className="text-lg mb-4">No results found</div>
+                  <p className="text-gray-500">Try adjusting your search terms</p>
+                </div>
+              ) : (
+                <div className="px-6 pb-6 space-y-4">
+                  {filteredServers.map(server => {
+                    const isExpanded = expandedServers.has(server.server)
+                    const hasIndividualItems = server.tools.length > 0 || server.prompts.length > 0
+                    
+                    return (
+                      <div key={server.server} className="bg-gray-700 rounded-lg overflow-hidden">
+                        {/* Main Server Row */}
+                        <div className="p-4 flex items-center gap-4">
+                          {/* Server Icon */}
+                          <div className="bg-gray-600 rounded-lg p-3 flex-shrink-0">
+                            <Wrench className="w-6 h-6 text-gray-300" />
+                          </div>
+                          
+                          {/* Server Content */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between mb-1">
+                              <h3 className="text-white font-semibold text-lg capitalize truncate">
+                                {server.server}
+                              </h3>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                {server.is_exclusive && (
+                                  <span className="px-2 py-1 bg-orange-600 text-xs rounded text-white">
+                                    Exclusive
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <p className="text-sm text-gray-400 truncate">{server.description}</p>
+                            
+                            {/* Tools and Prompts Count */}
+                            <div className="flex items-center gap-4 mt-2">
+                              {server.tool_count > 0 && (
+                                <span className="text-xs text-gray-300">
+                                  {server.tool_count} tool{server.tool_count !== 1 ? 's' : ''}
+                                </span>
+                              )}
+                              {server.prompt_count > 0 && (
+                                <span className="text-xs text-purple-300">
+                                  {server.prompt_count} prompt{server.prompt_count !== 1 ? 's' : ''}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          
+                          {/* Action Buttons */}
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            {/* Expand Button */}
+                            {hasIndividualItems && (
+                              <button
+                                onClick={() => toggleServerExpansion(server.server)}
+                                className="p-2 rounded-lg bg-gray-600 hover:bg-gray-500 text-gray-300 transition-colors"
+                                title="Show individual tools"
+                              >
+                                {isExpanded ? (
+                                  <ChevronUp className="w-4 h-4" />
+                                ) : (
+                                  <ChevronDown className="w-4 h-4" />
+                                )}
+                              </button>
+                            )}
+                            
+                            {/* Toggle All Button */}
+                            <button
+                              onClick={() => toggleServerItems(server.server)}
+                              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                                isServerSelected(server.server)
+                                  ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                                  : 'bg-gray-600 hover:bg-gray-500 text-gray-200'
+                              }`}
+                            >
+                              {isServerSelected(server.server) ? 'Enabled' : 'Enable'}
+                            </button>
+                          </div>
+                        </div>
+                        
+                        {/* Expanded Individual Tools Section */}
+                        {isExpanded && hasIndividualItems && (
+                          <div className="px-4 pb-4 border-t border-gray-600 bg-gray-800">
+                            <div className="pt-4 space-y-3">
+                              <p className="text-sm text-gray-400 mb-3">
+                                Select individual tools and prompts:
+                              </p>
+                              
+                              {/* Tools */}
+                              {server.tools.length > 0 && (
+                                <div>
+                                  <h4 className="text-sm font-medium text-gray-300 mb-2">Tools</h4>
+                                  <div className="space-y-2">
+                                    {server.tools.map(tool => {
+                                      const toolKey = `${server.server}_${tool}`
+                                      const isSelected = selectedTools.has(toolKey)
+                                      
+                                      return (
+                                        <label
+                                          key={toolKey}
+                                          className="flex items-center gap-3 p-2 rounded bg-gray-600 hover:bg-gray-500 cursor-pointer transition-colors"
+                                        >
+                                          <input
+                                            type="checkbox"
+                                            checked={isSelected}
+                                            onChange={() => toggleTool(toolKey)}
+                                            className="w-4 h-4 text-blue-600 bg-gray-700 border-gray-600 rounded focus:ring-blue-500 focus:ring-2"
+                                          />
+                                          <span className="text-sm text-gray-200">{tool}</span>
+                                        </label>
+                                      )
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+                              
+                              {/* Prompts */}
+                              {server.prompts.length > 0 && (
+                                <div>
+                                  <h4 className="text-sm font-medium text-purple-300 mb-2">Prompts</h4>
+                                  <div className="space-y-2">
+                                    {server.prompts.map(prompt => {
+                                      const promptKey = `${server.server}_${prompt.name}`
+                                      const isSelected = selectedPrompts.has(promptKey)
+                                      
+                                      return (
+                                        <label
+                                          key={promptKey}
+                                          className="flex items-center gap-3 p-2 rounded bg-purple-900 hover:bg-purple-800 cursor-pointer transition-colors"
+                                          title={prompt.description}
+                                        >
+                                          <input
+                                            type="checkbox"
+                                            checked={isSelected}
+                                            onChange={() => togglePrompt(promptKey)}
+                                            className="w-4 h-4 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500 focus:ring-2"
+                                          />
+                                          <div className="flex-1 min-w-0">
+                                            <span className="text-sm text-gray-200 block truncate">{prompt.name}</span>
+                                            {prompt.description && (
+                                              <span className="text-xs text-gray-400 block truncate mt-1">
+                                                {prompt.description}
+                                              </span>
+                                            )}
+                                          </div>
+                                        </label>
+                                      )
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+              
+              {/* Clear All Button - Made smaller and less prominent */}
+              <div className="px-6 pb-6">
+                <div className="pt-4 border-t border-gray-600 flex justify-center">
+                  <button
+                    onClick={clearToolsAndPrompts}
+                    className="px-3 py-1.5 text-xs rounded bg-gray-600 hover:bg-red-600 text-gray-300 hover:text-white transition-colors flex items-center gap-1.5"
+                    title="Clear all tool and prompt selections"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    Clear All
+                  </button>
+                </div>
               </div>
             </>
           )}

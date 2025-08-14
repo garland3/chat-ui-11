@@ -54,7 +54,8 @@ class AppFactory:
         return ChatService(
             llm=self.llm_caller,
             tool_manager=self.mcp_tools,
-            connection=connection
+            connection=connection,
+            config_manager=self.config_manager
         )
     
     def get_config_manager(self) -> ConfigManager:

@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 from typing import Any, Dict, List, Optional, Callable, Awaitable
 from uuid import UUID
 
@@ -16,6 +17,8 @@ from domain.messages.models import (
 )
 from domain.sessions.models import Session
 from interfaces.llm import LLMProtocol, LLMResponse
+from modules.config import ConfigManager
+from modules.prompts.prompt_provider import PromptProvider
 from interfaces.tools import ToolManagerProtocol
 from interfaces.transport import ChatConnectionProtocol
 
@@ -35,7 +38,8 @@ class ChatService:
         self,
         llm: LLMProtocol,
         tool_manager: Optional[ToolManagerProtocol] = None,
-        connection: Optional[ChatConnectionProtocol] = None
+        connection: Optional[ChatConnectionProtocol] = None,
+        config_manager: Optional[ConfigManager] = None,
     ):
         """
         Initialize chat service with dependencies.
@@ -49,6 +53,12 @@ class ChatService:
         self.tool_manager = tool_manager
         self.connection = connection
         self.sessions: Dict[UUID, Session] = {}
+        # Central config manager (optional during transition)
+        self.config_manager = config_manager
+        # Prompt provider abstraction
+        self.prompt_provider: Optional[PromptProvider] = (
+            PromptProvider(self.config_manager) if self.config_manager else None
+        )
     
     async def create_session(
         self,
@@ -470,20 +480,48 @@ class ChatService:
             # Canvas tools don't need follow-up, just return the original content
             final_response = llm_response.content or "Content displayed in canvas."
         else:
-            # Get final synthesis from LLM
-            final_response = await self.llm.call_plain(model, messages)
-            
-            if final_response and final_response.strip() and update_callback:
-                # Send synthesis response
-                await self._safe_notify(update_callback, {
-                    "type": "tool_synthesis",
-                    "message": final_response
-                })
+            # Get final synthesis from LLM using dedicated synthesis prompt
+            final_response = await self._synthesize_tool_results(model, messages, update_callback)
         
         # Send completion notification
         if update_callback:
             await self._safe_notify(update_callback, {"type": "response_complete"})
         
+        return final_response
+
+    async def _synthesize_tool_results(
+        self,
+        model: str,
+        messages: List[Dict[str, Any]],
+        update_callback: Optional[UpdateCallback]
+    ) -> str:
+        """Prepare augmented messages with synthesis prompt and obtain final answer."""
+        # Extract latest user question (walk backwards)
+        user_question = ""
+        for m in reversed(messages):
+            if m.get("role") == "user" and m.get("content"):
+                user_question = m["content"]
+                break
+        prompt_text = None
+        if self.prompt_provider:
+            prompt_text = self.prompt_provider.get_tool_synthesis_prompt(user_question or "the user's last request")
+
+        synthesis_messages = list(messages)
+        if prompt_text:
+            synthesis_messages.append({
+                "role": "system",
+                "content": prompt_text
+            })
+        else:
+            logger.info("Proceeding without dedicated tool synthesis prompt (fallback)")
+
+        final_response = await self.llm.call_plain(model, synthesis_messages)
+
+        if final_response and final_response.strip() and update_callback:
+            await self._safe_notify(update_callback, {
+                "type": "tool_synthesis",
+                "message": final_response
+            })
         return final_response
 
     async def _safe_notify(self, cb: UpdateCallback, message: Dict[str, Any]) -> None:
