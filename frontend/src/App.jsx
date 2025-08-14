@@ -124,16 +124,16 @@ function ChatInterface() {
         </div>
       </div>
 
+      {/* Tools Panel Overlay */}
+      {features?.tools && (
+        <ToolsPanel 
+          isOpen={toolsPanelOpen} 
+          onClose={() => setToolsPanelOpen(false)} 
+        />
+      )}
+
       {/* Right Side Panels Container */}
-      <div className="relative flex-shrink-0">
-        {/* Tools Panel */}
-        {features?.tools && (
-          <ToolsPanel 
-            isOpen={toolsPanelOpen} 
-            onClose={() => setToolsPanelOpen(false)} 
-          />
-        )}
-        
+      <div className="relative flex-shrink-0">        
         {/* File Manager Panel */}
         {features?.files_panel && (
           <FileManagerPanel 

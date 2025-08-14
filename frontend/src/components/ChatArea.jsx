@@ -4,6 +4,7 @@ import { useWS } from '../contexts/WSContext'
 import { Send, Paperclip, X } from 'lucide-react'
 import Message from './Message'
 import WelcomeScreen from './WelcomeScreen'
+import EnabledToolsIndicator from './EnabledToolsIndicator'
 
 const ChatArea = () => {
   const [inputValue, setInputValue] = useState('')
@@ -503,6 +504,8 @@ const ChatArea = () => {
         className="p-4 border-t border-gray-700 flex-shrink-0"
       >
         <div className="max-w-4xl mx-auto">
+          {/* Enabled Tools Indicator */}
+          <EnabledToolsIndicator />
           {/* Uploaded Files Display */}
           {Object.keys(uploadedFiles).length > 0 && (
             <div className="mb-3 p-3 bg-gray-800 rounded-lg border border-gray-600">

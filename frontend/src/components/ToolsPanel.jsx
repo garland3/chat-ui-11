@@ -2,7 +2,6 @@ import { X, Trash2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useChat } from '../contexts/ChatContext'
 import { useMarketplace } from '../contexts/MarketplaceContext'
-import ResizablePanel from './ResizablePanel'
 
 const ToolsPanel = ({ isOpen, onClose }) => {
   const navigate = useNavigate()
@@ -146,37 +145,34 @@ const ToolsPanel = ({ isOpen, onClose }) => {
     return allToolsSelected && allPromptsSelected && (serverToolKeys.length > 0 || serverPromptKeys.length > 0)
   }
 
+  if (!isOpen) return null
+
   return (
-    <ResizablePanel
-      isOpen={isOpen}
-      onClose={onClose}
-      defaultWidth={448}
-      minWidth={320}
-      maxWidth={800}
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-700 flex-shrink-0">
-        <h2 className="text-lg font-semibold text-gray-100">Tools & Integrations</h2>
-        <button
-          onClick={onClose}
-          className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
-        >
-          <X className="w-5 h-5" />
-        </button>
-      </div>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[80vh] mx-4 flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-700 flex-shrink-0">
+          <h2 className="text-xl font-semibold text-gray-100">Tools & Integrations</h2>
+          <button
+            onClick={onClose}
+            className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
 
         {/* Tool Choice Controls */}
-        <div className="p-4 border-b border-gray-700 flex-shrink-0">
-          <div className="space-y-2">
+        <div className="p-6 border-b border-gray-700 flex-shrink-0">
+          <div className="flex gap-4">
             <button
               onClick={navigateToMarketplace}
-              className="w-full px-4 py-2 rounded-lg border bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600 text-sm font-medium transition-colors"
+              className="px-6 py-3 rounded-lg border bg-blue-600 border-blue-500 text-white hover:bg-blue-700 font-medium transition-colors"
             >
-              Marketplace
+              Add from Marketplace
             </button>
             <button
               onClick={() => setToolChoiceRequired(!toolChoiceRequired)}
-              className={`w-full px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
+              className={`px-6 py-3 rounded-lg border font-medium transition-colors ${
                 toolChoiceRequired
                   ? 'bg-blue-600 border-blue-500 text-white'
                   : 'bg-gray-700 border-gray-600 text-gray-200 hover:bg-gray-600'
@@ -188,123 +184,127 @@ const ToolsPanel = ({ isOpen, onClose }) => {
         </div>
 
         {/* Tools & Prompts List */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 min-h-0">
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 min-h-0">
           {serverList.length === 0 ? (
-            <div className="text-gray-400 text-center py-8">
-              <div className="mb-4">No servers selected</div>
+            <div className="text-gray-400 text-center py-12">
+              <div className="text-lg mb-4">No servers selected</div>
+              <p className="mb-6 text-gray-500">Add MCP servers from the marketplace to enable tools and integrations</p>
               <button
                 onClick={navigateToMarketplace}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
+                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium"
               >
-                Go to Marketplace
+                Browse Marketplace
               </button>
             </div>
           ) : (
-            <div className="space-y-6">
-              {serverList.map(server => (
-                <div key={server.server} className="space-y-3">
-                  {/* Server Header */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-white font-medium capitalize">
-                        {server.server}
-                      </h3>
-                      <div className="flex items-center gap-2">
-                        {server.tool_count > 0 && (
-                          <span className="text-xs text-gray-400">
-                            {server.tool_count} tools
-                          </span>
-                        )}
-                        {server.prompt_count > 0 && (
-                          <span className="text-xs text-purple-400">
-                            {server.prompt_count} prompts
-                          </span>
-                        )}
-                        {server.is_exclusive && (
-                          <span className="px-2 py-1 bg-orange-600 text-xs rounded text-white">
-                            Exclusive
-                          </span>
-                        )}
+            <>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {serverList.map(server => (
+                  <div key={server.server} className="bg-gray-700 rounded-lg p-4 space-y-3">
+                    {/* Server Header */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-white font-semibold text-lg capitalize">
+                          {server.server}
+                        </h3>
+                        <div className="flex items-center gap-2">
+                          {server.tool_count > 0 && (
+                            <span className="text-xs text-gray-300 bg-gray-600 px-2 py-1 rounded">
+                              {server.tool_count} tools
+                            </span>
+                          )}
+                          {server.prompt_count > 0 && (
+                            <span className="text-xs text-purple-300 bg-purple-600 px-2 py-1 rounded">
+                              {server.prompt_count} prompts
+                            </span>
+                          )}
+                          {server.is_exclusive && (
+                            <span className="px-2 py-1 bg-orange-600 text-xs rounded text-white">
+                              Exclusive
+                            </span>
+                          )}
+                        </div>
                       </div>
+                      
+                      <button
+                        onClick={() => toggleServerItems(server.server)}
+                        className={`w-full px-3 py-2 rounded text-sm font-medium transition-colors ${
+                          isServerSelected(server.server)
+                            ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                            : 'bg-gray-700 hover:bg-gray-600 text-gray-200'
+                        }`}
+                      >
+                        {getServerButtonText(server.server)}
+                      </button>
+                      
+                      <p className="text-sm text-gray-400">{server.description}</p>
                     </div>
-                    
-                    <button
-                      onClick={() => toggleServerItems(server.server)}
-                      className={`w-full px-3 py-2 rounded text-sm font-medium transition-colors ${
-                        isServerSelected(server.server)
-                          ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                          : 'bg-gray-700 hover:bg-gray-600 text-gray-200'
-                      }`}
-                    >
-                      {getServerButtonText(server.server)}
-                    </button>
-                    
-                    <p className="text-sm text-gray-400">{server.description}</p>
-                  </div>
 
-                  {/* Tools and Prompts */}
-                  <div className="flex flex-wrap gap-2">
-                    {/* Tools */}
-                    {server.tools.map(tool => {
-                      const toolKey = `${server.server}_${tool}`
-                      const isSelected = selectedTools.has(toolKey)
+                    {/* Tools and Prompts */}
+                    <div className="flex flex-wrap gap-2">
+                      {/* Tools */}
+                      {server.tools.map(tool => {
+                        const toolKey = `${server.server}_${tool}`
+                        const isSelected = selectedTools.has(toolKey)
+                        
+                        return (
+                          <button
+                            key={toolKey}
+                            onClick={() => toggleTool(toolKey)}
+                            className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
+                              isSelected
+                                ? 'bg-blue-600 text-white shadow-md'
+                                : 'bg-gray-600 hover:bg-gray-500 text-gray-200'
+                            }`}
+                          >
+                            {tool}
+                          </button>
+                        )
+                      })}
                       
-                      return (
-                        <button
-                          key={toolKey}
-                          onClick={() => toggleTool(toolKey)}
-                          className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                            isSelected
-                              ? 'bg-blue-600 text-white'
-                              : 'bg-gray-700 hover:bg-gray-600 text-gray-300'
-                          }`}
-                        >
-                          {tool}
-                        </button>
-                      )
-                    })}
-                    
-                    {/* Prompts */}
-                    {server.prompts.map(prompt => {
-                      const promptKey = `${server.server}_${prompt.name}`
-                      const isSelected = selectedPrompts.has(promptKey)
-                      
-                      return (
-                        <button
-                          key={promptKey}
-                          onClick={() => togglePrompt(promptKey)}
-                          className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                            isSelected
-                              ? 'bg-purple-600 text-white'
-                              : 'bg-purple-700 hover:bg-purple-600 text-gray-300'
-                          }`}
-                          title={prompt.description}
-                        >
-                          {prompt.name}
-                        </button>
-                      )
-                    })}
+                      {/* Prompts */}
+                      {server.prompts.map(prompt => {
+                        const promptKey = `${server.server}_${prompt.name}`
+                        const isSelected = selectedPrompts.has(promptKey)
+                        
+                        return (
+                          <button
+                            key={promptKey}
+                            onClick={() => togglePrompt(promptKey)}
+                            className={`px-3 py-2 rounded text-sm font-medium transition-colors ${
+                              isSelected
+                                ? 'bg-purple-600 text-white shadow-md'
+                                : 'bg-purple-700 hover:bg-purple-600 text-gray-200'
+                            }`}
+                            title={prompt.description}
+                          >
+                            {prompt.name}
+                          </button>
+                        )
+                      })}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
               
               {/* Clear Browser Memory Button */}
-              <div className="mt-8 pt-4 border-t border-gray-700">
+              <div className="mt-8 pt-6 border-t border-gray-600 text-center">
                 <button
                   onClick={clearToolsAndPrompts}
-                  className="w-full px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                  className="px-6 py-3 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium transition-colors flex items-center justify-center gap-2 mx-auto"
                 >
                   <Trash2 className="w-4 h-4" />
-                  Clear Browser Memory
+                  Clear All Selections
                 </button>
-                <p className="text-xs text-gray-400 mt-2 text-center">
+                <p className="text-sm text-gray-400 mt-2">
                   Clears all saved tool and prompt selections
                 </p>
               </div>
-            </div>
+            </>
           )}
         </div>
-    </ResizablePanel>
+      </div>
+    </div>
   )
 }
 

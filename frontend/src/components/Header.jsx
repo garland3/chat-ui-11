@@ -225,7 +225,6 @@ const Header = ({ onToggleRag, onToggleTools, onToggleFiles, onToggleCanvas, onC
           </button>
             );
           } else {
-            console.log('DEBUG: Wrench icon is not rendering because features.tools is false or undefined.');
             return null; // Render nothing if not showing
           }
         })()}
