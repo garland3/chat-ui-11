@@ -1,11 +1,6 @@
 """Admin routes for configuration management and system monitoring.
 
-This module provides admin-only routes for managing:
-- Banner messages
-- MCP server configuration
-- LLM configuration  
-- Help content
-- System logs and health
+Provides admin-only endpoints for: banners, configuration files, logs, and (commented) health checks.
 """
 
 import json
@@ -13,204 +8,169 @@ import logging
 import os
 import shutil
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Any, Dict, List, Optional
 
 import yaml
-from fastapi import APIRouter, HTTPException, Depends, Request
-from fastapi.responses import FileResponse
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from core.auth import is_user_in_group
 from core.utils import get_current_user
 from modules.config import config_manager
-# from mcp_health_check import mcp_health_monitor, get_mcp_health_status, trigger_mcp_health_check
-from core.otel_config import get_otel_config
-
+from core.otel_config import get_otel_config  # noqa: F401 (may be used later)
 
 logger = logging.getLogger(__name__)
 
-# Admin router
 admin_router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 class AdminConfigUpdate(BaseModel):
-    """Model for admin configuration updates."""
     content: str
     file_type: str  # 'json', 'yaml', 'text'
 
 
 class BannerMessageUpdate(BaseModel):
-    """Model for banner message updates."""
     messages: List[str]
 
 
-class SystemStatus(BaseModel):
-    """Model for system status information."""
+class SystemStatus(BaseModel):  # noqa: F841 (kept for future use)
     component: str
     status: str
     details: Optional[Dict[str, Any]] = None
 
 
 def require_admin(current_user: str = Depends(get_current_user)) -> str:
-    """Dependency to require admin group membership."""
     admin_group = config_manager.app_settings.admin_group
     if not is_user_in_group(current_user, admin_group):
         raise HTTPException(
-            status_code=403, 
-            detail=f"Admin access required. User must be in '{admin_group}' group."
+            status_code=403,
+            detail=f"Admin access required. User must be in '{admin_group}' group.",
         )
     return current_user
 
 
-def setup_configfilesadmin():
-    """Set up configfilesadmin directory, copying from configfiles if empty."""
-    admin_config_dir = Path("configfilesadmin")
-    source_config_dir = Path("configfiles")
-    
-    # Create admin config directory if it doesn't exist
-    admin_config_dir.mkdir(exist_ok=True)
-    
-    # Check if admin config directory is empty
-    if not any(admin_config_dir.iterdir()):
-        logger.info("configfilesadmin is empty, copying from configfiles")
-        
-        # Copy all files from configfiles to configfilesadmin
-        for file_path in source_config_dir.glob("*"):
-            if file_path.is_file():
-                dest_path = admin_config_dir / file_path.name
-                shutil.copy2(file_path, dest_path)
-                logger.info(f"Copied {file_path} to {dest_path}")
-    else:
-        logger.info("configfilesadmin already contains files, skipping copy")
+def setup_config_overrides() -> None:
+    """Ensure editable overrides directory exists; seed from defaults / legacy if empty."""
+    overrides_root = Path(os.getenv("APP_CONFIG_OVERRIDES", "config/overrides"))
+    defaults_root = Path(os.getenv("APP_CONFIG_DEFAULTS", "config/defaults"))
+    overrides_root.mkdir(parents=True, exist_ok=True)
+    defaults_root.mkdir(parents=True, exist_ok=True)
+
+    if any(overrides_root.iterdir()):
+        return
+
+    logger.info("Seeding empty overrides directory")
+    seed_sources = [
+        defaults_root,
+        Path("backend/configfilesadmin"),
+        Path("backend/configfiles"),
+        Path("configfilesadmin"),
+        Path("configfiles"),
+    ]
+    for source in seed_sources:
+        if source.exists() and any(source.iterdir()):
+            for file_path in source.glob("*"):
+                if file_path.is_file():
+                    dest = overrides_root / file_path.name
+                    try:
+                        shutil.copy2(file_path, dest)
+                        logger.info(f"Copied seed config {file_path} -> {dest}")
+                    except Exception as e:  # noqa: BLE001
+                        logger.error(f"Failed seeding {file_path}: {e}")
+            break
 
 
 def get_admin_config_path(filename: str) -> Path:
-    """Get the path to a file in configfilesadmin directory."""
-    return Path("configfilesadmin") / filename
+    base = Path(os.getenv("APP_CONFIG_OVERRIDES", "config/overrides"))
+    base.mkdir(parents=True, exist_ok=True)
+    return base / filename
 
 
 def get_file_content(file_path: Path) -> str:
-    """Read file content safely with encoding error handling."""
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail=f"File {file_path.name} not found")
     try:
-        if not file_path.exists():
-            raise HTTPException(status_code=404, detail=f"File {file_path.name} not found")
-        
-        # Try UTF-8 first, then fall back to UTF-8 with error handling
-        try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                return f.read()
-        except UnicodeDecodeError:
-            # Fall back to UTF-8 with error replacement
-            with open(file_path, 'r', encoding='utf-8', errors='replace') as f:
-                return f.read()
-    except Exception as e:
+        with open(file_path, "r", encoding="utf-8") as f:
+            return f.read()
+    except UnicodeDecodeError:
+        with open(file_path, "r", encoding="utf-8", errors="replace") as f:
+            return f.read()
+    except Exception as e:  # noqa: BLE001
         logger.error(f"Error reading file {file_path}: {e}")
-        raise HTTPException(status_code=500, detail=f"Error reading file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error reading file: {e}")
 
 
-def write_file_content(file_path: Path, content: str, file_type: str = "text"):
-    """Write file content safely with validation."""
+def write_file_content(file_path: Path, content: str, file_type: str = "text") -> None:
     try:
-        # Validate content based on file type
         if file_type == "json":
-            json.loads(content)  # Validate JSON
+            json.loads(content)
         elif file_type == "yaml":
-            yaml.safe_load(content)  # Validate YAML
-        
-        # Write to temporary file first, then rename for atomic operation
+            yaml.safe_load(content)
+
         temp_path = file_path.with_suffix(file_path.suffix + ".tmp")
-        
-        # Remove temporary file if it already exists
         if temp_path.exists():
             temp_path.unlink()
-        
-        with open(temp_path, 'w', encoding='utf-8') as f:
+        with open(temp_path, "w", encoding="utf-8") as f:
             f.write(content)
-        
-        # On Windows, we need to remove the target file before rename
-        # to avoid "file already exists" error
-        if os.name == 'nt' and file_path.exists():
+        if os.name == "nt" and file_path.exists():  # Windows atomic rename safety
             file_path.unlink()
-        
-        # Atomic rename
         temp_path.rename(file_path)
-        logger.info(f"Successfully updated {file_path}")
-        
-    except json.JSONDecodeError as e:
-        raise HTTPException(status_code=400, detail=f"Invalid JSON: {str(e)}")
-    except yaml.YAMLError as e:
-        raise HTTPException(status_code=400, detail=f"Invalid YAML: {str(e)}")
-    except Exception as e:
+        logger.info(f"Updated config file {file_path}")
+    except (json.JSONDecodeError, yaml.YAMLError) as e:
+        raise HTTPException(status_code=400, detail=f"Invalid {file_type.upper()}: {e}")
+    except Exception as e:  # noqa: BLE001
         logger.error(f"Error writing file {file_path}: {e}")
-        raise HTTPException(status_code=500, detail=f"Error writing file: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error writing file: {e}")
 
-
-# --- Admin Dashboard Routes ---
 
 @admin_router.get("/")
 async def admin_dashboard(admin_user: str = Depends(require_admin)):
-    """Get admin dashboard overview."""
     return {
         "message": "Admin Dashboard",
         "user": admin_user,
         "available_endpoints": [
             "/admin/banners",
-            "/admin/logs/viewer", 
-            "/admin/logs/clear"
-        ]
+            "/admin/logs/viewer",
+            "/admin/logs/clear",
+        ],
     }
 
 
-# --- Banner Management ---
-
 @admin_router.get("/banners")
 async def get_banner_config(admin_user: str = Depends(require_admin)):
-    """Get current banner messages configuration."""
     try:
-        # Set up configfilesadmin directory first
-        setup_configfilesadmin()
-        
-        # For now, we'll create a simple messages.txt file in configfilesadmin
+        setup_config_overrides()
         messages_file = get_admin_config_path("messages.txt")
-        
         if not messages_file.exists():
-            # Create with default content
-            default_content = "System status: All services operational\n"
-            write_file_content(messages_file, default_content)
-        
+            write_file_content(messages_file, "System status: All services operational\n")
         content = get_file_content(messages_file)
-        messages = [line.strip() for line in content.splitlines() if line.strip()]
-        
+        messages = [ln.strip() for ln in content.splitlines() if ln.strip()]
         return {
             "messages": messages,
             "file_path": str(messages_file),
-            "last_modified": messages_file.stat().st_mtime if messages_file.exists() else None
+            "last_modified": messages_file.stat().st_mtime,
         }
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.error(f"Error getting banner config: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @admin_router.post("/banners")
 async def update_banner_config(
-    update: BannerMessageUpdate,
-    admin_user: str = Depends(require_admin)
+    update: BannerMessageUpdate, admin_user: str = Depends(require_admin)
 ):
-    """Update banner messages configuration."""
     try:
-        setup_configfilesadmin()
+        setup_config_overrides()
         messages_file = get_admin_config_path("messages.txt")
-        content = "\n".join(update.messages) + "\n" if update.messages else ""
-        
+        content = ("\n".join(update.messages) + "\n") if update.messages else ""
         write_file_content(messages_file, content)
-        
         logger.info(f"Banner messages updated by {admin_user}")
         return {
             "message": "Banner messages updated successfully",
             "messages": update.messages,
-            "updated_by": admin_user
+            "updated_by": admin_user,
         }
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.error(f"Error updating banner config: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -340,43 +300,45 @@ async def update_banner_config(
 @admin_router.get("/logs/viewer")
 async def get_enhanced_logs(
     lines: int = 500,
-    level_filter: str = None,
-    module_filter: str = None,
-    admin_user: str = Depends(require_admin)
+    level_filter: Optional[str] = None,
+    module_filter: Optional[str] = None,
+    admin_user: str = Depends(require_admin),  # noqa: ARG001 (enforces auth)
 ):
-    """Get enhanced logs with better structure for the React frontend."""
     try:
-        # Use OpenTelemetry JSONL log file first, then fallback to plain text
-        log_file = Path("logs/app.jsonl")
+        log_file = Path(os.getenv("RUNTIME_LOG_DIR", "runtime/logs")) / "app.jsonl"
         if not log_file.exists():
-            # Try fallback locations
-            fallback_locations = [Path("logs/app.log"), Path("../logs/app.jsonl"), Path("../logs/app.log")]
-            for fallback in fallback_locations:
+            for fallback in [
+                Path(os.getenv("RUNTIME_LOG_DIR", "runtime/logs")) / "app.log",
+                Path("logs/app.jsonl"),
+                Path("logs/app.log"),
+                Path("backend/logs/app.jsonl"),
+                Path("backend/logs/app.log"),
+            ]:
                 if fallback.exists():
                     log_file = fallback
                     break
             else:
                 raise HTTPException(status_code=404, detail="Log file not found")
-        
-        # Read last N lines efficiently
+
         from collections import deque
-        entries = []
-        modules = set()
-        levels = set()
-        
+        entries: List[Dict[str, Any]] = []
+        modules: set[str] = set()
+        levels: set[str] = set()
+
         try:
             with log_file.open("r", encoding="utf-8") as f:
-                lines_deque = deque(f, maxlen=lines + 100)  # Extra buffer for filtering
-            
-            for line in lines_deque:
-                line = line.strip()
-                if not line or line == "NEW LOG":
+                recent_lines = deque(f, maxlen=lines + 200)
+            import re
+            pattern = re.compile(
+                r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})[,\s-]*(\w+)[,\s-]*([^-]*)[,\s-]*(.*)"
+            )
+            for raw in recent_lines:
+                raw = raw.strip()
+                if not raw or raw == "NEW LOG":
                     continue
-                
                 try:
-                    # Try to parse as JSON first (for structured logs)
-                    entry = json.loads(line)
-                    processed_entry = {
+                    entry = json.loads(raw)
+                    processed = {
                         "timestamp": entry.get("timestamp", ""),
                         "level": entry.get("level", "UNKNOWN"),
                         "module": entry.get("module", entry.get("logger", "")),
@@ -387,133 +349,109 @@ async def get_enhanced_logs(
                         "span_id": entry.get("span_id", ""),
                         "line": entry.get("line", ""),
                         "thread_name": entry.get("thread_name", ""),
-                        "extras": {k: v for k, v in entry.items() if k.startswith("extra_")}
+                        "extras": {k: v for k, v in entry.items() if k.startswith("extra_")},
                     }
                 except json.JSONDecodeError:
-                    # Handle plain text logs - simple parsing
-                    import re
-                    # Try to extract basic info from log line format like "2024-01-01 12:00:00 - INFO - module - message"
-                    log_pattern = r'(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})[,\s-]*(\w+)[,\s-]*([^-]*)[,\s-]*(.*)'
-                    match = re.match(log_pattern, line)
-                    if match:
-                        timestamp, level, module, message = match.groups()
-                        processed_entry = {
-                            "timestamp": timestamp.strip(),
-                            "level": level.strip().upper(),
-                            "module": module.strip(),
-                            "logger": module.strip(),
+                    m = pattern.match(raw)
+                    if m:
+                        ts, lvl, mod, msg = m.groups()
+                        processed = {
+                            "timestamp": ts.strip(),
+                            "level": lvl.strip().upper(),
+                            "module": mod.strip(),
+                            "logger": mod.strip(),
                             "function": "",
-                            "message": message.strip(),
+                            "message": msg.strip(),
                             "trace_id": "",
                             "span_id": "",
                             "line": "",
                             "thread_name": "",
-                            "extras": {}
+                            "extras": {},
                         }
                     else:
-                        # Fallback for unparseable lines
-                        processed_entry = {
+                        processed = {
                             "timestamp": "",
                             "level": "INFO",
                             "module": "unknown",
-                            "logger": "unknown", 
+                            "logger": "unknown",
                             "function": "",
-                            "message": line,
+                            "message": raw,
                             "trace_id": "",
                             "span_id": "",
                             "line": "",
                             "thread_name": "",
-                            "extras": {}
+                            "extras": {},
                         }
-                
-                # Apply filters
-                if level_filter and processed_entry["level"] != level_filter:
+                if level_filter and processed["level"] != level_filter:
                     continue
-                if module_filter and processed_entry["module"] != module_filter:
+                if module_filter and processed["module"] != module_filter:
                     continue
-                
-                entries.append(processed_entry)
-                modules.add(processed_entry["module"])
-                levels.add(processed_entry["level"])
-                
-                # Stop if we have enough entries after filtering
+                entries.append(processed)
+                modules.add(processed["module"])
+                levels.add(processed["level"])
                 if len(entries) >= lines:
                     break
-                    
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logger.error(f"Error reading log file {log_file}: {e}")
-            # Return a minimal response if log reading fails
-            entries = [{
-                "timestamp": "",
-                "level": "ERROR",
-                "module": "admin",
-                "logger": "admin", 
-                "function": "get_enhanced_logs",
-                "message": f"Error reading log file: {str(e)}",
-                "trace_id": "",
-                "span_id": "",
-                "line": "",
-                "thread_name": "",
-                "extras": {}
-            }]
+            entries = [
+                {
+                    "timestamp": "",
+                    "level": "ERROR",
+                    "module": "admin",
+                    "logger": "admin",
+                    "function": "get_enhanced_logs",
+                    "message": f"Error reading log file: {e}",
+                    "trace_id": "",
+                    "span_id": "",
+                    "line": "",
+                    "thread_name": "",
+                    "extras": {},
+                }
+            ]
             modules = {"admin"}
             levels = {"ERROR"}
-        
+
         return {
             "entries": entries,
             "metadata": {
                 "total_entries": len(entries),
-                "unique_modules": sorted(list(modules)),
-                "unique_levels": sorted(list(levels)),
+                "unique_modules": sorted(modules),
+                "unique_levels": sorted(levels),
                 "log_file_path": str(log_file),
                 "requested_lines": lines,
-                "filters_applied": {
-                    "level": level_filter,
-                    "module": module_filter
-                }
-            }
+                "filters_applied": {"level": level_filter, "module": module_filter},
+            },
         }
-        
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.error(f"Error getting enhanced logs: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 @admin_router.post("/logs/clear")
 async def clear_app_logs(admin_user: str = Depends(require_admin)):
-    """Clear application logs."""
     try:
-        log_file = Path("logs/app.log")
-        jsonl_file = Path("logs/app.jsonl")
-        
-        cleared_files = []
-        
-        # Clear the main log file
-        if log_file.exists():
-            with open(log_file, 'w') as f:
-                f.write("")
-            cleared_files.append(str(log_file))
-            
-        # Clear JSONL log file if it exists
-        if jsonl_file.exists():
-            with open(jsonl_file, 'w') as f:
-                f.write("")
-            cleared_files.append(str(jsonl_file))
-        
-        if not cleared_files:
-            return {
-                "message": "No log files found to clear",
-                "cleared_by": admin_user,
-                "files_cleared": []
-            }
-        
-        logger.info(f"Log files cleared by {admin_user}: {cleared_files}")
-        return {
-            "message": "Log files cleared successfully",
-            "cleared_by": admin_user,
-            "files_cleared": cleared_files
-        }
-    except Exception as e:
+        base = Path(os.getenv("RUNTIME_LOG_DIR", "runtime/logs"))
+        candidates = [
+            base / "app.jsonl",
+            base / "app.log",
+            Path("logs/app.jsonl"),
+            Path("logs/app.log"),
+            Path("backend/logs/app.jsonl"),
+            Path("backend/logs/app.log"),
+        ]
+        cleared: List[str] = []
+        for f in candidates:
+            if f.exists():
+                try:
+                    f.write_text("NEW LOG\n", encoding="utf-8")
+                    cleared.append(str(f))
+                except Exception as e:  # noqa: BLE001
+                    logger.error(f"Failed clearing {f}: {e}")
+        if not cleared:
+            return {"message": "No log files found to clear", "cleared_by": admin_user, "files_cleared": []}
+        logger.info(f"Log files cleared by {admin_user}: {cleared}")
+        return {"message": "Log files cleared successfully", "cleared_by": admin_user, "files_cleared": cleared}
+    except Exception as e:  # noqa: BLE001
         logger.error(f"Error clearing logs: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 

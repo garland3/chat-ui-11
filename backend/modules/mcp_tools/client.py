@@ -2,6 +2,7 @@
 
 import logging
 import os
+from pathlib import Path
 from typing import Dict, List, Any, Optional
 
 from fastmcp import Client
@@ -13,10 +14,23 @@ logger = logging.getLogger(__name__)
 
 
 class MCPToolManager:
-    """Manager for MCP servers and their tools."""
+    """Manager for MCP servers and their tools.
+
+    Default config path now points to config/overrides (or env override) with legacy fallback.
+    """
     
-    def __init__(self, config_path: str = "configfiles/mcp.json"):
-        self.config_path = config_path
+    def __init__(self, config_path: Optional[str] = None):
+        if config_path is None:
+            overrides_root = os.getenv("APP_CONFIG_OVERRIDES", "config/overrides")
+            candidate = Path(overrides_root) / "mcp.json"
+            if not candidate.exists():
+                # Legacy fallback
+                candidate = Path("backend/configfilesadmin/mcp.json")
+                if not candidate.exists():
+                    candidate = Path("backend/configfiles/mcp.json")
+            self.config_path = str(candidate)
+        else:
+            self.config_path = config_path
         mcp_config = config_manager.mcp_config
         self.servers_config = {name: server.model_dump() for name, server in mcp_config.servers.items()}
         self.clients = {}

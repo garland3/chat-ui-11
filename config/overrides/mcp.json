@@ -1,0 +1,14 @@
+{
+
+
+  "thinking": {
+    "command": ["python", "mcp/thinking/main.py"],
+    "cwd": "backend",
+    "groups": ["users"],
+    "is_exclusive": false,
+    "description": "Structured thinking and problem analysis tool",
+    "author": "Chat UI Team",
+    "short_description": "Structured problem analysis",
+    "help_email": "support@chatui.example.com"
+  }
+}

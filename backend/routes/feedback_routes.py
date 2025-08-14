@@ -6,6 +6,7 @@ This module provides endpoints for:
 """
 
 import json
+import os
 import logging
 import uuid
 from datetime import datetime
@@ -45,9 +46,9 @@ class FeedbackResponse(BaseModel):
 
 def get_feedback_directory() -> Path:
     """Get the feedback storage directory."""
-    feedback_dir = Path("feedback")
-    feedback_dir.mkdir(exist_ok=True)
-    return feedback_dir
+    base = Path(os.getenv("RUNTIME_FEEDBACK_DIR", "runtime/feedback"))
+    base.mkdir(parents=True, exist_ok=True)
+    return base
 
 
 def require_admin_for_feedback(current_user: str = Depends(get_current_user)) -> str:

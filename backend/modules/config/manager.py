@@ -152,18 +152,30 @@ class ConfigManager:
         self._mcp_config: Optional[MCPConfig] = None
     
     def _search_paths(self, file_name: str) -> List[Path]:
-        """Generate common search paths for a configuration file.
-        
-        Prioritizes configfilesadmin (admin-managed) over configfiles (default).
-        """
-        return [
-            self._backend_root / "configfilesadmin" / file_name,  # Admin-managed configs (highest priority)
-            self._backend_root / "configfiles" / file_name,        # Default configs
-            Path(file_name),
-            Path(f"../{file_name}"),
-            self._backend_root.parent / file_name,
-            self._backend_root / file_name,
-        ]
+                """Generate common search paths for a configuration file.
+
+                New preferred layout uses config/overrides (editable) and config/defaults (read-only templates).
+                Environment variables can override these locations:
+                    APP_CONFIG_OVERRIDES, APP_CONFIG_DEFAULTS
+                We keep legacy fallbacks (configfilesadmin/configfiles) for backward compatibility.
+                """
+                overrides_root = Path(os.getenv("APP_CONFIG_OVERRIDES", "config/overrides"))
+                defaults_root = Path(os.getenv("APP_CONFIG_DEFAULTS", "config/defaults"))
+
+                legacy_admin = self._backend_root / "configfilesadmin" / file_name
+                legacy_defaults = self._backend_root / "configfiles" / file_name
+
+                search_paths = [
+                        overrides_root / file_name,
+                        defaults_root / file_name,
+                        legacy_admin,
+                        legacy_defaults,
+                        Path(file_name),
+                        Path(f"../{file_name}"),
+                        self._backend_root.parent / file_name,
+                        self._backend_root / file_name,
+                ]
+                return search_paths
     
     def _load_file_with_error_handling(self, file_paths: List[Path], file_type: str) -> Optional[Dict[str, Any]]:
         """Load a file with comprehensive error handling and logging."""

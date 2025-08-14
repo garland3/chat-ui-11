@@ -32,8 +32,8 @@ if [ "$ONLY_FRONTEND" = false ] && [ "$ONLY_BACKEND" = false ]; then
     sleep 2
     clear
     echo "Clearing log for fresh start"
-    mkdir -p ./backend/logs
-    echo "NEW LOG" > ./backend/logs/app.jsonl
+    mkdir -p ./runtime/logs
+    echo "NEW LOG" > ./runtime/logs/app.jsonl
 fi
 
 # cd /workspaces/chat-ui-11

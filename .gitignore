@@ -44,9 +44,18 @@ env/
 .DS_Store
 Thumbs.db
 
-# Logs
+# Logs / runtime artifacts
 *.log
 backend/logs/
+runtime/logs/
+runtime/feedback/
+runtime/uploads/
+# !runtime/logs/.gitkeep
+# !runtime/feedback/.gitkeep
+# !runtime/uploads/.gitkeep
+
+# Legacy config dirs (now migrated to config/)
+backend/configfilesadmin/
 
 # Temporary files
 *.tmp
