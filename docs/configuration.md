@@ -210,7 +210,7 @@ def get_user_groups(user_email: str) -> List[str]:
 
 ## System Prompt Configuration
 
-Customize AI assistant behavior by editing `backend/prompts/system_prompt.md`:
+Customize AI assistant behavior by editing `prompts/system_prompt.md` (now stored at repo root):
 
 ```markdown
 You are a helpful AI assistant integrated with the Chat UI system.

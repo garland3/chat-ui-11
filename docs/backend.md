@@ -236,7 +236,7 @@ models:
 ```
 
 ### Modifying System Prompts
-Edit `backend/prompts/system_prompt.md`. Changes take effect immediately for new conversations.
+Edit `prompts/system_prompt.md` (moved out of backend code to root). Changes take effect immediately for new conversations.
 
 ### Adding New Authorization Groups
 Modify `backend/auth.py` and update group assignments in the `mock_groups` configuration.
