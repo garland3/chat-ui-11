@@ -84,9 +84,14 @@ class MCPToolManager:
 
     async def initialize_clients(self):
         """Initialize FastMCP clients for all configured servers."""
+        logger.info(f"=== CLIENT INITIALIZATION: Starting for {len(self.servers_config)} servers: {list(self.servers_config.keys())} ===")
+        
         for server_name, config in self.servers_config.items():
+            logger.info(f"=== Initializing client for server '{server_name}' ===")
+            logger.info(f"Server config: {config}")
             try:
                 transport_type = self._determine_transport_type(config)
+                logger.info(f"Determined transport type: {transport_type}")
                 
                 if transport_type in ["http", "sse"]:
                     # HTTP/SSE MCP server
@@ -118,31 +123,37 @@ class MCPToolManager:
                 elif transport_type == "stdio":
                     # STDIO MCP server
                     command = config.get("command")
+                    logger.info(f"STDIO transport - command: {command}")
                     if command:
                         # Custom command specified
                         cwd = config.get("cwd")
+                        logger.info(f"Working directory specified: {cwd}")
                         if cwd:
                             # Convert relative path to absolute path from project root
                             if not os.path.isabs(cwd):
-                                # Assume relative to project root (parent of backend)
-                                project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+                                # Get project root (3 levels up from client.py)
+                                # client.py is at: /workspaces/chat-ui-11/backend/modules/mcp_tools/client.py
+                                # project root is: /workspaces/chat-ui-11
+                                project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
                                 cwd = os.path.join(project_root, cwd)
+                                logger.info(f"Converted relative cwd to absolute: {cwd} (project_root: {project_root})")
                             
                             if os.path.exists(cwd):
-                                logger.debug(f"Creating STDIO client for {server_name} with command: {command} in cwd: {cwd}")
+                                logger.info(f"✓ Working directory exists: {cwd}")
+                                logger.info(f"Creating STDIO client for {server_name} with command: {command} in cwd: {cwd}")
                                 from fastmcp.client.transports import StdioTransport
                                 transport = StdioTransport(command=command[0], args=command[1:], cwd=cwd)
                                 client = Client(transport)
                                 self.clients[server_name] = client
-                                logger.info(f"Created STDIO MCP client for {server_name} with custom command and cwd")
+                                logger.info(f"✓ Successfully created STDIO MCP client for {server_name} with custom command and cwd")
                             else:
-                                logger.error(f"Working directory does not exist: {cwd}")
+                                logger.error(f"✗ Working directory does not exist: {cwd}")
                                 continue
                         else:
-                            logger.debug(f"Creating STDIO client for {server_name} with command: {command}")
+                            logger.info(f"No cwd specified, creating STDIO client for {server_name} with command: {command}")
                             client = Client(command)
                             self.clients[server_name] = client
-                            logger.info(f"Created STDIO MCP client for {server_name} with custom command")
+                            logger.info(f"✓ Successfully created STDIO MCP client for {server_name} with custom command")
                         continue
                     else:
                         # Fallback to old behavior for backward compatibility
@@ -162,34 +173,57 @@ class MCPToolManager:
                     continue
                             
             except Exception as e:
-                logger.error(f"Error creating client for {server_name}: {e}", exc_info=True)
+                logger.error(f"✗ Error creating client for {server_name}: {e}", exc_info=True)
+        
+        logger.info(f"=== CLIENT INITIALIZATION COMPLETE ===")
+        logger.info(f"Successfully initialized {len(self.clients)} clients: {list(self.clients.keys())}")
+        logger.info(f"Failed to initialize: {set(self.servers_config.keys()) - set(self.clients.keys())}")
+        logger.info(f"=== END CLIENT INITIALIZATION SUMMARY ===")
     
     async def discover_tools(self):
         """Discover tools from all MCP servers."""
+        logger.info(f"Starting tool discovery for {len(self.clients)} clients: {list(self.clients.keys())}")
         self.available_tools = {}
 
         
         for server_name, client in self.clients.items():
-            logger.debug(f"Attempting to discover tools from {server_name}")
+            logger.info(f"=== TOOL DISCOVERY: Starting discovery for server '{server_name}' ===")
+            logger.debug(f"Server config: {self.servers_config.get(server_name, 'No config found')}")
             try:
-                logger.debug(f"Opening client connection for {server_name}")
+                logger.info(f"Opening client connection for {server_name}...")
                 async with client:
-                    logger.debug(f"Client connected for {server_name}, listing tools...")
+                    logger.info(f"Client connected successfully for {server_name}, listing tools...")
                     tools = await client.list_tools()
-                    logger.debug(f"Got {len(tools)} tools from {server_name}: {[tool.name for tool in tools]}")
+                    logger.info(f"✓ Successfully got {len(tools)} tools from {server_name}: {[tool.name for tool in tools]}")
+                    
+                    # Log detailed tool information
+                    for i, tool in enumerate(tools):
+                        logger.info(f"  Tool {i+1}: name='{tool.name}', description='{getattr(tool, 'description', 'No description')}'")
+                    
                     self.available_tools[server_name] = {
                         'tools': tools,
                         'config': self.servers_config[server_name]
                     }
-                    logger.info(f"Discovered {len(tools)} tools from {server_name}")
-                    logger.debug(f"Successfully stored tools for {server_name}")
+                    logger.info(f"✓ Successfully stored {len(tools)} tools for {server_name} in available_tools")
+                    logger.info(f"=== TOOL DISCOVERY: Completed successfully for server '{server_name}' ===")
             except Exception as e:
-                logger.error(f"Error discovering tools from {server_name}: {e}", exc_info=True)
+                logger.error(f"✗ TOOL DISCOVERY FAILED for {server_name}: {e}", exc_info=True)
+                logger.error(f"Client object for {server_name}: {client}")
+                logger.error(f"Client type: {type(client)}")
                 self.available_tools[server_name] = {
                     'tools': [],
                     'config': self.servers_config[server_name]
                 }
-                logger.debug(f"Set empty tools list for failed server {server_name}")
+                logger.error(f"Set empty tools list for failed server {server_name}")
+                logger.info(f"=== TOOL DISCOVERY: Failed for server '{server_name}' ===")
+        
+        logger.info(f"=== TOOL DISCOVERY COMPLETE ===")
+        logger.info(f"Final available_tools summary:")
+        for server_name, server_data in self.available_tools.items():
+            tool_count = len(server_data['tools'])
+            tool_names = [tool.name for tool in server_data['tools']]
+            logger.info(f"  {server_name}: {tool_count} tools {tool_names}")
+        logger.info(f"=== END TOOL DISCOVERY SUMMARY ===")
     
     async def discover_prompts(self):
         """Discover prompts from all MCP servers."""

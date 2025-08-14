@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional
 
 import yaml
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from core.auth import is_user_in_group
@@ -123,6 +124,43 @@ def write_file_content(file_path: Path, content: str, file_type: str = "text") -
         raise HTTPException(status_code=500, detail=f"Error writing file: {e}")
 
 
+def _project_root() -> Path:
+    # routes/admin_routes.py -> backend/routes -> project root is 2 levels up
+    return Path(__file__).resolve().parents[2]
+
+
+def _log_base_dir() -> Path:
+    env_path = os.getenv("APP_LOG_DIR")
+    if env_path:
+        return Path(env_path)
+    return _project_root() / "logs"
+
+
+def _locate_log_file() -> Path:
+    """Locate the log file (standardized on project_root/logs with optional override).
+
+    Priority:
+    1. APP_LOG_DIR (env) if set
+    2. ./logs
+    3. Legacy fallbacks (backend/logs, runtime/logs) for backward compatibility
+    """
+    base = _log_base_dir()
+    candidates = [
+        base / "app.jsonl",
+        base / "app.log",
+        Path("logs/app.jsonl"),
+        Path("logs/app.log"),
+        Path("backend/logs/app.jsonl"),  # legacy
+        Path("backend/logs/app.log"),     # legacy
+        Path("runtime/logs/app.jsonl"),   # legacy
+        Path("runtime/logs/app.log"),     # legacy
+    ]
+    for c in candidates:
+        if c.exists():
+            return c
+    raise HTTPException(status_code=404, detail="Log file not found")
+
+
 @admin_router.get("/")
 async def admin_dashboard(admin_user: str = Depends(require_admin)):
     return {
@@ -132,6 +170,7 @@ async def admin_dashboard(admin_user: str = Depends(require_admin)):
             "/admin/banners",
             "/admin/logs/viewer",
             "/admin/logs/clear",
+            "/admin/logs/download",
         ],
     }
 
@@ -305,20 +344,11 @@ async def get_enhanced_logs(
     admin_user: str = Depends(require_admin),  # noqa: ARG001 (enforces auth)
 ):
     try:
-        log_file = Path(os.getenv("RUNTIME_LOG_DIR", "runtime/logs")) / "app.jsonl"
+        base_dir = _log_base_dir()
+        log_file = base_dir / "app.jsonl"
         if not log_file.exists():
-            for fallback in [
-                Path(os.getenv("RUNTIME_LOG_DIR", "runtime/logs")) / "app.log",
-                Path("logs/app.jsonl"),
-                Path("logs/app.log"),
-                Path("backend/logs/app.jsonl"),
-                Path("backend/logs/app.log"),
-            ]:
-                if fallback.exists():
-                    log_file = fallback
-                    break
-            else:
-                raise HTTPException(status_code=404, detail="Log file not found")
+            print(f"Log file {log_file.absolute()} not found")
+            raise HTTPException(status_code=404, detail="Log file not found")
 
         from collections import deque
         entries: List[Dict[str, Any]] = []
@@ -430,14 +460,16 @@ async def get_enhanced_logs(
 @admin_router.post("/logs/clear")
 async def clear_app_logs(admin_user: str = Depends(require_admin)):
     try:
-        base = Path(os.getenv("RUNTIME_LOG_DIR", "runtime/logs"))
+        base = _log_base_dir()
         candidates = [
             base / "app.jsonl",
             base / "app.log",
-            Path("logs/app.jsonl"),
-            Path("logs/app.log"),
-            Path("backend/logs/app.jsonl"),
-            Path("backend/logs/app.log"),
+            Path("logs/app.jsonl"),        # explicit root fallback
+            Path("logs/app.log"),          # explicit root fallback
+            Path("backend/logs/app.jsonl"),  # legacy
+            Path("backend/logs/app.log"),     # legacy
+            Path("runtime/logs/app.jsonl"),   # legacy
+            Path("runtime/logs/app.log"),     # legacy,
         ]
         cleared: List[str] = []
         for f in candidates:
@@ -454,6 +486,29 @@ async def clear_app_logs(admin_user: str = Depends(require_admin)):
     except Exception as e:  # noqa: BLE001
         logger.error(f"Error clearing logs: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@admin_router.get("/logs/download")
+async def download_logs(admin_user: str = Depends(require_admin)):
+    """Download the raw application log file.
+
+    Frontend sets a custom filename via the anchor `download` attribute, so we just
+    stream the file with a generic name. Uses same discovery logic as log viewer.
+    """
+    try:
+        log_file = _locate_log_file()
+        # Choose media type: jsonl logs are still plain text; no compression here.
+        media_type = "application/json" if log_file.suffix == ".jsonl" else "text/plain"
+        return FileResponse(
+            path=str(log_file),
+            media_type=media_type,
+            filename=log_file.name,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"Error preparing log download: {e}")
+        raise HTTPException(status_code=500, detail="Error preparing log download")
 
 
 # # --- System Status ---

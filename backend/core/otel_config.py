@@ -1,12 +1,13 @@
-"""OpenTelemetry configuration and setup for unified logging.
+"""Unified logging & OpenTelemetry setup.
 
-This module provides:
-- Structured JSON logging with OpenTelemetry
-- Environment-based log level configuration
-- File-based logging to a common location
-- Easy upgrade path to dedicated OpenTelemetry server
-- Integration with existing admin dashboard
+Provides:
+- Structured JSON logging with optional trace/span identifiers
+- Environment or config-derived log level
+- Standard file output (project_root/logs/app.jsonl) with APP_LOG_DIR override
+- FastAPI & HTTPX instrumentation hooks
 """
+
+from __future__ import annotations
 
 import json
 import logging
@@ -17,7 +18,6 @@ from typing import Any, Dict, Optional
 
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.sdk.resources import Resource, SERVICE_NAME, SERVICE_VERSION
 from opentelemetry.instrumentation.logging import LoggingInstrumentor
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
@@ -25,228 +25,177 @@ from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
 
 
 class JSONFormatter(logging.Formatter):
-    """Custom JSON formatter for structured logging."""
-    
-    def format(self, record: logging.LogRecord) -> str:
-        """Format log record as JSON."""
-        # Get span context if available
+    """Format log records as JSON lines."""
+
+    def format(self, record: logging.LogRecord) -> str:  # noqa: D401
         span = trace.get_current_span()
-        trace_id = None
-        span_id = None
-        
+        trace_id = span_id = None
         if span and span.is_recording():
-            span_context = span.get_span_context()
-            if span_context.is_valid:
-                trace_id = format(span_context.trace_id, '032x')
-                span_id = format(span_context.span_id, '016x')
-        
-        # Build log entry
-        log_entry = {
-            'timestamp': datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),
-            'level': record.levelname,
-            'logger': record.name,
-            'message': record.getMessage(),
-            'module': record.module,
-            'function': record.funcName,
-            'line': record.lineno,
-            'process_id': os.getpid(),
-            'thread_id': record.thread,
-            'thread_name': record.threadName,
+            sc = span.get_span_context()
+            if sc.is_valid:
+                trace_id = f"{sc.trace_id:032x}"
+                span_id = f"{sc.span_id:016x}"
+
+        entry: Dict[str, Any] = {
+            "timestamp": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+            "module": record.module,
+            "function": record.funcName,
+            "line": record.lineno,
+            "process_id": os.getpid(),
+            "thread_id": record.thread,
+            "thread_name": record.threadName,
         }
-        
-        # Add trace context if available
         if trace_id:
-            log_entry['trace_id'] = trace_id
+            entry["trace_id"] = trace_id
         if span_id:
-            log_entry['span_id'] = span_id
-        
-        # Add exception info if present
+            entry["span_id"] = span_id
         if record.exc_info:
-            log_entry['exception'] = self.formatException(record.exc_info)
-        
-        # Add extra fields from record
-        for key, value in record.__dict__.items():
-            if key not in {
-                'name', 'msg', 'args', 'levelname', 'levelno', 'pathname', 'filename',
-                'module', 'lineno', 'funcName', 'created', 'msecs', 'relativeCreated',
-                'thread', 'threadName', 'processName', 'process', 'exc_info', 'exc_text',
-                'stack_info', 'getMessage'
-            }:
-                log_entry[f'extra_{key}'] = value
-        
-        return json.dumps(log_entry, default=str)
+            entry["exception"] = self.formatException(record.exc_info)
+
+        excluded = {
+            "name","msg","args","levelname","levelno","pathname","filename","module","lineno",
+            "funcName","created","msecs","relativeCreated","thread","threadName","processName","process",
+            "exc_info","exc_text","stack_info","getMessage"
+        }
+        for k, v in record.__dict__.items():
+            if k not in excluded:
+                entry[f"extra_{k}"] = v
+        return json.dumps(entry, default=str)
 
 
 class OpenTelemetryConfig:
-    """Configuration and setup for OpenTelemetry logging."""
-    
-    def __init__(self, service_name: str = "chat-ui-backend", service_version: str = "1.0.0"):
+    """Configure OpenTelemetry + structured logging."""
+
+    def __init__(self, service_name: str = "chat-ui-backend", service_version: str = "1.0.0") -> None:
         self.service_name = service_name
         self.service_version = service_version
         self.is_development = self._is_development()
-        # Determine log level from config manager if available, else environment
         self.log_level = self._get_log_level()
-        self.logs_dir = Path("logs")
-        self.log_file = self.logs_dir / "app.jsonl"  # JSON Lines format
-        
-        # Ensure logs directory exists
-        self.logs_dir.mkdir(exist_ok=True)
-        
+        # Resolve logs directory robustly: explicit env override else project_root/logs
+        if os.getenv("APP_LOG_DIR"):
+            self.logs_dir = Path(os.getenv("APP_LOG_DIR"))
+        else:
+            # This file: backend/core/otel_config.py -> project root is 2 levels up
+            project_root = Path(__file__).resolve().parents[2]
+            self.logs_dir = project_root / "logs"
+        self.log_file = self.logs_dir / "app.jsonl"
+        self.logs_dir.mkdir(parents=True, exist_ok=True)
         self._setup_telemetry()
         self._setup_logging()
-    
-    def _is_development(self) -> bool:
-        """Check if running in development mode."""
-        return os.getenv("DEBUG_MODE", "false").lower() == "true" or \
-               os.getenv("ENVIRONMENT", "production").lower() in ("dev", "development")
-    
-    def _get_log_level(self) -> int:
-        """Get log level based on environment."""
-        # Try to load from central config if available
-        try:
-            from config import config_manager  # local import to avoid circular
-            level_name = getattr(config_manager.app_settings, 'log_level', 'INFO').upper()
-        except Exception:
-            level_name = os.getenv("LOG_LEVEL", "INFO").upper()
 
+    # ------------------------------------------------------------------
+    # Internals
+    # ------------------------------------------------------------------
+    def _is_development(self) -> bool:
+        return (
+            os.getenv("DEBUG_MODE", "false").lower() == "true"
+            or os.getenv("ENVIRONMENT", "production").lower() in {"dev", "development"}
+        )
+
+    def _get_log_level(self) -> int:
+        try:
+            from config import config_manager  # type: ignore  # local import to avoid circular
+
+            level_name = getattr(config_manager.app_settings, "log_level", "INFO").upper()
+        except Exception:  # noqa: BLE001
+            level_name = os.getenv("LOG_LEVEL", "INFO").upper()
         level = getattr(logging, level_name, None)
-        if not isinstance(level, int):
-            level = logging.INFO
-        return level
-    
-    def _setup_telemetry(self):
-        """Setup OpenTelemetry tracer."""
-        resource = Resource.create({
-            SERVICE_NAME: self.service_name,
-            SERVICE_VERSION: self.service_version,
-            "environment": "development" if self.is_development else "production"
-        })
-        
-        tracer_provider = TracerProvider(resource=resource)
-        trace.set_tracer_provider(tracer_provider)
-        
-        # In the future, this can be easily extended to send to an OpenTelemetry server:
-        # from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-        # otlp_exporter = OTLPSpanExporter(endpoint="http://otel-server:4317")
-        # tracer_provider.add_span_processor(BatchSpanProcessor(otlp_exporter))
-    
-    def _setup_logging(self):
-        """Setup structured logging with OpenTelemetry integration."""
-        # Clear any existing handlers
-        root_logger = logging.getLogger()
-        for handler in root_logger.handlers[:]:
-            root_logger.removeHandler(handler)
-        
-        # Create JSON formatter
+        return level if isinstance(level, int) else logging.INFO
+
+    def _setup_telemetry(self) -> None:
+        resource = Resource.create(
+            {
+                SERVICE_NAME: self.service_name,
+                SERVICE_VERSION: self.service_version,
+                "environment": "development" if self.is_development else "production",
+            }
+        )
+        trace.set_tracer_provider(TracerProvider(resource=resource))
+
+    def _setup_logging(self) -> None:
+        root = logging.getLogger()
+        for h in root.handlers[:]:
+            root.removeHandler(h)
+
         json_formatter = JSONFormatter()
-        
-        # File handler for JSON logs
-        file_handler = logging.FileHandler(self.log_file, encoding='utf-8')
+        file_handler = logging.FileHandler(self.log_file, encoding="utf-8")
         file_handler.setFormatter(json_formatter)
         file_handler.setLevel(self.log_level)
-        
-        # Add file handler to root (gets everything)
-        root_logger.addHandler(file_handler)
-        root_logger.setLevel(self.log_level)
-        
-        # Console handler for development
-        console_handler = None
+        root.addHandler(file_handler)
+        root.setLevel(self.log_level)
+
         if self.is_development:
-            # In development, show human-readable logs on console with higher threshold
-            console_handler = logging.StreamHandler()
-            console_formatter = logging.Formatter(
-                '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-            )
-            console_handler.setFormatter(console_formatter)
-            console_handler.setLevel(logging.WARNING)  # Only warnings+ to console
-            root_logger.addHandler(console_handler)
-            
-            # Configure specific noisy loggers to be even quieter on console
-            noisy_loggers = [
-                'httpx', 'urllib3.connectionpool', 'auth_utils', 'message_processor',
-                'session', 'callbacks', 'utils', 'banner_client', 'middleware', 'mcp_client'
-            ]
-            
-            for logger_name in noisy_loggers:
-                logger = logging.getLogger(logger_name)
-                logger.setLevel(logging.DEBUG)  # Accept all for file logging
-                # Don't add handlers - let them propagate to root for file, but filter console
-        
-        # Instrument logging with OpenTelemetry
+            console = logging.StreamHandler()
+            console.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
+            console.setLevel(logging.WARNING)
+            root.addHandler(console)
+            for noisy in (
+                "httpx",
+                "urllib3.connectionpool",
+                "auth_utils",
+                "message_processor",
+                "session",
+                "callbacks",
+                "utils",
+                "banner_client",
+                "middleware",
+                "mcp_client",
+            ):
+                logging.getLogger(noisy).setLevel(logging.DEBUG)
+
         LoggingInstrumentor().instrument(set_logging_format=False)
-    
-    def instrument_fastapi(self, app):
-        """Instrument FastAPI application with OpenTelemetry."""
+
+    # ------------------------------------------------------------------
+    # Public helpers
+    # ------------------------------------------------------------------
+    def instrument_fastapi(self, app) -> None:  # noqa: ANN001
         FastAPIInstrumentor.instrument_app(app)
-    
-    def instrument_httpx(self):
-        """Instrument HTTPX client with OpenTelemetry."""
+
+    def instrument_httpx(self) -> None:
         HTTPXClientInstrumentor().instrument()
-    
+
     def get_log_file_path(self) -> Path:
-        """Get the path to the current log file."""
         return self.log_file
-    
+
     def read_logs(self, lines: int = 100) -> list[Dict[str, Any]]:
-        """Read recent logs from the JSON log file."""
-        logs = []
-        
         if not self.log_file.exists():
-            return logs
-        
+            return []
+        out: list[Dict[str, Any]] = []
         try:
-            with open(self.log_file, 'r', encoding='utf-8') as f:
-                # Read from the end of the file
-                all_lines = f.readlines()
-                recent_lines = all_lines[-lines:] if len(all_lines) > lines else all_lines
-                
-                for line in recent_lines:
-                    line = line.strip()
-                    if line:
-                        try:
-                            log_entry = json.loads(line)
-                            logs.append(log_entry)
-                        except json.JSONDecodeError:
-                            # Skip malformed JSON lines
-                            continue
-        except Exception as e:
-            # Log the error, but don't fail the whole operation
+            with self.log_file.open("r", encoding="utf-8") as f:
+                data = f.readlines()[-lines:]
+            for ln in data:
+                ln = ln.strip()
+                if not ln:
+                    continue
+                try:
+                    out.append(json.loads(ln))
+                except json.JSONDecodeError:
+                    continue
+        except Exception as e:  # noqa: BLE001
             logging.getLogger(__name__).error(f"Error reading logs: {e}")
-        
-        return logs
-    
+        return out
+
     def get_log_stats(self) -> Dict[str, Any]:
-        """Get statistics about the log file."""
         if not self.log_file.exists():
-            return {
-                "file_exists": False,
-                "file_size": 0,
-                "line_count": 0,
-                "last_modified": None
-            }
-        
+            return {"file_exists": False, "file_size": 0, "line_count": 0, "last_modified": None}
         try:
             stat = self.log_file.stat()
-            
-            # Count lines
-            line_count = 0
-            with open(self.log_file, 'r', encoding='utf-8') as f:
-                for _ in f:
-                    line_count += 1
-            
+            with self.log_file.open("r", encoding="utf-8") as f:
+                line_count = sum(1 for _ in f)
             return {
                 "file_exists": True,
                 "file_size": stat.st_size,
                 "line_count": line_count,
                 "last_modified": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
-                "file_path": str(self.log_file)
+                "file_path": str(self.log_file),
             }
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001
             logging.getLogger(__name__).error(f"Error getting log stats: {e}")
-            return {
-                "file_exists": True,
-                "error": str(e)
-            }
+            return {"file_exists": True, "error": str(e)}
 
 
 # Global instance
@@ -254,12 +203,10 @@ otel_config: Optional[OpenTelemetryConfig] = None
 
 
 def setup_opentelemetry(service_name: str = "chat-ui-backend", service_version: str = "1.0.0") -> OpenTelemetryConfig:
-    """Setup OpenTelemetry configuration."""
     global otel_config
     otel_config = OpenTelemetryConfig(service_name, service_version)
     return otel_config
 
 
 def get_otel_config() -> Optional[OpenTelemetryConfig]:
-    """Get the global OpenTelemetry configuration."""
     return otel_config

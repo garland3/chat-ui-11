@@ -1,5 +1,6 @@
 """Chat service - core business logic for chat operations."""
 
+import json
 import logging
 from typing import Any, Dict, List, Optional, Callable, Awaitable
 from uuid import UUID
@@ -415,15 +416,15 @@ class ChatService:
                 await self._safe_notify(update_callback, {
                     "type": "tool_start",
                     "tool_call_id": tool_call.id,
-                    "tool_name": tool_call.name
+                    "tool_name": tool_call.function.name
                 })
             
             try:
                 # Convert to ToolCall object and execute
                 tool_call_obj = ToolCall(
                     id=tool_call.id,
-                    name=tool_call.name,
-                    arguments=tool_call.arguments
+                    name=tool_call.function.name,
+                    arguments=json.loads(tool_call.function.arguments)
                 )
                 
                 result = await self.tool_manager.execute_tool(
@@ -437,18 +438,18 @@ class ChatService:
                     await self._safe_notify(update_callback, {
                         "type": "tool_complete",
                         "tool_call_id": tool_call.id,
-                        "tool_name": tool_call.name,
+                        "tool_name": tool_call.function.name,
                         "success": result.success
                     })
                 
             except Exception as e:
-                logger.error(f"Error executing tool {tool_call.name}: {e}")
+                logger.error(f"Error executing tool {tool_call.function.name}: {e}")
                 # Send tool error notification
                 if update_callback:
                     await self._safe_notify(update_callback, {
                         "type": "tool_error",
                         "tool_call_id": tool_call.id,
-                        "tool_name": tool_call.name,
+                        "tool_name": tool_call.function.name,
                         "error": str(e)
                     })
                 raise
@@ -462,7 +463,7 @@ class ChatService:
             })
         
         # Check if we need final synthesis
-        canvas_tool_calls = [tc for tc in llm_response.tool_calls if tc.name == "canvas_canvas"]
+        canvas_tool_calls = [tc for tc in llm_response.tool_calls if tc.function.name == "canvas_canvas"]
         has_only_canvas_tools = len(canvas_tool_calls) == len(llm_response.tool_calls)
         
         if has_only_canvas_tools:

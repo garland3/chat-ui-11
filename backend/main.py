@@ -48,9 +48,34 @@ async def lifespan(app: FastAPI):
     logger.info(f"Backend initialized with {len(config.llm_config.models)} LLM models")
     logger.info(f"MCP servers configured: {len(config.mcp_config.servers)}")
     
+    # Initialize MCP tools manager
+    logger.info("Initializing MCP tools manager...")
+    mcp_manager = app_factory.get_mcp_manager()
+    
+    try:
+        logger.info("Step 1: Initializing MCP clients...")
+        await mcp_manager.initialize_clients()
+        logger.info("Step 1 complete: MCP clients initialized")
+        
+        logger.info("Step 2: Discovering tools...")
+        await mcp_manager.discover_tools()
+        logger.info("Step 2 complete: Tool discovery finished")
+        
+        logger.info("Step 3: Discovering prompts...")
+        await mcp_manager.discover_prompts()
+        logger.info("Step 3 complete: Prompt discovery finished")
+        
+        logger.info("MCP tools manager initialization complete")
+    except Exception as e:
+        logger.error(f"Error during MCP initialization: {e}", exc_info=True)
+        # Continue startup even if MCP fails
+        logger.warning("Continuing startup without MCP tools")
+    
     yield
     
     logger.info("Shutting down Chat UI Backend")
+    # Cleanup MCP clients
+    await mcp_manager.cleanup()
 
 
 # Create FastAPI app with minimal setup
