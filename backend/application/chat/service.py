@@ -423,10 +423,20 @@ class ChatService:
         for tool_call in llm_response.tool_calls:
             # Send tool start notification
             if update_callback:
+                # Parse arguments early so we can surface them to UI
+                try:
+                    parsed_args = json.loads(tool_call.function.arguments)
+                except Exception:
+                    parsed_args = {"_raw": tool_call.function.arguments}
+                # Derive server name (everything before last underscore) for display context
+                parts = tool_call.function.name.split("_")
+                server_name = "_".join(parts[:-1]) if len(parts) > 1 else "unknown"
                 await self._safe_notify(update_callback, {
                     "type": "tool_start",
                     "tool_call_id": tool_call.id,
-                    "tool_name": tool_call.function.name
+                    "tool_name": tool_call.function.name,
+                    "server_name": server_name,
+                    "arguments": parsed_args
                 })
             
             try:
@@ -449,7 +459,9 @@ class ChatService:
                         "type": "tool_complete",
                         "tool_call_id": tool_call.id,
                         "tool_name": tool_call.function.name,
-                        "success": result.success
+                        "success": result.success,
+                        # Return full content for UI to render (front-end will decide how to truncate)
+                        "result": result.content
                     })
                 
             except Exception as e:

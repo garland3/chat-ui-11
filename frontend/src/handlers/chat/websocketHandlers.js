@@ -136,6 +136,53 @@ export function createWebSocketHandler(deps) {
   const handleWebSocketMessage = (data) => {
     try {
       switch (data.type) {
+        // Direct tool lifecycle events (new simplified callback path)
+        case 'tool_start': {
+          addMessage({
+            role: 'system',
+            content: `**Tool Call: ${data.tool_name}**`,
+            type: 'tool_call',
+            tool_call_id: data.tool_call_id,
+            tool_name: data.tool_name,
+            server_name: data.server_name || 'tool',
+            arguments: data.arguments || {},
+            status: 'calling',
+            timestamp: new Date().toISOString(),
+            agent_mode: false
+          })
+          break
+        }
+        case 'tool_complete': {
+          mapMessages(prev => prev.map(msg => msg.tool_call_id === data.tool_call_id ? {
+            ...msg,
+            status: data.success ? 'completed' : 'failed',
+            result: data.result || null,
+            content: `**Tool: ${data.tool_name}** - ${data.success ? 'Success' : 'Failed'}`
+          } : msg))
+          break
+        }
+        case 'tool_error': {
+          mapMessages(prev => prev.map(msg => msg.tool_call_id === data.tool_call_id ? {
+            ...msg,
+            status: 'failed',
+            result: data.error || 'Unknown error',
+            content: `**Tool: ${data.tool_name}** - Failed`
+          } : msg))
+          break
+        }
+        case 'tool_synthesis': {
+          // Treat as assistant follow-up message summarizing tool results
+          addMessage({
+            role: 'assistant',
+            content: data.message,
+            timestamp: new Date().toISOString()
+          })
+          break
+        }
+        case 'response_complete': {
+          setIsThinking(false)
+          break
+        }
         case 'chat_response':
           setIsThinking(false)
           addMessage({ role: 'assistant', content: data.message, timestamp: new Date().toISOString() })
