@@ -87,8 +87,7 @@ class MCPToolManager:
         logger.info(f"=== CLIENT INITIALIZATION: Starting for {len(self.servers_config)} servers: {list(self.servers_config.keys())} ===")
         
         for server_name, config in self.servers_config.items():
-            logger.info(f"=== Initializing client for server '{server_name}' ===")
-            logger.info(f"Server config: {config}")
+            logger.info(f"=== Initializing client for server '{server_name}' ===\n\nServer config: {config}")
             try:
                 transport_type = self._determine_transport_type(config)
                 logger.info(f"Determined transport type: {transport_type}")
@@ -406,26 +405,93 @@ class MCPToolManager:
         return available_tools
     
     def get_tools_schema(self, tool_names: List[str]) -> List[Dict[str, Any]]:
-        """Get schemas for specified tools."""
-        # Extract server names from tool names
-        server_names = []
-        for tool_name in tool_names:
-            if tool_name.startswith("canvas_"):
-                server_names.append("canvas")
+        """Get schemas for specified tools.
+
+        Previous implementation attempted to derive the server name by stripping the last
+        underscore-delimited segment from the fully-qualified tool name. This broke when
+        the original (per-server) tool names themselves contained underscores (e.g.
+        server 'ui-demo' with tool 'create_form_demo' produced full name
+        'ui-demo_create_form_demo'; naive splitting yielded a *server* of
+        'ui-demo_create_form' which does not exist, causing the schema lookup to fail and
+        returning an empty set. This method now directly matches fully-qualified tool
+        names against the discovered inventory instead of guessing via string surgery.
+        """
+
+        if not tool_names:
+            return []
+
+        # Build (or reuse) an index of full tool name -> (server_name, tool_obj)
+        # so we can do O(1) lookups without fragile string parsing.
+        if not hasattr(self, "_tool_index") or not getattr(self, "_tool_index"):
+            index = {}
+            for server_name, server_data in self.available_tools.items():
+                if server_name == "canvas":
+                    index["canvas_canvas"] = {
+                        'server': 'canvas',
+                        'tool': None  # pseudo tool
+                    }
+                else:
+                    for tool in server_data.get('tools', []):
+                        full_name = f"{server_name}_{tool.name}"
+                        index[full_name] = {
+                            'server': server_name,
+                            'tool': tool
+                        }
+            self._tool_index = index
+        else:
+            index = self._tool_index
+
+        matched = []
+        missing = []
+        for requested in tool_names:
+            entry = index.get(requested)
+            if not entry:
+                missing.append(requested)
+                continue
+            if requested == "canvas_canvas":
+                # Recreate the canvas schema (kept in one place – duplicate logic intentional
+                # to avoid coupling to get_tools_for_servers which returns superset data)
+                matched.append({
+                    "type": "function",
+                    "function": {
+                        "name": "canvas_canvas",
+                        "description": "Display final rendered content in a visual canvas panel. Use this for: 1) Complete code (not code discussions), 2) Final reports/documents (not report discussions), 3) Data visualizations, 4) Any polished content that should be viewed separately from the conversation. Put the actual content in the canvas, keep discussions in chat.",
+                        "parameters": {
+                            "type": "object",
+                            "properties": {
+                                "content": {
+                                    "type": "string",
+                                    "description": "The content to display in the canvas. Can be markdown, code, or plain text."
+                                }
+                            },
+                            "required": ["content"]
+                        }
+                    }
+                })
             else:
-                # Extract server name (everything before the last underscore)
-                parts = tool_name.split("_")
-                if len(parts) >= 2:
-                    server_name = "_".join(parts[:-1])
-                    if server_name in self.available_tools:
-                        server_names.append(server_name)
-        
-        # Remove duplicates while preserving order
-        server_names = list(dict.fromkeys(server_names))
-        
-        # Get tools for these servers
-        tools_data = self.get_tools_for_servers(server_names)
-        return tools_data.get('tools', [])
+                tool = entry['tool']
+                matched.append({
+                    "type": "function",
+                    "function": {
+                        "name": requested,
+                        "description": getattr(tool, 'description', '') or '',
+                        "parameters": getattr(tool, 'inputSchema', {}) or {}
+                    }
+                })
+
+        # Helpful logging / diagnostics
+        try:
+            logger.info(
+                f"get_tools_schema: requested={tool_names} matched={len(matched)} missing={missing} available_index_size={len(index)}"
+            )
+            if missing:
+                logger.warning(
+                    "Some requested tools were not found. This usually means discover_tools() ran before those tools were available, or the tool names contain unexpected characters. Missing: %s", missing
+                )
+        except Exception:
+            pass
+
+        return matched
     
     async def execute_tool(
         self,

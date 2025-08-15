@@ -94,14 +94,46 @@ async def get_config(current_user: str = Depends(get_current_user)):
                         'help_email': server_config.get('help_email', '')
                     })
     
-    # Read help page configuration
+    # Read help page configuration (supports new config directory layout + legacy paths)
     help_config = {}
+    import json
+    help_config_filename = "help-config.json"
+    help_paths = []
     try:
-        import json
-        with open("configfiles/help-config.json", "r", encoding="utf-8") as f:
-            help_config = json.load(f)
+        # Reuse config manager search logic (private but acceptable for now)
+        try:
+            help_paths = config_manager._search_paths(help_config_filename)  # type: ignore[attr-defined]
+        except AttributeError:
+            # Fallback minimal search if method renamed/removed
+            from pathlib import Path
+            backend_root = Path(__file__).parent.parent
+            project_root = backend_root.parent
+            help_paths = [
+                project_root / "config" / "overrides" / help_config_filename,
+                project_root / "config" / "defaults" / help_config_filename,
+                backend_root / "configfilesadmin" / help_config_filename,
+                backend_root / "configfiles" / help_config_filename,
+                backend_root / help_config_filename,
+                project_root / help_config_filename,
+            ]
+
+        found_path = None
+        for p in help_paths:
+            if p.exists():
+                found_path = p
+                break
+        if found_path:
+            with open(found_path, "r", encoding="utf-8") as f:
+                help_config = json.load(f)
+            logger.info(f"Loaded help config from {found_path}")
+        else:
+            logger.warning(
+                "Help config not found in any of these locations: %s",
+                [str(p) for p in help_paths]
+            )
+            help_config = {"title": "Help & Documentation", "sections": []}
     except Exception as e:
-        logger.warning(f"Could not read configfiles/help-config.json: {e}")
+        logger.warning(f"Error loading help config: {e}")
         help_config = {"title": "Help & Documentation", "sections": []}
     
 # Log what the user can see for debugging

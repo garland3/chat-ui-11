@@ -219,11 +219,9 @@ class ChatService:
                 raise ValidationError("Tool manager not configured")
             
             # Get tool schemas
-            logger.info(f"Getting tools schema for selected tools: {selected_tools}")
             tools_schema = self.tool_manager.get_tools_schema(selected_tools)
             tool_choice = "required" if tool_choice_required else "auto"
-            
-            logger.info(f"Got {len(tools_schema)} tool schemas, tool_choice: {tool_choice}")
+            logger.info(f"Got {len(tools_schema)} tool schemas for selected tools: {selected_tools}, tool_choice: {tool_choice}")
         except Exception as e:
             logger.error(f"Error getting tools schema: {e}", exc_info=True)
             raise ValidationError(f"Failed to get tools schema: {str(e)}")
@@ -231,17 +229,15 @@ class ChatService:
         # Call LLM with tools
         try:
             if data_sources and user_email:
-                logger.info(f"Calling LLM with RAG and tools for user {user_email}")
                 llm_response = await self.llm.call_with_rag_and_tools(
                     model, messages, data_sources, tools_schema, user_email, tool_choice
                 )
+                logger.info(f"LLM response received with RAG and tools for user {user_email}, has_tool_calls: {llm_response.has_tool_calls()}")
             else:
-                logger.info(f"Calling LLM with tools only")
                 llm_response = await self.llm.call_with_tools(
                     model, messages, tools_schema, tool_choice
                 )
-            
-            logger.info(f"LLM response received, has_tool_calls: {llm_response.has_tool_calls()}")
+                logger.info(f"LLM response received with tools only, has_tool_calls: {llm_response.has_tool_calls()}")
         except Exception as e:
             logger.error(f"Error calling LLM with tools: {e}", exc_info=True)
             raise ValidationError(f"Failed to call LLM with tools: {str(e)}")

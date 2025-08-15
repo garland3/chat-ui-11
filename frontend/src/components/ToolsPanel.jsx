@@ -13,6 +13,10 @@ const ToolsPanel = ({ isOpen, onClose }) => {
     toggleTool, 
     selectedPrompts,
     togglePrompt,
+  addTools,
+  removeTools,
+  setSinglePrompt,
+  removePrompts,
     toolChoiceRequired, 
     setToolChoiceRequired,
     clearToolsAndPrompts
@@ -94,52 +98,111 @@ const ToolsPanel = ({ isOpen, onClose }) => {
     return false
   })
 
-  const toggleServerItems = (serverName) => {
-    console.log('🔧 [TOOLS DEBUG] toggleServerItems called for server:', serverName)
-    
-    const server = serverList.find(s => s.server === serverName)
-    if (!server) return
+  /* -------------------------- Selection Utilities -------------------------- */
+  const getServerByName = (serverName) => serverList.find(s => s.server === serverName)
 
-    // Get all tools and prompts for this server
-    const serverToolKeys = server.tools.map(tool => `${serverName}_${tool}`)
-    const serverPromptKeys = server.prompts.map(prompt => `${serverName}_${prompt.name}`)
-    
-    // Check if all items are selected
-    const allToolsSelected = serverToolKeys.every(key => selectedTools.has(key))
-    const allPromptsSelected = serverPromptKeys.every(key => selectedPrompts.has(key))
-    const allSelected = allToolsSelected && allPromptsSelected
-    
-    console.log('🔧 [TOOLS DEBUG] Server tools:', serverToolKeys)
-    console.log('🔧 [PROMPTS DEBUG] Server prompts:', serverPromptKeys)
-    console.log('🔧 [DEBUG] All selected before toggle:', allSelected)
-
-    if (allSelected) {
-      // Deselect All: Remove all tools and prompts from this server
-      console.log('🔧 [DEBUG] Deselecting all items from server:', serverName)
-      serverToolKeys.forEach(key => {
-        if (selectedTools.has(key)) {
-          toggleTool(key)
-        }
-      })
-      serverPromptKeys.forEach(key => {
-        if (selectedPrompts.has(key)) {
-          togglePrompt(key)
-        }
-      })
-    } else {
-      // Select All: Add all tools and prompts from this server
-      console.log('🔧 [DEBUG] Selecting all items from server:', serverName)
-      serverToolKeys.forEach(key => {
-        if (!selectedTools.has(key)) {
-          toggleTool(key)
-        }
-      })
-      serverPromptKeys.forEach(key => {
-        if (!selectedPrompts.has(key)) {
-          togglePrompt(key)
-        }
-      })
+  const getServerKeys = (server) => {
+    return {
+      toolKeys: server.tools.map(t => `${server.server}_${t}`),
+      promptKeys: server.prompts.map(p => `${server.server}_${p.name}`)
     }
+  }
+
+  const ensureSinglePrompt = (promptKey) => {
+    // Deselect all other prompts
+    Array.from(selectedPrompts).forEach(existing => {
+      if (existing !== promptKey) togglePrompt(existing)
+    })
+    if (!selectedPrompts.has(promptKey)) togglePrompt(promptKey)
+  }
+
+  const handlePromptCheckbox = (promptKey) => {
+    if (selectedPrompts.has(promptKey)) {
+      // Deselect current prompt
+      togglePrompt(promptKey)
+    } else {
+      ensureSinglePrompt(promptKey)
+    }
+  }
+
+  const isServerSelected = (serverName) => {
+    const server = getServerByName(serverName)
+    if (!server) return false
+    const { toolKeys, promptKeys } = getServerKeys(server)
+    const hasAny = toolKeys.length > 0 || promptKeys.length > 0
+    if (!hasAny) return false
+    const allToolsSelected = toolKeys.length === 0 || toolKeys.every(k => selectedTools.has(k))
+    // If server has prompts, at least one of its prompts must be the (globally) selected prompt
+    const promptSatisfied = promptKeys.length === 0 || promptKeys.some(k => selectedPrompts.has(k))
+    return allToolsSelected && promptSatisfied
+  }
+
+  const toggleServerItems = (serverName) => {
+    console.debug('[TOOLS_PANEL] toggleServerItems invoked', { serverName })
+    const server = getServerByName(serverName)
+    if (!server) {
+      console.debug('[TOOLS_PANEL] server not found, aborting', { serverName })
+      return
+    }
+    const { toolKeys, promptKeys } = getServerKeys(server)
+    const currentlySelected = isServerSelected(serverName)
+    console.debug('[TOOLS_PANEL] current state snapshot BEFORE', {
+      serverName,
+      toolKeys,
+      promptKeys,
+      selectedTools: Array.from(selectedTools),
+      selectedPrompts: Array.from(selectedPrompts),
+      currentlySelected
+    })
+
+    if (currentlySelected) {
+      console.debug('[TOOLS_PANEL] Deselecting all items for server', { serverName })
+      const toolsToRemove = toolKeys.filter(k => selectedTools.has(k))
+      const promptsToRemove = promptKeys.filter(k => selectedPrompts.has(k))
+      if (toolsToRemove.length) {
+        console.debug('[TOOLS_PANEL] batch remove tools', toolsToRemove)
+        removeTools(toolsToRemove)
+      }
+      if (promptsToRemove.length) {
+        console.debug('[TOOLS_PANEL] batch remove prompts', promptsToRemove)
+        removePrompts(promptsToRemove)
+      }
+      // Log after microtask so state updates propagate
+      setTimeout(() => {
+        console.debug('[TOOLS_PANEL] state AFTER deselect', {
+          serverName,
+            selectedTools: Array.from(selectedTools),
+            selectedPrompts: Array.from(selectedPrompts),
+            serverSelectedNow: isServerSelected(serverName)
+        })
+      }, 0)
+      return
+    }
+
+    console.debug('[TOOLS_PANEL] Selecting all tools for server', { serverName })
+    const toolsToAdd = toolKeys.filter(k => !selectedTools.has(k))
+    if (toolsToAdd.length) {
+      console.debug('[TOOLS_PANEL] batch add tools', toolsToAdd)
+      addTools(toolsToAdd)
+    }
+
+    // If server has prompts choose first (or existing) and enforce single-prompt global rule
+    if (promptKeys.length > 0) {
+      const alreadyOne = promptKeys.find(k => selectedPrompts.has(k))
+      console.debug('[TOOLS_PANEL] handling prompts for server', { serverName, promptKeys, alreadyOne })
+      setSinglePrompt(alreadyOne || promptKeys[0])
+    } else {
+      console.debug('[TOOLS_PANEL] no prompts for this server', { serverName })
+    }
+
+    setTimeout(() => {
+      console.debug('[TOOLS_PANEL] state AFTER select', {
+        serverName,
+        selectedTools: Array.from(selectedTools),
+        selectedPrompts: Array.from(selectedPrompts),
+        serverSelectedNow: isServerSelected(serverName)
+      })
+    }, 0)
   }
 
 
@@ -153,18 +216,7 @@ const ToolsPanel = ({ isOpen, onClose }) => {
     setExpandedServers(newExpanded)
   }
 
-  const isServerSelected = (serverName) => {
-    const server = serverList.find(s => s.server === serverName)
-    if (!server) return false
-
-    const serverToolKeys = server.tools.map(tool => `${serverName}_${tool}`)
-    const serverPromptKeys = server.prompts.map(prompt => `${serverName}_${prompt.name}`)
-    
-    const allToolsSelected = serverToolKeys.every(key => selectedTools.has(key))
-    const allPromptsSelected = serverPromptKeys.every(key => selectedPrompts.has(key))
-    
-    return allToolsSelected && allPromptsSelected && (serverToolKeys.length > 0 || serverPromptKeys.length > 0)
-  }
+  // (Legacy isServerSelected removed; new implementation above.)
 
   if (!isOpen) return null
 
@@ -394,7 +446,7 @@ const ToolsPanel = ({ isOpen, onClose }) => {
                                           <input
                                             type="checkbox"
                                             checked={isSelected}
-                                            onChange={() => togglePrompt(promptKey)}
+                                            onChange={() => handlePromptCheckbox(promptKey)}
                                             className="w-4 h-4 text-purple-600 bg-gray-700 border-gray-600 rounded focus:ring-purple-500 focus:ring-2"
                                           />
                                           <div className="flex-1 min-w-0">
