@@ -26,11 +26,11 @@ def thinking(list_of_thoughts: List[str]) -> Dict[str, Any]:
         if not list_of_thoughts:
             return {"error": "No thoughts provided"}
         
-        return {
+        return {"results": {
             "thoughts": list_of_thoughts,
             "count": len(list_of_thoughts)
-        }
-        
+        }}
+
     except Exception as e:
         return {"error": f"Error processing thoughts: {str(e)}"}
 

@@ -2,6 +2,7 @@
 
 import logging
 import os
+import json
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 
@@ -492,6 +493,81 @@ class MCPToolManager:
             pass
 
         return matched
+
+    # ------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------
+    def _normalize_mcp_tool_result(self, raw_result: Any) -> Dict[str, Any]:
+        """Normalize a FastMCP CallToolResult (or similar object) into our contract.
+
+        Returns a dict shaped like:
+        {
+          "results": <payload or string>,
+          "meta_data": {...optional...},
+          "returned_file_names": [...optional...],
+          "returned_file_count": N (if file contents present)
+        }
+
+        Notes:
+        - We never inline base64 file contents here to avoid prompt bloat.
+        - Handles legacy key forms (result, meta-data, metadata).
+        - Falls back to stringifying the raw result if structured extraction fails.
+        """
+        normalized: Dict[str, Any] = {}
+        structured: Dict[str, Any] = {}
+
+        # Attempt extraction in priority order
+        try:
+            if hasattr(raw_result, "structured_content") and raw_result.structured_content:  # type: ignore[attr-defined]
+                structured = raw_result.structured_content  # type: ignore[attr-defined]
+            elif hasattr(raw_result, "data") and raw_result.data:  # type: ignore[attr-defined]
+                structured = raw_result.data  # type: ignore[attr-defined]
+            else:
+                # Fallback: parse first textual content if JSON-like
+                if hasattr(raw_result, "content"):
+                    contents = getattr(raw_result, "content")
+                    if contents and hasattr(contents[0], "text"):
+                        first_text = getattr(contents[0], "text")
+                        if isinstance(first_text, str) and first_text.strip().startswith("{"):
+                            try:
+                                structured = json.loads(first_text)
+                            except Exception:  # pragma: no cover - defensive
+                                pass
+        except Exception as parse_err:  # pragma: no cover - defensive
+            logger.debug(f"Non-fatal parse issue extracting structured tool result: {parse_err}")
+
+        if isinstance(structured, dict):
+            # Support both correct and legacy key forms
+            results_payload = structured.get("results") or structured.get("result")
+            meta_payload = (
+                structured.get("meta_data")
+                or structured.get("meta-data")
+                or structured.get("metadata")
+            )
+            returned_file_names = structured.get("returned_file_names")
+            returned_file_contents = structured.get("returned_file_contents")
+
+            if results_payload is not None:
+                normalized["results"] = results_payload
+            if meta_payload is not None:
+                try:
+                    # Heuristic to prevent very large meta blobs
+                    if len(json.dumps(meta_payload)) < 4000:
+                        normalized["meta_data"] = meta_payload
+                    else:
+                        normalized["meta_data_truncated"] = True
+                except Exception:  # pragma: no cover
+                    normalized["meta_data_parse_error"] = True
+            if returned_file_names:
+                normalized["returned_file_names"] = returned_file_names
+            if returned_file_contents:
+                normalized["returned_file_count"] = (
+                    len(returned_file_contents) if isinstance(returned_file_contents, (list, tuple)) else 1
+                )
+
+        if not normalized:
+            normalized = {"results": str(raw_result)}
+        return normalized
     
     async def execute_tool(
         self,
@@ -524,10 +600,13 @@ class MCPToolManager:
         actual_tool_name = parts[-1]
         
         try:
-            result = await self.call_tool(server_name, actual_tool_name, tool_call.arguments)
+            raw_result = await self.call_tool(server_name, actual_tool_name, tool_call.arguments)
+            normalized_content = self._normalize_mcp_tool_result(raw_result)
+            content_str = json.dumps(normalized_content, ensure_ascii=False)
+
             return ToolResult(
                 tool_call_id=tool_call.id,
-                content=str(result),
+                content=content_str,
                 success=True
             )
         except Exception as e:

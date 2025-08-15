@@ -20,7 +20,7 @@ done
 
 # Configuration
 USE_NEW_FRONTEND=${USE_NEW_FRONTEND:-true}
-START_S3_MOCK=false
+START_S3_MOCK=true
 
 # Kill any running uvicorn processes (skip if only rebuilding frontend)
 if [ "$ONLY_FRONTEND" = false ] && [ "$ONLY_BACKEND" = false ]; then

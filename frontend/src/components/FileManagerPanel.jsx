@@ -1,7 +1,6 @@
 import { X, FolderOpen, Download } from 'lucide-react'
 import { useChat } from '../contexts/ChatContext'
 import FileManager from './FileManager'
-import ResizablePanel from './ResizablePanel'
 
 const FileManagerPanel = ({ isOpen, onClose }) => {
   const { sessionFiles, downloadFile, deleteFile, taggedFiles, toggleFileTag } = useChat()
@@ -24,45 +23,44 @@ const FileManagerPanel = ({ isOpen, onClose }) => {
     }
   }
 
-  if (!isOpen) {
-    return null
-  }
+  if (!isOpen) return null
 
   return (
-    <ResizablePanel
-      isOpen={isOpen}
-      onClose={onClose}
-      defaultWidth={448}
-      minWidth={320}
-      maxWidth={800}
+    <div 
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      onClick={onClose}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-700 flex-shrink-0">
-        <div className="flex items-center gap-2">
-          <FolderOpen className="w-5 h-5 text-blue-400" />
-          <h2 className="text-lg font-semibold text-gray-100">File Manager</h2>
-        </div>
-        <div className="flex items-center gap-2">
-          {sessionFiles.total_files > 0 && (
+      <div 
+        className="bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[80vh] mx-4 flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-6 border-b border-gray-700 flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <FolderOpen className="w-6 h-6 text-blue-400" />
+            <h2 className="text-xl font-semibold text-gray-100">File Manager</h2>
+          </div>
+          <div className="flex items-center gap-2">
+            {sessionFiles.total_files > 0 && (
+              <button
+                onClick={downloadAllFiles}
+                className="p-2 rounded-lg bg-blue-600 hover:bg-blue-700 transition-colors text-white"
+                title="Download All Files"
+              >
+                <Download className="w-5 h-5" />
+              </button>
+            )}
             <button
-              onClick={downloadAllFiles}
-              className="p-2 rounded-lg bg-blue-600 hover:bg-blue-700 transition-colors text-white"
-              title="Download All Files"
+              onClick={onClose}
+              className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
             >
-              <Download className="w-4 h-4" />
+              <X className="w-6 h-6" />
             </button>
-          )}
-          <button
-            onClick={onClose}
-            className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          </div>
         </div>
-      </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-4 min-h-0">
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 min-h-0">
           <FileManager 
             files={sessionFiles}
             onDownloadFile={downloadFile}
@@ -90,7 +88,8 @@ const FileManagerPanel = ({ isOpen, onClose }) => {
             </div>
           </div>
         </div>
-    </ResizablePanel>
+      </div>
+    </div>
   )
 }
 
