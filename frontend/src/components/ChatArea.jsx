@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { useChat } from '../contexts/ChatContext'
 import { useWS } from '../contexts/WSContext'
 import { Send, Paperclip, X } from 'lucide-react'
@@ -18,6 +18,9 @@ const ChatArea = () => {
   const [selectedFileIndex, setSelectedFileIndex] = useState(0)
   const textareaRef = useRef(null)
   const messagesRef = useRef(null)
+  const endRef = useRef(null)
+  const userScrolledRef = useRef(false)
+  const prevMessageCountRef = useRef(0)
   const fileInputRef = useRef(null)
   
   const { 
@@ -68,20 +71,56 @@ const ChatArea = () => {
     return () => clearTimeout(timeoutId)
   }, [isMobile])
 
-  // Scroll to bottom when messages change - debounced for performance
+  // Track if user manually scrolled up (to disable auto-scroll until they return near bottom)
   useEffect(() => {
-    if (messagesRef.current) {
-      const timeoutId = setTimeout(() => {
-        requestAnimationFrame(() => {
-          if (messagesRef.current) {
-            messagesRef.current.scrollTop = messagesRef.current.scrollHeight
-          }
-        })
-      }, 100)
-      
-      return () => clearTimeout(timeoutId)
+    const el = messagesRef.current
+    if (!el) return
+    const handleScroll = () => {
+      const distanceFromBottom = el.scrollHeight - (el.scrollTop + el.clientHeight)
+      userScrolledRef.current = distanceFromBottom > 140 // threshold
     }
-  }, [messages, isThinking])
+    el.addEventListener('scroll', handleScroll, { passive: true })
+    return () => el.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  // Function to perform smooth scroll to bottom respecting user scroll state
+  const scrollToBottom = useCallback((force = false) => {
+    const el = messagesRef.current
+    if (!el) return
+    if (userScrolledRef.current && !force) return
+    if (endRef.current && typeof endRef.current.scrollIntoView === 'function') {
+      endRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    } else {
+      el.scrollTop = el.scrollHeight
+    }
+  }, [])
+
+  // Scroll when messages list changes (initial render or new message)
+  useEffect(() => {
+    const newCount = messages.length
+    const lastMsg = messages[messages.length - 1]
+    const isNewMessage = newCount !== prevMessageCountRef.current
+    const force = isNewMessage && lastMsg && (lastMsg.role !== 'user')
+    prevMessageCountRef.current = newCount
+    requestAnimationFrame(() => {
+      scrollToBottom(force)
+      setTimeout(() => scrollToBottom(force), 80)
+      setTimeout(() => scrollToBottom(force), 250)
+    })
+  }, [messages, isThinking, scrollToBottom])
+
+  // Observe DOM mutations inside messages container (handles content expansion post-render)
+  useEffect(() => {
+    const el = messagesRef.current
+    if (!el) return
+    const observer = new MutationObserver(() => {
+      const lastMsg = messages[messages.length - 1]
+      const force = lastMsg && lastMsg.role !== 'user'
+      scrollToBottom(force)
+    })
+    observer.observe(el, { childList: true, subtree: true })
+    return () => observer.disconnect()
+  }, [scrollToBottom, messages])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -469,24 +508,23 @@ const ChatArea = () => {
       {isWelcomeVisible && <WelcomeScreen />}
 
       {/* Messages */}
-      <main 
+      <main
         ref={messagesRef}
         className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4 min-h-0"
       >
         {messages.map((message, index) => (
-          <Message key={`${index}-${message.role}-${message.content?.substring(0, 20)}`} message={message} />
+          <Message
+            key={`${index}-${message.role}-${message.content?.substring(0, 20)}`}
+            message={message}
+          />
         ))}
-        
-        {/* Thinking indicator */}
         {isThinking && (
           <div className="flex items-start gap-3 w-full">
             <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
               A
             </div>
             <div className="w-full bg-gray-800 rounded-lg p-4">
-              <div className="text-sm font-medium text-gray-300 mb-2">
-                Chat UI
-              </div>
+              <div className="text-sm font-medium text-gray-300 mb-2">Chat UI</div>
               <div className="flex items-center gap-2 text-gray-400">
                 <svg className="w-4 h-4 spinner" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
@@ -497,6 +535,8 @@ const ChatArea = () => {
             </div>
           </div>
         )}
+        {/* Sentinel for auto-scroll */}
+        <div ref={endRef} />
       </main>
 
       {/* Input Area */}

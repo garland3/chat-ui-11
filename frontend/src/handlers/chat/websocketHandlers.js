@@ -138,6 +138,7 @@ export function createWebSocketHandler(deps) {
       switch (data.type) {
         // Direct tool lifecycle events (new simplified callback path)
         case 'tool_start': {
+          if (data.tool_name === 'canvas_canvas') break; // Suppress any chat message for canvas
           addMessage({
             role: 'system',
             content: `**Tool Call: ${data.tool_name}**`,
@@ -153,21 +154,34 @@ export function createWebSocketHandler(deps) {
           break
         }
         case 'tool_complete': {
+          if (data.tool_name === 'canvas_canvas') {
+            // No update needed; canvas_content event handles display
+            break
+          }
           mapMessages(prev => prev.map(msg => msg.tool_call_id === data.tool_call_id ? {
-            ...msg,
-            status: data.success ? 'completed' : 'failed',
-            result: data.result || null,
-            content: `**Tool: ${data.tool_name}** - ${data.success ? 'Success' : 'Failed'}`
-          } : msg))
+              ...msg,
+              status: data.success ? 'completed' : 'failed',
+              result: data.result || null,
+              content: `**Tool: ${data.tool_name}** - ${data.success ? 'Success' : 'Failed'}`
+            } : msg))
           break
         }
         case 'tool_error': {
+          if (data.tool_name === 'canvas_canvas') {
+            addMessage({
+              role: 'system',
+              content: `Canvas render failed: ${data.error || 'Unknown error'}`,
+              type: 'canvas_error',
+              timestamp: new Date().toISOString()
+            })
+            break
+          }
           mapMessages(prev => prev.map(msg => msg.tool_call_id === data.tool_call_id ? {
-            ...msg,
-            status: 'failed',
-            result: data.error || 'Unknown error',
-            content: `**Tool: ${data.tool_name}** - Failed`
-          } : msg))
+              ...msg,
+              status: 'failed',
+              result: data.error || 'Unknown error',
+              content: `**Tool: ${data.tool_name}** - Failed`
+            } : msg))
           break
         }
         case 'tool_synthesis': {
@@ -177,6 +191,12 @@ export function createWebSocketHandler(deps) {
             content: data.message,
             timestamp: new Date().toISOString()
           })
+          break
+        }
+        case 'canvas_content': {
+          if (data.content) {
+            setCanvasContent(typeof data.content === 'string' ? data.content : String(data.content))
+          }
           break
         }
         case 'response_complete': {

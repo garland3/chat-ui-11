@@ -431,13 +431,15 @@ class ChatService:
                 # Derive server name (everything before last underscore) for display context
                 parts = tool_call.function.name.split("_")
                 server_name = "_".join(parts[:-1]) if len(parts) > 1 else "unknown"
-                await self._safe_notify(update_callback, {
+                # For canvas tool, also emit a canvas_content precursor (content may arrive after execution if needed)
+                payload = {
                     "type": "tool_start",
                     "tool_call_id": tool_call.id,
                     "tool_name": tool_call.function.name,
                     "server_name": server_name,
                     "arguments": parsed_args
-                })
+                }
+                await self._safe_notify(update_callback, payload)
             
             try:
                 # Convert to ToolCall object and execute
@@ -455,14 +457,26 @@ class ChatService:
                 
                 # Send tool completion notification
                 if update_callback:
-                    await self._safe_notify(update_callback, {
+                    complete_payload = {
                         "type": "tool_complete",
                         "tool_call_id": tool_call.id,
                         "tool_name": tool_call.function.name,
                         "success": result.success,
-                        # Return full content for UI to render (front-end will decide how to truncate)
                         "result": result.content
-                    })
+                    }
+                    # If this is the canvas tool, also push a canvas_content event for the UI split
+                    if tool_call.function.name == "canvas_canvas":
+                        try:
+                            # Try to extract original content argument for canvas display
+                            content_arg = parsed_args.get("content") if isinstance(parsed_args, dict) else None
+                        except Exception:
+                            content_arg = None
+                        if content_arg:
+                            await self._safe_notify(update_callback, {
+                                "type": "canvas_content",
+                                "content": content_arg
+                            })
+                    await self._safe_notify(update_callback, complete_payload)
                 
             except Exception as e:
                 logger.error(f"Error executing tool {tool_call.function.name}: {e}")
