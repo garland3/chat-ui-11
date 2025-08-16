@@ -134,6 +134,10 @@ class AppSettings(BaseSettings):
     feature_files_panel_enabled: bool = False
     feature_chat_history_enabled: bool = False
 
+    # Capability tokens (for headless access to downloads/iframes)
+    capability_token_secret: str = ""
+    capability_token_ttl_seconds: int = 3600
+
     # Prompt / template settings
     prompt_base_path: str = "prompts"  # Relative or absolute path to directory containing prompt templates
     tool_synthesis_prompt_filename: str = "tool_synthesis_prompt.md"  # Filename for tool synthesis prompt template

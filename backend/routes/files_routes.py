@@ -7,11 +7,14 @@ list, delete, and user statistics. Integrates with S3 storage backend.
 
 import logging
 from typing import List, Dict, Any, Optional
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from fastapi import Query
+import base64
 from pydantic import BaseModel
 
 from core.utils import get_current_user
 from infrastructure.app_factory import app_factory
+from core.capabilities import verify_file_token
 
 logger = logging.getLogger(__name__)
 
@@ -173,3 +176,46 @@ async def files_health_check():
             "use_mock": s3_client.use_mock if hasattr(s3_client, 'use_mock') else False
         }
     }
+
+
+@router.get("/files/download/{file_key}")
+async def download_file(
+    file_key: str,
+    token: str | None = Query(default=None, description="Capability token for headless access"),
+    current_user: str = Depends(get_current_user)
+):
+    """Download a file by key as raw bytes.
+
+    Returns a binary response with appropriate content type and filename.
+    This endpoint is used by the frontend CanvasPanel and can also be used by tools.
+    """
+    try:
+        s3_client = app_factory.get_file_storage()
+
+        # If token provided, validate and override current_user
+        if token:
+            claims = verify_file_token(token)
+            if not claims or claims.get("k") != file_key:
+                raise HTTPException(status_code=403, detail="Invalid token")
+            current_user = claims.get("u") or current_user
+
+        result = await s3_client.get_file(current_user, file_key)
+        if not result:
+            raise HTTPException(status_code=404, detail="File not found")
+
+        try:
+            raw = base64.b64decode(result["content_base64"]) if result.get("content_base64") else b""
+        except Exception:
+            raise HTTPException(status_code=500, detail="Corrupted file content")
+
+        headers = {
+            "Content-Disposition": f"inline; filename=\"{result.get('filename', 'download')}\""
+        }
+        return Response(content=raw, media_type=result.get("content_type", "application/octet-stream"), headers=headers)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error downloading file: {str(e)}")
+        if "Access denied" in str(e):
+            raise HTTPException(status_code=403, detail="Access denied")
+        raise HTTPException(status_code=500, detail=f"Failed to download file: {str(e)}")

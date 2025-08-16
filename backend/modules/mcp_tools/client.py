@@ -605,19 +605,37 @@ class MCPToolManager:
                 success=True
             )
         
-        # Parse server and tool name from tool_call.name
-        parts = tool_call.name.split("_")
-        if len(parts) < 2:
+        # Use the tool index to get server and tool name (avoids parsing issues with dashes/underscores)
+        if not hasattr(self, "_tool_index") or not getattr(self, "_tool_index"):
+            # Build tool index if not available (same logic as in get_tools_schema)
+            index = {}
+            for server_name, server_data in self.available_tools.items():
+                if server_name == "canvas":
+                    index["canvas_canvas"] = {
+                        'server': 'canvas',
+                        'tool': None  # pseudo tool
+                    }
+                else:
+                    for tool in server_data.get('tools', []):
+                        full_name = f"{server_name}_{tool.name}"
+                        index[full_name] = {
+                            'server': server_name,
+                            'tool': tool
+                        }
+            self._tool_index = index
+        
+        # Look up the tool in our index
+        tool_entry = self._tool_index.get(tool_call.name)
+        if not tool_entry:
             return ToolResult(
                 tool_call_id=tool_call.id,
-                content=f"Invalid tool name format: {tool_call.name}",
+                content=f"Tool not found: {tool_call.name}",
                 success=False,
-                error=f"Invalid tool name format: {tool_call.name}"
+                error=f"Tool not found: {tool_call.name}"
             )
         
-        # Extract server name (everything except the last part)
-        server_name = "_".join(parts[:-1])
-        actual_tool_name = parts[-1]
+        server_name = tool_entry['server']
+        actual_tool_name = tool_entry['tool'].name if tool_entry['tool'] else tool_call.name
         
         try:
             raw_result = await self.call_tool(server_name, actual_tool_name, tool_call.arguments)
@@ -628,13 +646,26 @@ class MCPToolManager:
             returned_file_contents: List[str] = []
             if isinstance(raw_result, dict):
                 try:
-                    rn = raw_result.get("returned_file_names") or []
-                    rc = raw_result.get("returned_file_contents") or []
-                    if isinstance(rn, list):
-                        returned_file_names = [str(x) for x in rn]
-                    if isinstance(rc, list):
-                        # Keep only str items (base64 strings) – do NOT add to normalized content
-                        returned_file_contents = [c for c in rc if isinstance(c, str)]
+                    # v2 artifacts support
+                    artifacts = raw_result.get("artifacts")
+                    if isinstance(artifacts, list) and artifacts:
+                        for art in artifacts:
+                            if not isinstance(art, dict):
+                                continue
+                            name = art.get("name")
+                            b64 = art.get("b64")
+                            if isinstance(name, str) and isinstance(b64, str):
+                                returned_file_names.append(name)
+                                returned_file_contents.append(b64)
+                        # If artifacts were present, prefer them over legacy arrays
+                    else:
+                        rn = raw_result.get("returned_file_names") or []
+                        rc = raw_result.get("returned_file_contents") or []
+                        if isinstance(rn, list):
+                            returned_file_names = [str(x) for x in rn]
+                        if isinstance(rc, list):
+                            # Keep only str items (base64 strings) – do NOT add to normalized content
+                            returned_file_contents = [c for c in rc if isinstance(c, str)]
                 except Exception:  # pragma: no cover - defensive
                     pass
 
