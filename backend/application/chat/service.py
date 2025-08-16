@@ -40,6 +40,7 @@ class ChatService:
         tool_manager: Optional[ToolManagerProtocol] = None,
         connection: Optional[ChatConnectionProtocol] = None,
         config_manager: Optional[ConfigManager] = None,
+        file_manager: Optional[Any] = None,
     ):
         """
         Initialize chat service with dependencies.
@@ -59,6 +60,154 @@ class ChatService:
         self.prompt_provider: Optional[PromptProvider] = (
             PromptProvider(self.config_manager) if self.config_manager else None
         )
+        # File manager (S3 abstraction)
+        self.file_manager = file_manager
+
+    # ---------------- File Handling Helpers ---------------- #
+    async def _ingest_user_files(
+        self,
+        session: Session,
+        user_email: Optional[str],
+        files_map: Optional[Dict[str, str]],
+        update_callback: Optional[UpdateCallback]
+    ) -> None:
+        """Upload user-provided base64 files (from WebSocket payload) to storage and update session context.
+
+        Args:
+            session: Current chat session
+            user_email: Email for ownership / auth
+            files_map: { filename: base64_content }
+            update_callback: For emitting files_update event
+        """
+        if not files_map or not self.file_manager or not user_email:
+            return
+        try:
+            session_files_ctx = session.context.setdefault("files", {})
+            uploaded_refs: Dict[str, Dict[str, Any]] = {}
+            for filename, b64 in files_map.items():
+                try:
+                    meta = await self.file_manager.upload_file(
+                        user_email=user_email,
+                        filename=filename,
+                        content_base64=b64,
+                        source_type="user",
+                        tags={"source": "user"}
+                    )
+                    # Normalize minimal reference stored in session context
+                    session_files_ctx[filename] = {
+                        "key": meta.get("key"),
+                        "content_type": meta.get("content_type"),
+                        "size": meta.get("size"),
+                        "source": "user",
+                        "last_modified": meta.get("last_modified"),
+                    }
+                    uploaded_refs[filename] = meta
+                except Exception as e:  # noqa: BLE001
+                    logger.error(f"Failed uploading user file {filename}: {e}")
+            if uploaded_refs and update_callback:
+                organized = self.file_manager.organize_files_metadata(uploaded_refs)
+                await self._safe_notify(update_callback, {
+                    "type": "intermediate_update",
+                    "update_type": "files_update",
+                    "data": organized
+                })
+        except Exception as e:  # noqa: BLE001
+            logger.error(f"Error ingesting user files: {e}", exc_info=True)
+
+    async def _emit_files_update_from_context(
+        self,
+        session: Session,
+        update_callback: Optional[UpdateCallback]
+    ) -> None:
+        """Emit a files_update event based on current session.context files."""
+        if not self.file_manager or not update_callback:
+            return
+        try:
+            # Build temp structure expected by organizer
+            file_refs: Dict[str, Dict[str, Any]] = {}
+            for fname, ref in session.context.get("files", {}).items():
+                # Expand to shape similar to S3 metadata for organizer
+                file_refs[fname] = {
+                    "key": ref.get("key"),
+                    "size": ref.get("size", 0),
+                    "content_type": ref.get("content_type", "application/octet-stream"),
+                    "last_modified": ref.get("last_modified"),
+                    "tags": {"source": ref.get("source", "user")}
+                }
+            organized = self.file_manager.organize_files_metadata(file_refs)
+            await self._safe_notify(update_callback, {
+                "type": "intermediate_update",
+                "update_type": "files_update",
+                "data": organized
+            })
+        except Exception as e:  # noqa: BLE001
+            logger.error(f"Failed emitting files update: {e}")
+
+    async def _ingest_tool_files(
+        self,
+        session: Session,
+        tool_result: ToolResult,
+        user_email: Optional[str],
+        update_callback: Optional[UpdateCallback]
+    ) -> None:
+        """Persist any files produced by a tool into storage and session context.
+
+        Contract: ToolResult may include parallel arrays returned_file_names & returned_file_contents.
+        We only upload when we have both name and matching content entry. If only names are present,
+        we skip (tool may have already stored them directly via a future API).
+        """
+        if not self.file_manager or not user_email:
+            return
+        if not tool_result.returned_file_names:
+            return
+        # Safety: avoid huge ingestions; cap number of files per tool invocation
+        MAX_FILES = 10
+        names = tool_result.returned_file_names[:MAX_FILES]
+        contents = tool_result.returned_file_contents[:MAX_FILES]
+        if contents and len(contents) != len(names):
+            # Mismatched lengths; log and proceed with min length
+            logger.warning(
+                "ToolResult file arrays length mismatch (names=%d, contents=%d) for tool_call_id=%s", 
+                len(names), len(contents), tool_result.tool_call_id
+            )
+        pair_count = min(len(names), len(contents)) if contents else 0
+        session_files_ctx = session.context.setdefault("files", {})
+        uploaded_refs: Dict[str, Dict[str, Any]] = {}
+        for idx, fname in enumerate(names):
+            try:
+                if idx < pair_count:
+                    b64 = contents[idx]
+                    meta = await self.file_manager.upload_file(
+                        user_email=user_email,
+                        filename=fname,
+                        content_base64=b64,
+                        source_type="tool",
+                        tags={"source": "tool"}
+                    )
+                    session_files_ctx[fname] = {
+                        "key": meta.get("key"),
+                        "content_type": meta.get("content_type"),
+                        "size": meta.get("size"),
+                        "source": "tool",
+                        "last_modified": meta.get("last_modified"),
+                        "tool_call_id": tool_result.tool_call_id
+                    }
+                    uploaded_refs[fname] = meta
+                else:
+                    # Name without content – record reference placeholder only if not existing
+                    session_files_ctx.setdefault(fname, {"source": "tool", "incomplete": True})
+            except Exception as e:  # noqa: BLE001
+                logger.error(f"Failed uploading tool-produced file {fname}: {e}")
+        if uploaded_refs and update_callback:
+            try:
+                organized = self.file_manager.organize_files_metadata(uploaded_refs)
+                await self._safe_notify(update_callback, {
+                    "type": "intermediate_update",
+                    "update_type": "files_update",
+                    "data": organized
+                })
+            except Exception as e:  # noqa: BLE001
+                logger.error(f"Failed emitting tool files update: {e}")
     
     async def create_session(
         self,
@@ -93,13 +242,20 @@ class ChatService:
         """
         # Log all input arguments with content trimmed to 100 chars
         content_preview = content[:100] + "..." if len(content) > 100 else content
+        # Sanitize kwargs: if files present (dict of filename->base64) log only filenames
+        try:
+            sanitized_kwargs = dict(kwargs)
+            if "files" in sanitized_kwargs and isinstance(sanitized_kwargs["files"], dict):
+                sanitized_kwargs["files"] = list(sanitized_kwargs["files"].keys())
+        except Exception:  # noqa: BLE001 - defensive, never block on logging
+            sanitized_kwargs = {k: ("<error sanitizing>") for k in kwargs.keys()}
         logger.info(
             f"handle_chat_message called - session_id: {session_id}, "
             f"content: '{content_preview}', model: {model}, "
             f"selected_tools: {selected_tools}, selected_data_sources: {selected_data_sources}, "
             f"only_rag: {only_rag}, tool_choice_required: {tool_choice_required}, "
             f"user_email: {user_email}, agent_mode: {agent_mode}, "
-            f"kwargs: {kwargs}"
+            f"kwargs: {sanitized_kwargs}"
         )
         # Get or create session
         session = self.sessions.get(session_id)
@@ -115,11 +271,30 @@ class ChatService:
         session.history.add_message(user_message)
         session.update_timestamp()
         
-    # (Deprecated) inline notify previously used deeper in call stack. Logic now centralized in _safe_notify.
-        
+        # (Deprecated) inline notify previously used deeper in call stack. Logic now centralized in _safe_notify.
+        # Ingest any user-uploaded files (base64) before LLM processing
+        await self._ingest_user_files(
+            session=session,
+            user_email=user_email,
+            files_map=kwargs.get("files"),
+            update_callback=update_callback
+        )
+    # Removed persistent files manifest insertion (now using only ephemeral injection per invocation)
+
         try:
             # Get conversation history for LLM
             messages = session.history.get_messages_for_llm()
+            # Always append an ephemeral files manifest (not stored) if files exist
+            files_ctx = session.context.get("files", {})
+            if files_ctx:
+                file_list = "\n".join(f"- {name}" for name in sorted(files_ctx.keys()))
+                manifest = (
+                    "Available session files:\n"
+                    f"{file_list}\n\n"
+                    "(You can ask to open or analyze any of these by name. "
+                    "Large contents are not fully in this prompt unless user or tools provided excerpts.)"
+                )
+                messages.append({"role": "system", "content": manifest})
             
             # Determine which LLM method to use
             if agent_mode:
@@ -417,13 +592,27 @@ class ChatService:
         # Execute tools with real-time updates
         tool_results = []
         for tool_call in llm_response.tool_calls:
+            # Always parse / normalize arguments first (outside update_callback branch)
+            raw_args = getattr(tool_call.function, "arguments", {})
+            if isinstance(raw_args, dict):
+                parsed_args = raw_args
+            else:
+                if raw_args is None or raw_args == "":
+                    # Empty string or None => no arguments
+                    parsed_args = {}
+                else:
+                    try:
+                        parsed_args = json.loads(raw_args)
+                        if not isinstance(parsed_args, dict):
+                            parsed_args = {"_value": parsed_args}
+                    except Exception:
+                        logger.warning(
+                            "Failed to parse tool arguments as JSON for %s, using empty dict. Raw: %r",
+                            getattr(tool_call.function, "name", "<unknown>"), raw_args
+                        )
+                        parsed_args = {}
             # Send tool start notification
             if update_callback:
-                # Parse arguments early so we can surface them to UI
-                try:
-                    parsed_args = json.loads(tool_call.function.arguments)
-                except Exception:
-                    parsed_args = {"_raw": tool_call.function.arguments}
                 # Derive server name (everything before last underscore) for display context
                 parts = tool_call.function.name.split("_")
                 server_name = "_".join(parts[:-1]) if len(parts) > 1 else "unknown"
@@ -442,7 +631,7 @@ class ChatService:
                 tool_call_obj = ToolCall(
                     id=tool_call.id,
                     name=tool_call.function.name,
-                    arguments=json.loads(tool_call.function.arguments)
+                    arguments=parsed_args
                 )
                 
                 result = await self.tool_manager.execute_tool(
@@ -450,6 +639,17 @@ class ChatService:
                     context={"session_id": session.id, "user_email": session.user_email}
                 )
                 tool_results.append(result)
+
+                # Ingest any files produced by this tool
+                try:
+                    await self._ingest_tool_files(
+                        session=session,
+                        tool_result=result,
+                        user_email=session.user_email,
+                        update_callback=update_callback
+                    )
+                except Exception as ingest_err:  # noqa: BLE001
+                    logger.error(f"Error ingesting tool files for {tool_call.function.name}: {ingest_err}")
                 
                 # Send tool completion notification
                 if update_callback:
@@ -502,6 +702,15 @@ class ChatService:
             # Canvas tools don't need follow-up, just return the original content
             final_response = llm_response.content or "Content displayed in canvas."
         else:
+            # Rebuild ephemeral manifest if new files were added by tools before synthesis
+            if session.context.get("files"):
+                file_list = "\n".join(f"- {name}" for name in sorted(session.context["files"].keys()))
+                manifest = (
+                    "Available session files (updated after tool runs):\n"
+                    f"{file_list}\n\n"
+                    "(You can ask to open or analyze any of these by name.)"
+                )
+                messages.append({"role": "system", "content": manifest})
             # Get final synthesis from LLM using dedicated synthesis prompt
             final_response = await self._synthesize_tool_results(model, messages, update_callback)
         
@@ -556,16 +765,48 @@ class ChatService:
     async def handle_download_file(
         self,
         session_id: UUID,
-        filename: str
+        filename: str,
+        user_email: Optional[str]
     ) -> Dict[str, Any]:
-        """Handle file download request."""
-        # This would integrate with file storage
-        # For now, return a placeholder response
-        return {
-            "type": MessageType.FILE_DOWNLOAD.value,
-            "filename": filename,
-            "content": "File download not yet implemented"
-        }
+        """Download a file by original filename (within session context)."""
+        session = self.sessions.get(session_id)
+        if not session or not self.file_manager or not user_email:
+            return {
+                "type": MessageType.FILE_DOWNLOAD.value,
+                "filename": filename,
+                "error": "Session or file manager not available"
+            }
+        ref = session.context.get("files", {}).get(filename)
+        if not ref:
+            return {
+                "type": MessageType.FILE_DOWNLOAD.value,
+                "filename": filename,
+                "error": "File not found in session"
+            }
+        try:
+            content_b64 = await self.file_manager.get_file_content(
+                user_email=user_email,
+                filename=filename,
+                s3_key=ref.get("key")
+            )
+            if not content_b64:
+                return {
+                    "type": MessageType.FILE_DOWNLOAD.value,
+                    "filename": filename,
+                    "error": "Unable to retrieve file content"
+                }
+            return {
+                "type": MessageType.FILE_DOWNLOAD.value,
+                "filename": filename,
+                "content_base64": content_b64
+            }
+        except Exception as e:  # noqa: BLE001
+            logger.error(f"Download failed for {filename}: {e}")
+            return {
+                "type": MessageType.FILE_DOWNLOAD.value,
+                "filename": filename,
+                "error": str(e)
+            }
     
     def get_session(self, session_id: UUID) -> Optional[Session]:
         """Get session by ID."""

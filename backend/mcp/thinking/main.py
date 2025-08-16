@@ -24,7 +24,7 @@ def thinking(list_of_thoughts: List[str]) -> Dict[str, Any]:
     """
     try:
         if not list_of_thoughts:
-            return {"error": "No thoughts provided"}
+            return {"results": {"error": "No thoughts provided"}}
         
         return {"results": {
             "thoughts": list_of_thoughts,
@@ -32,7 +32,7 @@ def thinking(list_of_thoughts: List[str]) -> Dict[str, Any]:
         }}
 
     except Exception as e:
-        return {"error": f"Error processing thoughts: {str(e)}"}
+        return {"results": {"error": f"Error processing thoughts: {str(e)}"}}
 
 
 if __name__ == "__main__":

@@ -27,6 +27,7 @@ from infrastructure.transport.websocket_connection_adapter import WebSocketConne
 # Import essential routes
 from routes.config_routes import router as config_router
 from routes.admin_routes import admin_router
+from routes.files_routes import router as files_router
 
 # Load environment variables from the parent directory
 load_dotenv(dotenv_path="../.env")
@@ -92,9 +93,10 @@ config = app_factory.get_config_manager()
 # Add middleware
 app.add_middleware(AuthMiddleware, debug_mode=config.app_settings.debug_mode)
 
-# Include essential routes
+# Include essential routes (add files API)
 app.include_router(config_router)
 app.include_router(admin_router)
+app.include_router(files_router)
 
 # Serve frontend build (Vite)
 static_dir = Path(__file__).parent.parent / "frontend" / "dist"
@@ -163,7 +165,8 @@ async def websocket_endpoint(websocket: WebSocket):
                         user_email=data.get("user"),
                         agent_mode=data.get("agent_mode", False),
                         agent_max_steps=data.get("agent_max_steps", 10),
-                        update_callback=websocket_update_callback
+                        update_callback=websocket_update_callback,
+                        files=data.get("files")
                     )
                     # Final response is already sent via callbacks, but we keep this for backward compatibility
                 except ValidationError as e:
@@ -182,7 +185,8 @@ async def websocket_endpoint(websocket: WebSocket):
                 # Handle file download
                 response = await chat_service.handle_download_file(
                     session_id=session_id,
-                    filename=data.get("filename", "")
+                    filename=data.get("filename", ""),
+                    user_email=data.get("user")
                 )
                 await websocket.send_json(response)
                 

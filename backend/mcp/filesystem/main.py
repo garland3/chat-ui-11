@@ -49,23 +49,25 @@ def read_file(path: str) -> Dict[str, Any]:
     try:
         file_path = _safe_path(path)
         if not file_path.exists():
-            return {"error": f"File not found: {path}"}
+            return {"results": {"error": f"File not found: {path}"}}
         
         if file_path.is_dir():
-            return {"error": f"Path is a directory: {path}"}
+            return {"results": {"error": f"Path is a directory: {path}"}}
         
         with open(file_path, 'r', encoding='utf-8') as f:
             content = f.read()
         
         return {
-            "content": content,
-            "size": len(content),
-            "path": str(file_path.relative_to(BASE_PATH))
+            "results": {
+                "content": content,
+                "size": len(content),
+                "path": str(file_path.relative_to(BASE_PATH))
+            }
         }
     except PermissionError as e:
-        return {"error": str(e)}
+        return {"results": {"error": str(e)}}
     except Exception as e:
-        return {"error": f"Error reading file: {str(e)}"}
+        return {"results": {"error": f"Error reading file: {str(e)}"}}
 
 
 @mcp.tool
@@ -90,14 +92,16 @@ def write_file(path: str, content: str) -> Dict[str, Any]:
             f.write(content)
         
         return {
-            "success": True,
-            "path": str(file_path.relative_to(BASE_PATH)),
-            "size": len(content)
+            "results": {
+                "success": True,
+                "path": str(file_path.relative_to(BASE_PATH)),
+                "size": len(content)
+            }
         }
     except PermissionError as e:
-        return {"error": str(e)}
+        return {"results": {"error": str(e)}}
     except Exception as e:
-        return {"error": f"Error writing file: {str(e)}"}
+        return {"results": {"error": f"Error writing file: {str(e)}"}}
 
 
 @mcp.tool
@@ -114,10 +118,10 @@ def list_directory(path: str = ".") -> Dict[str, Any]:
     try:
         dir_path = _safe_path(path)
         if not dir_path.exists():
-            return {"error": f"Directory not found: {path}"}
+            return {"results": {"error": f"Directory not found: {path}"}}
         
         if not dir_path.is_dir():
-            return {"error": f"Path is not a directory: {path}"}
+            return {"results": {"error": f"Path is not a directory: {path}"}}
         
         items = []
         for item in dir_path.iterdir():
@@ -128,13 +132,15 @@ def list_directory(path: str = ".") -> Dict[str, Any]:
             })
         
         return {
-            "path": str(dir_path.relative_to(BASE_PATH)),
-            "items": sorted(items, key=lambda x: (x["type"], x["name"]))
+            "results": {
+                "path": str(dir_path.relative_to(BASE_PATH)),
+                "items": sorted(items, key=lambda x: (x["type"], x["name"]))
+            }
         }
     except PermissionError as e:
-        return {"error": str(e)}
+        return {"results": {"error": str(e)}}
     except Exception as e:
-        return {"error": f"Error listing directory: {str(e)}"}
+        return {"results": {"error": f"Error listing directory: {str(e)}"}}
 
 
 @mcp.tool
@@ -153,13 +159,15 @@ def create_directory(path: str) -> Dict[str, Any]:
         dir_path.mkdir(parents=True, exist_ok=True)
         
         return {
-            "success": True,
-            "path": str(dir_path.relative_to(BASE_PATH))
+            "results": {
+                "success": True,
+                "path": str(dir_path.relative_to(BASE_PATH))
+            }
         }
     except PermissionError as e:
-        return {"error": str(e)}
+        return {"results": {"error": str(e)}}
     except Exception as e:
-        return {"error": f"Error creating directory: {str(e)}"}
+        return {"results": {"error": f"Error creating directory: {str(e)}"}}
 
 
 @mcp.tool
@@ -176,15 +184,17 @@ def delete_file(path: str) -> Dict[str, Any]:
     try:
         file_path = _safe_path(path)
         if not file_path.exists():
-            return {"error": f"File not found: {path}"}
+            return {"results": {"error": f"File not found: {path}"}}
         
         if file_path.is_dir():
-            return {"error": f"Path is a directory (use rmdir): {path}"}
+            return {"results": {"error": f"Path is a directory (use rmdir): {path}"}}
         
         file_path.unlink()
         return {
-            "success": True,
-            "path": str(file_path.relative_to(BASE_PATH))
+            "results": {
+                "success": True,
+                "path": str(file_path.relative_to(BASE_PATH))
+            }
         }
     except PermissionError as e:
         return {"error": str(e)}
@@ -206,15 +216,17 @@ def file_exists(path: str) -> Dict[str, Any]:
     try:
         file_path = _safe_path(path)
         return {
-            "exists": file_path.exists(),
-            "is_file": file_path.is_file(),
-            "is_directory": file_path.is_dir(),
-            "path": str(file_path.relative_to(BASE_PATH))
+            "results": {
+                "exists": file_path.exists(),
+                "is_file": file_path.is_file(),
+                "is_directory": file_path.is_dir(),
+                "path": str(file_path.relative_to(BASE_PATH))
+            }
         }
     except PermissionError as e:
-        return {"error": str(e)}
+        return {"results": {"error": str(e)}}
     except Exception as e:
-        return {"error": f"Error checking file: {str(e)}"}
+        return {"results": {"error": f"Error checking file: {str(e)}"}}
 
 
 if __name__ == "__main__":

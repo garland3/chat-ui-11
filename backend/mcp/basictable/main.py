@@ -36,7 +36,7 @@ def analyze_spreadsheet(
         # Validate file extension
         ext = filename.lower().split('.')[-1]
         if ext not in ['csv', 'xlsx']:
-            return {"error": "Invalid file type. Only .csv or .xlsx allowed."}
+            return {"results": {"error": "Invalid file type. Only .csv or .xlsx allowed."}}
 
         # Decode file data
         decoded_bytes = base64.b64decode(file_data_base64)
@@ -49,12 +49,12 @@ def analyze_spreadsheet(
             df = pd.read_excel(buffer)
 
         if df.empty:
-            return {"error": "File is empty or has no readable content."}
+            return {"results": {"error": "File is empty or has no readable content."}}
 
         # Detect numerical columns
         num_cols = df.select_dtypes(include=['number']).columns.tolist()
         if not num_cols:
-            return {"error": "No numerical columns found for plotting."}
+            return {"results": {"error": "No numerical columns found for plotting."}}
 
         # Generate plot
         plt.figure(figsize=(8, 6))
@@ -80,23 +80,21 @@ def analyze_spreadsheet(
         returned_file_contents = [img_base64]
         
         return {
-            "operation": "spreadsheet_analysis",
-            "filename": filename,
-            "numerical_columns": num_cols,
-            "returned_files": returned_files,
+            "results": {
+                "operation": "spreadsheet_analysis",
+                "filename": filename,
+                "numerical_columns": num_cols,
+                "message": f"Detected numerical columns: {', '.join(num_cols)}. Histogram plot generated."
+            },
             "returned_file_names": returned_file_names,
-            "returned_file_contents": returned_file_contents,
-            # Backward compatibility
-            "returned_file_name": "analysis_plot.png",
-            "returned_file_base64": img_base64,
-            "message": f"Detected numerical columns: {', '.join(num_cols)}. Histogram plot generated."
+            "returned_file_contents": returned_file_contents
         }
 
     except Exception as e:
         # print traceback for debugging
         import traceback
         traceback.print_exc()
-        return {"error": f"Spreadsheet analysis failed: {str(e)}"}
+        return {"results": {"error": f"Spreadsheet analysis failed: {str(e)}"}}
 
 if __name__ == "__main__":
     print("Starting CSV/XLSX Analyzer MCP server...")

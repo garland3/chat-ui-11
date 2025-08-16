@@ -84,7 +84,7 @@ def search_and_fetch(query: str, max_results: Union[str, int] = 3) -> Dict[str, 
             results = list(ddgs.text(query, max_results=max_results))
 
         if not results:
-            return {"error": "No results found for your query."}
+            return {"results": {"error": "No results found for your query."}}
 
         # Try each result until we successfully fetch content
         errors_encountered = []
@@ -110,26 +110,30 @@ def search_and_fetch(query: str, max_results: Union[str, int] = 3) -> Dict[str, 
             # Success! Return the content
             print(f"[DEBUG] Successfully fetched content from {result_url}")
             return {
-                "operation": "search_and_fetch",
-                "query": query,
-                "result_title": result_title,
-                "result_url": result_url,
-                "content": content,
-                "attempt": i + 1,
-                "total_results": len(results)
+                "results": {
+                    "operation": "search_and_fetch",
+                    "query": query,
+                    "result_title": result_title,
+                    "result_url": result_url,
+                    "content": content,
+                    "attempt": i + 1,
+                    "total_results": len(results)
+                }
             }
 
         # If we get here, all results failed
         return {
-            "operation": "search_and_fetch",
-            "query": query,
-            "error": f"Failed to fetch content from all {len(results)} search results",
-            "errors": errors_encountered,
-            "total_results": len(results)
+            "results": {
+                "operation": "search_and_fetch",
+                "query": query,
+                "error": f"Failed to fetch content from all {len(results)} search results",
+                "errors": errors_encountered,
+                "total_results": len(results)
+            }
         }
 
     except Exception as e:
-        return {"error": f"An unexpected error occurred: {str(e)}"}
+        return {"results": {"error": f"An unexpected error occurred: {str(e)}"}}
 
 
 if __name__ == "__main__":

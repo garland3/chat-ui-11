@@ -39,7 +39,7 @@ def _analyze_pdf_content(instructions: str, filename: str, file_data_base64: str
         print(f"Instructions: {instructions}")
         # 1. Validate that the filename is for a PDF
         if not filename.lower().endswith('.pdf'):
-            return {"error": "Invalid file type. This tool only accepts PDF files."}
+            return {"results": {"error": "Invalid file type. This tool only accepts PDF files."}}
 
         # 2. Decode the Base64 data and read the PDF content
         decoded_bytes = base64.b64decode(file_data_base64)
@@ -54,12 +54,14 @@ def _analyze_pdf_content(instructions: str, filename: str, file_data_base64: str
 
         if not full_text.strip():
             return {
-                "operation": "pdf_analysis",
-                "filename": filename,
-                "status": "Success",
-                "message": "PDF contained no extractable text.",
-                "total_word_count": 0,
-                "top_100_words": {}
+                "results": {
+                    "operation": "pdf_analysis",
+                    "filename": filename,
+                    "status": "Success",
+                    "message": "PDF contained no extractable text.",
+                    "total_word_count": 0,
+                    "top_100_words": {}
+                }
             }
 
         # 3. Process the text to get a word list and count
@@ -74,10 +76,12 @@ def _analyze_pdf_content(instructions: str, filename: str, file_data_base64: str
 
         # 5. Return the successful result
         return {
-            "operation": "pdf_analysis",
-            "filename": filename,
-            "total_word_count": total_word_count,
-            "top_100_words": top_100_words_dict
+            "results": {
+                "operation": "pdf_analysis",
+                "filename": filename,
+                "total_word_count": total_word_count,
+                "top_100_words": top_100_words_dict
+            }
         }
 
     except Exception as e:
@@ -85,7 +89,7 @@ def _analyze_pdf_content(instructions: str, filename: str, file_data_base64: str
         import traceback
         traceback.print_exc()
         # 6. Return an error message if something goes wrong
-        return {"error": f"PDF analysis failed: {str(e)}"}
+        return {"results": {"error": f"PDF analysis failed: {str(e)}"}}
 
 
 @mcp.tool
@@ -208,22 +212,20 @@ def generate_report_about_pdf(
         returned_file_contents = [report_base64]
         
         return {
-            "operation": "pdf_analysis_report",
-            "original_filename": filename,
-            "returned_files": returned_files,
+            "results": {
+                "operation": "pdf_analysis_report",
+                "original_filename": filename,
+                "message": f"Successfully generated analysis report for {filename}."
+            },
             "returned_file_names": returned_file_names,
-            "returned_file_contents": returned_file_contents,
-            # Backward compatibility
-            "returned_file_name": report_filename,
-            "returned_file_base64": report_base64,
-            "message": f"Successfully generated analysis report for {filename}."
+            "returned_file_contents": returned_file_contents
         }
 
     except Exception as e:
         # print traceback for debugging
         import traceback
         traceback.print_exc()
-        return {"error": f"Failed to generate PDF report: {str(e)}"}
+        return {"results": {"error": f"Failed to generate PDF report: {str(e)}"}}
 
 
 if __name__ == "__main__":

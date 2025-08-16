@@ -237,15 +237,17 @@ class MCPToolManager:
                     logger.debug(f"Client connected for {server_name}, listing prompts...")
                     try:
                         prompts = await client.list_prompts()
-                        logger.debug(f"Got {len(prompts)} prompts from {server_name}: {[prompt.name for prompt in prompts]}")
+                        logger.debug(
+                            f"Got {len(prompts)} prompts from {server_name}: {[prompt.name for prompt in prompts]}"
+                        )
                         self.available_prompts[server_name] = {
                             'prompts': prompts,
                             'config': self.servers_config[server_name]
                         }
                         logger.info(f"Discovered {len(prompts)} prompts from {server_name}")
                         logger.debug(f"Successfully stored prompts for {server_name}")
-                    except AttributeError:
-                        # Server doesn't support prompts
+                    except Exception:
+                        # Server might not support prompts – store empty list
                         logger.debug(f"Server {server_name} does not support prompts")
                         self.available_prompts[server_name] = {
                             'prompts': [],
@@ -565,6 +567,24 @@ class MCPToolManager:
                     len(returned_file_contents) if isinstance(returned_file_contents, (list, tuple)) else 1
                 )
 
+            # Phase 5 fallback: if no explicit results key, treat *entire* structured dict (minus large/base64 fields) as results
+            if "results" not in normalized:
+                # Prune potentially huge / sensitive keys before fallback
+                prune_keys = {"returned_file_contents"}
+                pruned = {k: v for k, v in structured.items() if k not in prune_keys}
+                try:
+                    serialized = json.dumps(pruned)
+                    if len(serialized) <= 8000:  # size guard
+                        normalized["results"] = pruned
+                    else:
+                        normalized["results_summary"] = {
+                            "keys": list(pruned.keys()),
+                            "omitted_due_to_size": len(serialized)
+                        }
+                except Exception:  # pragma: no cover
+                    # Fallback to string repr if serialization fails
+                    normalized.setdefault("results", str(pruned))
+
         if not normalized:
             normalized = {"results": str(raw_result)}
         return normalized
@@ -603,11 +623,27 @@ class MCPToolManager:
             raw_result = await self.call_tool(server_name, actual_tool_name, tool_call.arguments)
             normalized_content = self._normalize_mcp_tool_result(raw_result)
             content_str = json.dumps(normalized_content, ensure_ascii=False)
+            # Extract returned file metadata (don't embed raw base64 in content)
+            returned_file_names: List[str] = []
+            returned_file_contents: List[str] = []
+            if isinstance(raw_result, dict):
+                try:
+                    rn = raw_result.get("returned_file_names") or []
+                    rc = raw_result.get("returned_file_contents") or []
+                    if isinstance(rn, list):
+                        returned_file_names = [str(x) for x in rn]
+                    if isinstance(rc, list):
+                        # Keep only str items (base64 strings) – do NOT add to normalized content
+                        returned_file_contents = [c for c in rc if isinstance(c, str)]
+                except Exception:  # pragma: no cover - defensive
+                    pass
 
             return ToolResult(
                 tool_call_id=tool_call.id,
                 content=content_str,
-                success=True
+                success=True,
+                returned_file_names=returned_file_names,
+                returned_file_contents=returned_file_contents
             )
         except Exception as e:
             logger.error(f"Error executing tool {tool_call.name}: {e}")

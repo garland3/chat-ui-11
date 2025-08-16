@@ -82,6 +82,8 @@ class ToolResult:
     content: str
     success: bool = True
     error: Optional[str] = None
+    returned_file_names: List[str] = field(default_factory=list)
+    returned_file_contents: List[str] = field(default_factory=list)
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
@@ -89,7 +91,9 @@ class ToolResult:
             "tool_call_id": self.tool_call_id,
             "content": self.content,
             "success": self.success,
-            "error": self.error
+            "error": self.error,
+            "returned_file_names": self.returned_file_names,
+            "returned_file_contents": self.returned_file_contents
         }
 
 

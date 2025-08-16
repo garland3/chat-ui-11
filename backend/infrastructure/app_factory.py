@@ -4,11 +4,9 @@ import logging
 from typing import Optional
 
 from application.chat.service import ChatService
-from interfaces.llm import LLMProtocol
-from interfaces.tools import ToolManagerProtocol
 from interfaces.transport import ChatConnectionProtocol
 from modules.config import ConfigManager
-from modules.file_storage import S3StorageClient
+from modules.file_storage import S3StorageClient, FileManager
 from modules.llm.litellm_caller import LiteLLMCaller
 from modules.mcp_tools import MCPToolManager
 from modules.rag import RAGClient
@@ -17,68 +15,56 @@ logger = logging.getLogger(__name__)
 
 
 class AppFactory:
-    """
-    Application factory that wires dependencies.
-    Replaces the global orchestrator singleton with proper DI.
-    """
-    
-    def __init__(self):
-        """Initialize the factory with all dependencies."""
-        # Initialize configuration first
+    """Application factory that wires dependencies (simple in-memory DI)."""
+
+    def __init__(self) -> None:
+        # Configuration
         self.config_manager = ConfigManager()
-        
-        # Initialize modules
+
+        # Core modules
         self.llm_caller = LiteLLMCaller(
-            self.config_manager.llm_config, 
-            debug_mode=self.config_manager.app_settings.debug_mode
+            self.config_manager.llm_config,
+            debug_mode=self.config_manager.app_settings.debug_mode,
         )
         self.mcp_tools = MCPToolManager()
         self.rag_client = RAGClient()
+
+        # File storage & manager
         self.file_storage = S3StorageClient()
-        
-        logger.info("AppFactory initialized with all dependencies")
-    
+        self.file_manager = FileManager(self.file_storage)
+
+        logger.info("AppFactory initialized")
+
     def create_chat_service(
-        self,
-        connection: Optional[ChatConnectionProtocol] = None
+        self, connection: Optional[ChatConnectionProtocol] = None
     ) -> ChatService:
-        """
-        Create a chat service with dependencies.
-        
-        Args:
-            connection: Optional connection for sending updates
-            
-        Returns:
-            Configured ChatService instance
-        """
         return ChatService(
             llm=self.llm_caller,
             tool_manager=self.mcp_tools,
             connection=connection,
-            config_manager=self.config_manager
+            config_manager=self.config_manager,
+            file_manager=self.file_manager,
         )
-    
-    def get_config_manager(self) -> ConfigManager:
-        """Get the configuration manager."""
+
+    # Accessors
+    def get_config_manager(self) -> ConfigManager:  # noqa: D401
         return self.config_manager
-    
-    def get_llm_caller(self) -> LiteLLMCaller:
-        """Get the LLM caller."""
+
+    def get_llm_caller(self) -> LiteLLMCaller:  # noqa: D401
         return self.llm_caller
-    
-    def get_mcp_manager(self) -> MCPToolManager:
-        """Get the MCP tools manager."""
+
+    def get_mcp_manager(self) -> MCPToolManager:  # noqa: D401
         return self.mcp_tools
-    
-    def get_rag_client(self) -> RAGClient:
-        """Get the RAG client."""
+
+    def get_rag_client(self) -> RAGClient:  # noqa: D401
         return self.rag_client
-    
-    def get_file_storage(self) -> S3StorageClient:
-        """Get the file storage client."""
+
+    def get_file_storage(self) -> S3StorageClient:  # noqa: D401
         return self.file_storage
 
+    def get_file_manager(self) -> FileManager:  # noqa: D401
+        return self.file_manager
 
-# Global app factory instance (temporary during migration)
-# Eventually this should be created in main.py and passed to routes
+
+# Temporary global instance during migration away from singletons
 app_factory = AppFactory()

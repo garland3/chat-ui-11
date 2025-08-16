@@ -96,9 +96,11 @@ def list_available_prompts() -> Dict[str, Any]:
     }
     
     return {
-        "available_prompts": prompts,
-        "total_count": len(prompts),
-        "categories": list(set(p["category"] for p in prompts.values()))
+        "results": {
+            "available_prompts": prompts,
+            "total_count": len(prompts),
+            "categories": list(set(p["category"] for p in prompts.values()))
+        }
     }
 
 

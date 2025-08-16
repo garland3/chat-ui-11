@@ -145,12 +145,14 @@ def select_users(
     )
     
     return json.dumps({
-        "success": True,
-        "query": result.query_summary,
-        "execution_time_ms": result.execution_time_ms,
-        "total_rows": result.total_count,
-        "returned_rows": len(result.rows),
-        "data": result.rows
+        "results": {
+            "success": True,
+            "query": result.query_summary,
+            "execution_time_ms": result.execution_time_ms,
+            "total_rows": result.total_count,
+            "returned_rows": len(result.rows),
+            "data": result.rows
+        }
     }, indent=2)
 
 @mcp.tool
@@ -223,12 +225,14 @@ def select_orders(
     )
     
     return json.dumps({
-        "success": True,
-        "query": result.query_summary,
-        "execution_time_ms": result.execution_time_ms,
-        "total_rows": result.total_count,
-        "returned_rows": len(result.rows),
-        "data": result.rows
+        "results": {
+            "success": True,
+            "query": result.query_summary,
+            "execution_time_ms": result.execution_time_ms,
+            "total_rows": result.total_count,
+            "returned_rows": len(result.rows),
+            "data": result.rows
+        }
     }, indent=2)
 
 @mcp.tool
@@ -301,12 +305,14 @@ def select_products(
     )
     
     return json.dumps({
-        "success": True,
-        "query": result.query_summary,
-        "execution_time_ms": result.execution_time_ms,
-        "total_rows": result.total_count,
-        "returned_rows": len(result.rows),
-        "data": result.rows
+        "results": {
+            "success": True,
+            "query": result.query_summary,
+            "execution_time_ms": result.execution_time_ms,
+            "total_rows": result.total_count,
+            "returned_rows": len(result.rows),
+            "data": result.rows
+        }
     }, indent=2)
 
 @mcp.tool
@@ -326,27 +332,33 @@ def execute_custom_query(sql_query: str) -> str:
     # Simulate query validation
     if not query_lower.startswith('select'):
         return json.dumps({
-            "success": False,
-            "error": "Only SELECT statements are supported in this simulation",
-            "query": sql_query
+            "results": {
+                "success": False,
+                "error": "Only SELECT statements are supported in this simulation",
+                "query": sql_query
+            }
         }, indent=2)
     
     # Extract table name (very basic parsing)
     table_match = re.search(r'from\s+(\w+)', query_lower)
     if not table_match:
         return json.dumps({
-            "success": False,
-            "error": "Could not identify table in query",
-            "query": sql_query
+            "results": {
+                "success": False,
+                "error": "Could not identify table in query",
+                "query": sql_query
+            }
         }, indent=2)
     
     table_name = table_match.group(1)
     
     if table_name not in SIMULATED_DATABASE:
         return json.dumps({
-            "success": False,
-            "error": f"Table '{table_name}' not found. Available tables: {list(SIMULATED_DATABASE.keys())}",
-            "query": sql_query
+            "results": {
+                "success": False,
+                "error": f"Table '{table_name}' not found. Available tables: {list(SIMULATED_DATABASE.keys())}",
+                "query": sql_query
+            }
         }, indent=2)
     
     # For this simulation, just return the first 5 rows of the requested table
@@ -354,13 +366,15 @@ def execute_custom_query(sql_query: str) -> str:
     execution_time = simulate_query_execution_time()
     
     return json.dumps({
-        "success": True,
-        "query": sql_query,
-        "execution_time_ms": execution_time,
-        "note": "This is a simulated query execution",
-        "total_rows": len(SIMULATED_DATABASE[table_name]),
-        "returned_rows": len(data),
-        "data": data
+        "results": {
+            "success": True,
+            "query": sql_query,
+            "execution_time_ms": execution_time,
+            "note": "This is a simulated query execution",
+            "total_rows": len(SIMULATED_DATABASE[table_name]),
+            "returned_rows": len(data),
+            "data": data
+        }
     }, indent=2)
 
 @mcp.tool
@@ -399,7 +413,7 @@ def get_database_schema() -> str:
                 "row_count": len(rows)
             }
     
-    return json.dumps(schema, indent=2)
+    return json.dumps({"results": schema}, indent=2)
 
 # Resource to provide database information
 @mcp.resource("database://info")
