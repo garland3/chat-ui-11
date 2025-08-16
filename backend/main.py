@@ -218,6 +218,14 @@ async def websocket_endpoint(websocket: WebSocket):
                     user_email=data.get("user")
                 )
                 await websocket.send_json(response)
+            
+            elif message_type == "reset_session":
+                # Handle session reset
+                response = await chat_service.handle_reset_session(
+                    session_id=session_id,
+                    user_email=data.get("user")
+                )
+                await websocket.send_json(response)
                 
             else:
                 logger.warning(f"Unknown message type: {message_type}")

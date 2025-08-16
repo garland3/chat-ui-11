@@ -158,6 +158,26 @@ class ChatService:
             
         except Exception as e:
             return error_utils.handle_chat_message_error(e, "chat message handling")
+            
+    async def handle_reset_session(
+        self,
+        session_id: UUID,
+        user_email: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Handle session reset request from frontend."""
+        # End the current session
+        self.end_session(session_id)
+        
+        # Create a new session
+        new_session = await self.create_session(session_id, user_email)
+        
+        logger.info(f"Reset session {session_id} for user {user_email}")
+        
+        return {
+            "type": "session_reset",
+            "session_id": str(session_id),
+            "message": "New session created"
+        }
 
     async def _handle_plain_mode(
         self,

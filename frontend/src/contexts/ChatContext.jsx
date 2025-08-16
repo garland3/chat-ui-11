@@ -109,7 +109,12 @@ export const ChatProvider = ({ children }) => {
 		files.setCanvasContent('')
 		files.setCustomUIContent(null)
 		files.setSessionFiles({ total_files: 0, files: [], categories: { code: [], image: [], data: [], document: [], other: [] } })
-	}, [resetMessages, files])
+		
+		// Notify backend to create a new session
+		if (sendMessage) {
+			sendMessage({ type: 'reset_session' })
+		}
+	}, [resetMessages, files, sendMessage])
 
 	const downloadFile = useCallback((filename) => {
 		if (!files.sessionFiles.files.find(f => f.filename === filename)) return
