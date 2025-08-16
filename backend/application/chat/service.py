@@ -175,6 +175,15 @@ class ChatService:
         )
         session.history.add_message(assistant_message)
         
+        # Send the chat response and mark completion
+        if self.connection:
+            await notification_utils.notify_chat_response(
+                message=response_content,
+                has_pending_tools=False,
+                update_callback=self.connection.send_json
+            )
+            await notification_utils.notify_response_complete(self.connection.send_json)
+        
         return notification_utils.create_chat_response(response_content)
 
     async def _handle_rag_mode(
