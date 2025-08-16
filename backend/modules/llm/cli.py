@@ -13,7 +13,7 @@ import logging
 import sys
 from typing import List, Dict
 
-from .caller import LLMCaller
+from .litellm_caller import LiteLLMCaller
 from .models import LLMResponse
 
 # Set up logging for CLI
@@ -34,7 +34,7 @@ async def call_plain(args) -> None:
     print(f"🤖 Calling {args.model} with plain message...")
     
     try:
-        llm_caller = LLMCaller()
+        llm_caller = LiteLLMCaller()
         
         # Prepare messages
         messages = [{"role": "user", "content": args.message}]
@@ -102,7 +102,7 @@ async def call_with_tools(args) -> None:
     print(f"🔧 Calling {args.model} with {len(tools_schema)} tools...")
     
     try:
-        llm_caller = LLMCaller()
+        llm_caller = LiteLLMCaller()
         
         # Prepare messages
         messages = [{"role": "user", "content": args.message}]
@@ -153,7 +153,7 @@ async def test_rag_call(args) -> None:
     print(f"📚 Calling {args.model} with RAG from sources: {', '.join(data_sources)}...")
     
     try:
-        llm_caller = LLMCaller()
+        llm_caller = LiteLLMCaller()
         
         # Prepare messages
         messages = [{"role": "user", "content": args.message}]
@@ -179,7 +179,7 @@ async def test_rag_call(args) -> None:
 def list_models(args) -> None:
     """List available LLM models."""
     try:
-        llm_caller = LLMCaller()
+        llm_caller = LiteLLMCaller()
         models = llm_caller.llm_config.models
         
         if not models:
@@ -210,7 +210,7 @@ def validate_model(args) -> None:
         return
     
     try:
-        llm_caller = LLMCaller()
+        llm_caller = LiteLLMCaller()
         
         if args.model not in llm_caller.llm_config.models:
             print(f"❌ Model '{args.model}' not found in configuration")

@@ -28,7 +28,7 @@ async def execute_tools_workflow(
     llm_caller,
     prompt_provider,
     update_callback: Optional[UpdateCallback] = None
-) -> str:
+) -> tuple[str, List[ToolResult]]:
     """
     Execute the complete tools workflow: calls -> results -> synthesis.
     
@@ -42,7 +42,7 @@ async def execute_tools_workflow(
     })
 
     # Execute all tool calls
-    tool_results = []
+    tool_results: List[ToolResult] = []
     for tool_call in llm_response.tool_calls:
         result = await execute_single_tool(
             tool_call=tool_call,
@@ -71,7 +71,7 @@ async def execute_tools_workflow(
         update_callback=update_callback
     )
 
-    return final_response
+    return final_response, tool_results
 
 
 def tool_accepts_username(tool_name: str, tool_manager) -> bool:

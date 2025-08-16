@@ -184,6 +184,52 @@ class FileManager:
             'files': files_metadata,
             'categories': categorized
         }
+
+    async def upload_files_from_base64(
+        self,
+        files: List[Dict[str, Any]],
+        user_email: str,
+        source_type: str = "tool"
+    ) -> Dict[str, Dict[str, Any]]:
+        """Upload multiple base64 files and return filename -> metadata mapping.
+
+        Args:
+            files: List of dicts { filename, content, mime_type? }
+            user_email: Owner for auth/partitioning
+            source_type: "user" or "tool"
+
+        Returns:
+            Dict mapping filename -> metadata dict compatible with organize_files_metadata
+        """
+        uploaded_refs: Dict[str, Dict[str, Any]] = {}
+        for f in files:
+            try:
+                filename = f.get("filename")
+                content_b64 = f.get("content")
+                mime_type = f.get("mime_type") or self.get_content_type(filename or "")
+                if not filename or not content_b64:
+                    logger.warning("Skipping upload: missing filename or content")
+                    continue
+                meta = await self.s3_client.upload_file(
+                    user_email=user_email,
+                    filename=filename,
+                    content_base64=content_b64,
+                    content_type=mime_type,
+                    tags={"source": source_type},
+                    source_type=source_type,
+                )
+                # Normalize minimal reference for session context
+                uploaded_refs[filename] = {
+                    "key": meta.get("key"),
+                    "content_type": meta.get("content_type", mime_type),
+                    "size": meta.get("size", 0),
+                    "source": source_type,
+                    "last_modified": meta.get("last_modified"),
+                    "tags": {"source": source_type},
+                }
+            except Exception as e:
+                logger.error(f"Failed to upload artifact {f.get('filename')}: {e}")
+        return uploaded_refs
     
     def get_canvas_displayable_files(
         self, 

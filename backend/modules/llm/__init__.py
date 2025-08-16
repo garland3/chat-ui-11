@@ -6,14 +6,14 @@ This module provides:
 - CLI tools for testing LLM interactions
 """
 
-from .caller import LLMCaller
 from .models import LLMResponse
+from .litellm_caller import LiteLLMCaller
 
 # Create default instance
-llm_caller = LLMCaller()
+llm_caller = LiteLLMCaller()
 
 __all__ = [
-    "LLMCaller",
+    "LiteLLMCaller",
     "LLMResponse",
     "llm_caller",
 ]

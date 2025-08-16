@@ -178,7 +178,7 @@ async def files_health_check():
     }
 
 
-@router.get("/files/download/{file_key}")
+@router.get("/files/download/{file_key:path}")
 async def download_file(
     file_key: str,
     token: str | None = Query(default=None, description="Capability token for headless access"),

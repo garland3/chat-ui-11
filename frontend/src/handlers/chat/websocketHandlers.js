@@ -135,6 +135,7 @@ export function createWebSocketHandler(deps) {
 
   const handleWebSocketMessage = (data) => {
     try {
+      console.log(`WebSocket message from backend: ${data.type || 'unknown'}`)
       switch (data.type) {
         // Direct tool lifecycle events (new simplified callback path)
         case 'tool_start': {
@@ -225,6 +226,8 @@ export function createWebSocketHandler(deps) {
         default:
           if (data.update_type === 'agent_update' && data.data) {
             handleAgentUpdate(data.data)
+          } else {
+            console.log('Unknown WebSocket message type:', data)
           }
           break
       }

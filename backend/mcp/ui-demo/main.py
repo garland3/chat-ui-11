@@ -7,25 +7,30 @@ fields to modify the UI.
 """
 
 import json
+import os
 from typing import Dict, Any
 from fastmcp import FastMCP
 
 
-# Common template for custom UI demos
-COMMON_UI_TEMPLATE = """
-<div style=\"background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-            padding: 28px 32px; 
-            border-radius: 14px; 
-            color: white; 
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 32px auto;\">
-    {content}
-</div>
-"""
-
 # Create the MCP server instance
 mcp = FastMCP("UI Demo Server")
+
+def load_template(template_name: str) -> str:
+    """
+    Load HTML template from templates directory.
+    
+    Args:
+        template_name: Name of the template file to load
+        
+    Returns:
+        The HTML content of the template
+        
+    Raises:
+        FileNotFoundError: If the template file doesn't exist
+    """
+    template_path = os.path.join(os.path.dirname(__file__), "templates", template_name)
+    with open(template_path, "r") as f:
+        return f.read()
 
 @mcp.tool
 def create_button_demo() -> Dict[str, Any]:
@@ -35,45 +40,34 @@ def create_button_demo() -> Dict[str, Any]:
     Returns:
         Dictionary with both regular content and custom HTML for UI injection
     """
-    demo_content = """
-        <h2 style=\"margin-top: 0;\">🎨 Custom UI Demo</h2>
-        <p>This content was injected by an MCP server using the custom_html field!</p>
-        <div style=\"display: flex; gap: 10px; margin-top: 15px;\">
-            <button onclick=\"alert('Hello from MCP!')\" 
-                    style=\"background: #4CAF50; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;\">
-                Click Me!
-            </button>
-            <button onclick=\"document.getElementById('demo-text').style.color = 'yellow'\" 
-                    style=\"background: #ff9800; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer;\">
-                Change Text Color
-            </button>
-        </div>
-        <p id=\"demo-text\" style=\"margin-top: 15px; font-size: 16px;\">
-            This text can be modified by the button above!
-        </p>
-        <div style=\"margin-top: 20px; padding: 10px; background: rgba(255,255,255,0.2); border-radius: 5px;\">
-            <strong>Capabilities Demonstrated:</strong>
-            <ul style=\"margin: 10px 0; padding-left: 20px;\">
-                <li>Custom HTML injection</li>
-                <li>Interactive JavaScript buttons</li>
-                <li>Dynamic styling</li>
-                <li>Safe HTML sanitization</li>
-            </ul>
-        </div>
-    """
-    custom_html = COMMON_UI_TEMPLATE.replace("{content}", demo_content)
+    # Load the HTML template
+    html_content = load_template("button_demo.html")
     
-    # Save HTML to file instead of returning custom_html
+    # Convert to v2 MCP format with artifacts and display
     import base64
-    html_base64 = base64.b64encode(custom_html.encode('utf-8')).decode('utf-8')
+    html_base64 = base64.b64encode(html_content.encode('utf-8')).decode('utf-8')
     
     return {
         "results": {
             "content": "Custom UI demo created successfully! Check the canvas panel for the interactive demo.",
             "success": True
         },
-        "returned_file_names": ["ui_demo.html"],
-        "returned_file_contents": [html_base64]
+        "artifacts": [
+            {
+                "name": "ui_demo.html",
+                "b64": html_base64,
+                "mime": "text/html",
+                "size": len(html_content.encode('utf-8')),
+                "description": "Interactive UI demo with buttons and styling",
+                "viewer": "html"
+            }
+        ],
+        "display": {
+            "open_canvas": True,
+            "primary_file": "ui_demo.html",
+            "mode": "replace",
+            "viewer_hint": "html"
+        }
     }
 
 @mcp.tool
@@ -84,37 +78,13 @@ def create_data_visualization() -> Dict[str, Any]:
     Returns:
         Dictionary with custom HTML containing a bar chart visualization
     """
-    demo_content = """
-        <h3 style=\"text-align: center; margin-top: 0; color: #63b3ed;\">📊 Sample Data Visualization</h3>
-        <div style=\"margin: 20px 0;\">
-            <div style=\"margin-bottom: 10px;\">
-                <span style=\"color: #a0aec0;\">Sales (Jan-Mar 2024)</span>
-                <div style=\"background: #1a202c; height: 30px; border-radius: 15px; position: relative; margin-top: 5px;\">
-                    <div style=\"background: linear-gradient(90deg, #4299e1, #63b3ed); height: 100%; width: 75%; border-radius: 15px; display: flex; align-items: center; justify-content: center; font-weight: bold;\">75%</div>
-                </div>
-            </div>
-            <div style=\"margin-bottom: 10px;\">
-                <span style=\"color: #a0aec0;\">Customer Satisfaction</span>
-                <div style=\"background: #1a202c; height: 30px; border-radius: 15px; position: relative; margin-top: 5px;\">
-                    <div style=\"background: linear-gradient(90deg, #48bb78, #68d391); height: 100%; width: 92%; border-radius: 15px; display: flex; align-items: center; justify-content: center; font-weight: bold;\">92%</div>
-                </div>
-            </div>
-            <div style=\"margin-bottom: 10px;\">
-                <span style=\"color: #a0aec0;\">Market Share</span>
-                <div style=\"background: #1a202c; height: 30px; border-radius: 15px; position: relative; margin-top: 5px;\">
-                    <div style=\"background: linear-gradient(90deg, #ed8936, #f6ad55); height: 100%; width: 58%; border-radius: 15px; display: flex; align-items: center; justify-content: center; font-weight: bold;\">58%</div>
-                </div>
-            </div>
-        </div>
-        <div style=\"text-align: center; margin-top: 20px; padding: 10px; background: rgba(99, 179, 237, 0.1); border-radius: 5px;\">
-            <small style=\"color: #a0aec0;\">Generated by MCP Server with custom HTML</small>
-        </div>
-    """
-    custom_html = COMMON_UI_TEMPLATE.replace("{content}", demo_content)
+    # Load the HTML template
+    html_content = load_template("data_visualization.html")
     
-    # Save HTML to file instead of returning custom_html
+    # Convert to v2 MCP format with artifacts and display
     import base64
-    html_base64 = base64.b64encode(custom_html.encode('utf-8')).decode('utf-8')
+    import datetime
+    html_base64 = base64.b64encode(html_content.encode('utf-8')).decode('utf-8')
     
     return {
         "results": {
@@ -125,8 +95,29 @@ def create_data_visualization() -> Dict[str, Any]:
                 "market_share": 58
             }
         },
-        "returned_file_names": ["data_visualization.html"],
-        "returned_file_contents": [html_base64]
+        "artifacts": [
+            {
+                "name": "data_visualization.html",
+                "b64": html_base64,
+                "mime": "text/html",
+                "size": len(html_content.encode('utf-8')),
+                "description": "Sales and customer satisfaction data visualization",
+                "viewer": "html"
+            }
+        ],
+        "display": {
+            "open_canvas": True,
+            "primary_file": "data_visualization.html",
+            "mode": "replace",
+            "viewer_hint": "html"
+        },
+        "meta_data": {
+            "chart_type": "bar_chart",
+            "data_points": 3,
+            "metrics": ["sales", "satisfaction", "market_share"],
+            "tool_execution": "create_data_visualization executed successfully",
+            "timestamp": f"{datetime.datetime.now().isoformat()}"
+        }
     }
 
 @mcp.tool
@@ -137,41 +128,81 @@ def create_form_demo() -> Dict[str, Any]:
     Returns:
         Dictionary with custom HTML containing an interactive form
     """
-    demo_content = """
-        <h3 style=\"color: #63b3ed; margin-top: 0; text-align: center;\">📋 Interactive Form Demo</h3>
-        <form onsubmit=\"event.preventDefault(); alert('Form submitted! Data: ' + JSON.stringify({name: this.name.value, email: this.email.value, message: this.message.value}));\" style=\"display: flex; flex-direction: column; gap: 15px;\">
-            <div>
-                <label style=\"display: block; color: #a0aec0; margin-bottom: 5px;\">Name:</label>
-                <input type=\"text\" name=\"name\" style=\"width: 100%; padding: 8px 12px; border: 1px solid #4a5568; border-radius: 6px; background: #2d3748; color: white; box-sizing: border-box;\" placeholder=\"Enter your name\" />
-            </div>
-            <div>
-                <label style=\"display: block; color: #a0aec0; margin-bottom: 5px;\">Email:</label>
-                <input type=\"email\" name=\"email\" style=\"width: 100%; padding: 8px 12px; border: 1px solid #4a5568; border-radius: 6px; background: #2d3748; color: white; box-sizing: border-box;\" placeholder=\"Enter your email\" />
-            </div>
-            <div>
-                <label style=\"display: block; color: #a0aec0; margin-bottom: 5px;\">Message:</label>
-                <textarea name=\"message\" rows=\"4\" style=\"width: 100%; padding: 8px 12px; border: 1px solid #4a5568; border-radius: 6px; background: #2d3748; color: white; resize: vertical; box-sizing: border-box;\" placeholder=\"Enter your message\"></textarea>
-            </div>
-            <button type=\"submit\" style=\"background: linear-gradient(45deg, #667eea, #764ba2); color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: transform 0.2s;\" onmouseover=\"this.style.transform='scale(1.05)'\" onmouseout=\"this.style.transform='scale(1)'\">Submit Form</button>
-        </form>
-        <div style=\"margin-top: 20px; padding: 15px; background: rgba(72, 187, 120, 0.1); border-radius: 6px; border-left: 4px solid #48bb78;\">
-            <strong style=\"color: #68d391;\">Note:</strong> 
-            <span style=\"color: #a0aec0;\">This form demonstrates how MCP servers can create interactive UI elements. Form submission shows an alert with the entered data.</span>
-        </div>
-    """
-    custom_html = COMMON_UI_TEMPLATE.replace("{content}", demo_content)
+    # Load the HTML template
+    html_content = load_template("form_demo.html")
     
-    # Save HTML to file instead of returning custom_html
+    # Convert to v2 MCP format with artifacts and display
     import base64
-    html_base64 = base64.b64encode(custom_html.encode('utf-8')).decode('utf-8')
+    html_base64 = base64.b64encode(html_content.encode('utf-8')).decode('utf-8')
     
     return {
         "results": {
             "content": "Interactive form demo created! You can interact with the form in the canvas panel.",
             "form_type": "demo"
         },
-        "returned_file_names": ["interactive_form.html"],
-        "returned_file_contents": [html_base64]
+        "artifacts": [
+            {
+                "name": "interactive_form.html",
+                "b64": html_base64,
+                "mime": "text/html",
+                "size": len(html_content.encode('utf-8')),
+                "description": "Interactive form demo with input validation",
+                "viewer": "html"
+            }
+        ],
+        "display": {
+            "open_canvas": True,
+            "primary_file": "interactive_form.html",
+            "mode": "replace",
+            "viewer_hint": "html"
+        },
+        "meta_data": {
+            "form_fields": ["name", "email", "message"],
+            "interactive": True,
+            "validation": "client_side"
+        }
+    }
+
+@mcp.tool
+def get_image() -> Dict[str, Any]:
+    """
+    Return the badmesh.png image from the ui-demo directory.
+    
+    Returns:
+        Dictionary with the image data encoded in base64
+    """
+    # Get the path to the image file
+    image_path = os.path.join(os.path.dirname(__file__), "badmesh.png")
+    
+    # Read the image file as binary
+    with open(image_path, "rb") as f:
+        image_data = f.read()
+    
+    # Encode the image data in base64
+    import base64
+    image_base64 = base64.b64encode(image_data).decode('utf-8')
+    
+    # Return the image data with appropriate MIME type
+    return {
+        "results": {
+            "content": "Image retrieved successfully!"
+        },
+        "artifacts": [
+            {
+                "name": "badmesh.png",
+                "b64": image_base64,
+                "mime": "image/png",
+                "size": len(image_data),
+                "description": "Bad mesh image for demonstration",
+                "viewer": "image"
+            }
+        ],
+        "display": {
+            "open_canvas": True,
+            "primary_file": "badmesh.png",
+            "mode": "replace",
+            "viewer_hint": "image"
+        }
     }
 
 if __name__ == "__main__":

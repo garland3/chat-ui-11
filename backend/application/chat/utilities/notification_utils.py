@@ -79,7 +79,20 @@ async def notify_tool_complete(
     # Canvas tool special handling
     if tool_call.function.name == "canvas_canvas":
         await notify_canvas_content(parsed_args, update_callback)
-        
+    
+    # Trace artifacts/display presence when available
+    try:
+        arts = getattr(result, "artifacts", None)
+        disp = getattr(result, "display_config", None)
+        if arts or disp:
+            logger.info(
+                "Tool result has artifacts/display: artifacts=%d, has_display=%s",
+                len(arts) if isinstance(arts, list) else 0,
+                bool(disp),
+            )
+    except Exception:
+        pass
+
     await safe_notify(update_callback, complete_payload)
 
 
@@ -95,12 +108,15 @@ async def notify_canvas_content(
     try:
         content_arg = parsed_args.get("content") if isinstance(parsed_args, dict) else None
         if content_arg:
+            logger.info("Emitting canvas_content event (length=%s)", len(content_arg) if isinstance(content_arg, str) else "obj")
             await safe_notify(update_callback, {
                 "type": "canvas_content",
                 "content": content_arg
             })
-    except Exception:
-        pass  # Non-critical
+        else:
+            logger.info("Canvas tool called without 'content' arg; skipping canvas_content event")
+    except Exception as e:
+        logger.warning("Failed to emit canvas_content event: %s", e)
 
 
 async def notify_tool_error(

@@ -61,6 +61,7 @@ export const WSProvider = ({ children }) => {
           })
         } catch (error) {
           console.error('Error parsing WebSocket message:', error)
+          console.log('Raw message that failed to parse:', event.data)
         }
       }
 

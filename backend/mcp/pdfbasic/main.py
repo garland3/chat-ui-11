@@ -202,23 +202,35 @@ def generate_report_about_pdf(
         # Create a new filename for the report
         report_filename = f"analysis_report_{filename.replace('.pdf', '.txt')}.pdf"
 
-        # --- 4. Return the new file data ---
-        # Create file list for multiple file support
-        returned_files = [{
-            'filename': report_filename,
-            'content_base64': report_base64
-        }]
-        returned_file_names = [report_filename]
-        returned_file_contents = [report_base64]
-        
+        # --- 4. Return v2 MCP format with artifacts and display ---
         return {
             "results": {
                 "operation": "pdf_analysis_report",
                 "original_filename": filename,
                 "message": f"Successfully generated analysis report for {filename}."
             },
-            "returned_file_names": returned_file_names,
-            "returned_file_contents": returned_file_contents
+            "artifacts": [
+                {
+                    "name": report_filename,
+                    "b64": report_base64,
+                    "mime": "application/pdf",
+                    "size": len(report_bytes),
+                    "description": f"Analysis report for {filename} with word frequency data",
+                    "viewer": "pdf"
+                }
+            ],
+            "display": {
+                "open_canvas": True,
+                "primary_file": report_filename,
+                "mode": "replace",
+                "viewer_hint": "pdf"
+            },
+            "meta_data": {
+                "original_file": filename,
+                "word_count": analysis_result["results"]["total_word_count"],
+                "report_type": "pdf_analysis",
+                "top_words_count": len(analysis_result["results"]["top_100_words"])
+            }
         }
 
     except Exception as e:

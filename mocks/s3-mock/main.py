@@ -239,7 +239,7 @@ async def upload_file(
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 
-@app.get("/files/{file_key}", response_model=FileContentResponse)
+@app.get("/files/{file_key:path}", response_model=FileContentResponse)
 async def get_file(
     file_key: str,
     user_email: str = Depends(get_user_from_token)
@@ -303,7 +303,7 @@ async def list_files(
     return result
 
 
-@app.delete("/files/{file_key}")
+@app.delete("/files/{file_key:path}")
 async def delete_file(
     file_key: str,
     user_email: str = Depends(get_user_from_token)

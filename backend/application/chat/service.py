@@ -237,7 +237,7 @@ class ChatService:
 
         # Handle tool calls if present
         if llm_response.has_tool_calls():
-            final_response = await tool_utils.execute_tools_workflow(
+            final_response, tool_results = await tool_utils.execute_tools_workflow(
                 llm_response=llm_response,
                 messages=messages,
                 model=model,
@@ -248,8 +248,8 @@ class ChatService:
                 update_callback=update_callback
             )
             
-            # Update session context with any tool artifacts
-            await self._update_session_from_tool_results(session, llm_response, update_callback)
+            # Update session context with any tool artifacts and emit canvas updates
+            await self._update_session_from_tool_results(session, tool_results, update_callback)
             metadata = {"tools_used": selected_tools}
 
             # Signal completion to UI (prevents lingering spinner when only tool_synthesis was sent)
@@ -440,14 +440,34 @@ class ChatService:
     async def _update_session_from_tool_results(
         self,
         session: Session,
-        llm_response: LLMResponse,
+        tool_results: List[ToolResult],
         update_callback: Optional[UpdateCallback]
     ) -> None:
-        """Update session context from tool execution results."""
-        # This would be called after tool execution to update session state
-        # The tool_utils.execute_tools_workflow handles the actual file processing
-        # This is a placeholder for any additional session updates needed
-        pass
+        """Persist tool artifacts, update session context, and notify UI for canvas."""
+        if not tool_results:
+            return
+
+        if not self.file_manager:
+            logger.info("No file_manager configured; skipping artifact ingestion")
+            return
+
+        # Build a working session context including user email
+        session_context: Dict[str, Any] = self._build_session_context(session)
+
+        try:
+            for result in tool_results:
+                # Ingest v2 artifacts and emit files_update + canvas_files (with display hints)
+                session_context = await file_utils.process_tool_artifacts(
+                    session_context=session_context,
+                    tool_result=result,
+                    file_manager=self.file_manager,
+                    update_callback=update_callback
+                )
+
+            # Persist updated context back to the session
+            session.context.update({k: v for k, v in session_context.items() if k != "session_id"})
+        except Exception as e:
+            logger.error(f"Failed to update session from tool results: {e}", exc_info=True)
 
     def get_session(self, session_id: UUID) -> Optional[Session]:
         """Get session by ID."""

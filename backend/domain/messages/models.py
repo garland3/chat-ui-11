@@ -77,24 +77,29 @@ class ToolCall:
 
 @dataclass
 class ToolResult:
-    """Domain model for a tool result."""
+    """Domain model for a tool result with v2 MCP support."""
     tool_call_id: str
     content: str
     success: bool = True
     error: Optional[str] = None
-    returned_file_names: List[str] = field(default_factory=list)
-    returned_file_contents: List[str] = field(default_factory=list)
+    artifacts: List[Dict[str, Any]] = field(default_factory=list)
+    display_config: Optional[Dict[str, Any]] = None
+    meta_data: Optional[Dict[str, Any]] = None
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
-        return {
+        result = {
             "tool_call_id": self.tool_call_id,
             "content": self.content,
             "success": self.success,
             "error": self.error,
-            "returned_file_names": self.returned_file_names,
-            "returned_file_contents": self.returned_file_contents
+            "artifacts": self.artifacts,
         }
+        if self.display_config:
+            result["display_config"] = self.display_config
+        if self.meta_data:
+            result["meta_data"] = self.meta_data
+        return result
 
 
 @dataclass

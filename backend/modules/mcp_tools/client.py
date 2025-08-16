@@ -83,139 +83,192 @@ class MCPToolManager:
         logger.debug(f"Using fallback transport type: {transport_type}")
         return transport_type
 
-    async def initialize_clients(self):
-        """Initialize FastMCP clients for all configured servers."""
-        logger.info(f"=== CLIENT INITIALIZATION: Starting for {len(self.servers_config)} servers: {list(self.servers_config.keys())} ===")
-        
-        for server_name, config in self.servers_config.items():
-            logger.info(f"=== Initializing client for server '{server_name}' ===\n\nServer config: {config}")
-            try:
-                transport_type = self._determine_transport_type(config)
-                logger.info(f"Determined transport type: {transport_type}")
+    async def _initialize_single_client(self, server_name: str, config: Dict[str, Any]) -> Optional[Client]:
+        """Initialize a single MCP client. Returns None if initialization fails."""
+        logger.info(f"=== Initializing client for server '{server_name}' ===\n\nServer config: {config}")
+        try:
+            transport_type = self._determine_transport_type(config)
+            logger.info(f"Determined transport type: {transport_type}")
+            
+            if transport_type in ["http", "sse"]:
+                # HTTP/SSE MCP server
+                url = config.get("url")
+                if not url:
+                    logger.error(f"No URL provided for HTTP/SSE server: {server_name}")
+                    return None
                 
-                if transport_type in ["http", "sse"]:
-                    # HTTP/SSE MCP server
-                    url = config.get("url")
-                    if not url:
-                        logger.error(f"No URL provided for HTTP/SSE server: {server_name}")
-                        continue
-                    
-                    # Ensure URL has protocol for FastMCP client
-                    if not url.startswith(("http://", "https://")):
-                        url = f"http://{url}"
-                        logger.debug(f"Added http:// protocol to URL: {url}")
-                    
-                    if transport_type == "sse":
-                        # Use explicit SSE transport
-                        logger.debug(f"Creating SSE client for {server_name} at {url}")
-                        from fastmcp.client.transports import SSETransport
-                        transport = SSETransport(url)
-                        client = Client(transport)
-                    else:
-                        # Use HTTP transport (StreamableHttp)
-                        logger.debug(f"Creating HTTP client for {server_name} at {url}")
-                        client = Client(url)
-                    
-                    self.clients[server_name] = client
-                    logger.info(f"Created {transport_type.upper()} MCP client for {server_name}")
-                    continue
+                # Ensure URL has protocol for FastMCP client
+                if not url.startswith(("http://", "https://")):
+                    url = f"http://{url}"
+                    logger.debug(f"Added http:// protocol to URL: {url}")
                 
-                elif transport_type == "stdio":
-                    # STDIO MCP server
-                    command = config.get("command")
-                    logger.info(f"STDIO transport - command: {command}")
-                    if command:
-                        # Custom command specified
-                        cwd = config.get("cwd")
-                        logger.info(f"Working directory specified: {cwd}")
-                        if cwd:
-                            # Convert relative path to absolute path from project root
-                            if not os.path.isabs(cwd):
-                                # Get project root (3 levels up from client.py)
-                                # client.py is at: /workspaces/chat-ui-11/backend/modules/mcp_tools/client.py
-                                # project root is: /workspaces/chat-ui-11
-                                project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-                                cwd = os.path.join(project_root, cwd)
-                                logger.info(f"Converted relative cwd to absolute: {cwd} (project_root: {project_root})")
-                            
-                            if os.path.exists(cwd):
-                                logger.info(f"✓ Working directory exists: {cwd}")
-                                logger.info(f"Creating STDIO client for {server_name} with command: {command} in cwd: {cwd}")
-                                from fastmcp.client.transports import StdioTransport
-                                transport = StdioTransport(command=command[0], args=command[1:], cwd=cwd)
-                                client = Client(transport)
-                                self.clients[server_name] = client
-                                logger.info(f"✓ Successfully created STDIO MCP client for {server_name} with custom command and cwd")
-                            else:
-                                logger.error(f"✗ Working directory does not exist: {cwd}")
-                                continue
-                        else:
-                            logger.info(f"No cwd specified, creating STDIO client for {server_name} with command: {command}")
-                            client = Client(command)
-                            self.clients[server_name] = client
-                            logger.info(f"✓ Successfully created STDIO MCP client for {server_name} with custom command")
-                        continue
-                    else:
-                        # Fallback to old behavior for backward compatibility
-                        server_path = f"mcp/{server_name}/main.py"
-                        logger.debug(f"Attempting to initialize {server_name} at path: {server_path}")
-                        if os.path.exists(server_path):
-                            logger.debug(f"Server script exists for {server_name}, creating client...")
-                            client = Client(server_path)  # Client auto-detects STDIO transport from .py file
-                            self.clients[server_name] = client
-                            logger.info(f"Created MCP client for {server_name}")
-                            logger.debug(f"Successfully created client for {server_name}")
-                        else:
-                            logger.error(f"MCP server script not found: {server_path}", exc_info=True)
-                            continue
+                if transport_type == "sse":
+                    # Use explicit SSE transport
+                    logger.debug(f"Creating SSE client for {server_name} at {url}")
+                    from fastmcp.client.transports import SSETransport
+                    transport = SSETransport(url)
+                    client = Client(transport)
                 else:
-                    logger.error(f"Unsupported transport type '{transport_type}' for server: {server_name}")
-                    continue
-                            
-            except Exception as e:
-                logger.error(f"✗ Error creating client for {server_name}: {e}", exc_info=True)
+                    # Use HTTP transport (StreamableHttp)
+                    logger.debug(f"Creating HTTP client for {server_name} at {url}")
+                    client = Client(url)
+                
+                logger.info(f"Created {transport_type.upper()} MCP client for {server_name}")
+                return client
+            
+            elif transport_type == "stdio":
+                # STDIO MCP server
+                command = config.get("command")
+                logger.info(f"STDIO transport - command: {command}")
+                if command:
+                    # Custom command specified
+                    cwd = config.get("cwd")
+                    logger.info(f"Working directory specified: {cwd}")
+                    if cwd:
+                        # Convert relative path to absolute path from project root
+                        if not os.path.isabs(cwd):
+                            # Get project root (3 levels up from client.py)
+                            # client.py is at: /workspaces/chat-ui-11/backend/modules/mcp_tools/client.py
+                            # project root is: /workspaces/chat-ui-11
+                            project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+                            cwd = os.path.join(project_root, cwd)
+                            logger.info(f"Converted relative cwd to absolute: {cwd} (project_root: {project_root})")
+                        
+                        if os.path.exists(cwd):
+                            logger.info(f"✓ Working directory exists: {cwd}")
+                            logger.info(f"Creating STDIO client for {server_name} with command: {command} in cwd: {cwd}")
+                            from fastmcp.client.transports import StdioTransport
+                            transport = StdioTransport(command=command[0], args=command[1:], cwd=cwd)
+                            client = Client(transport)
+                            logger.info(f"✓ Successfully created STDIO MCP client for {server_name} with custom command and cwd")
+                            return client
+                        else:
+                            logger.error(f"✗ Working directory does not exist: {cwd}")
+                            return None
+                    else:
+                        logger.info(f"No cwd specified, creating STDIO client for {server_name} with command: {command}")
+                        client = Client(command)
+                        logger.info(f"✓ Successfully created STDIO MCP client for {server_name} with custom command")
+                        return client
+                else:
+                    # Fallback to old behavior for backward compatibility
+                    server_path = f"mcp/{server_name}/main.py"
+                    logger.debug(f"Attempting to initialize {server_name} at path: {server_path}")
+                    if os.path.exists(server_path):
+                        logger.debug(f"Server script exists for {server_name}, creating client...")
+                        client = Client(server_path)  # Client auto-detects STDIO transport from .py file
+                        logger.info(f"Created MCP client for {server_name}")
+                        logger.debug(f"Successfully created client for {server_name}")
+                        return client
+                    else:
+                        logger.error(f"MCP server script not found: {server_path}", exc_info=True)
+                        return None
+            else:
+                logger.error(f"Unsupported transport type '{transport_type}' for server: {server_name}")
+                return None
+                        
+        except Exception as e:
+            logger.error(f"✗ Error creating client for {server_name}: {e}", exc_info=True)
+            return None
+
+    async def initialize_clients(self):
+        """Initialize FastMCP clients for all configured servers in parallel."""
+        import asyncio
+        
+        logger.info(f"=== CLIENT INITIALIZATION: Starting parallel initialization for {len(self.servers_config)} servers: {list(self.servers_config.keys())} ===")
+        
+        # Create tasks for parallel initialization
+        tasks = [
+            self._initialize_single_client(server_name, config)
+            for server_name, config in self.servers_config.items()
+        ]
+        server_names = list(self.servers_config.keys())
+        
+        # Run all initialization tasks in parallel
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Process results and store successful clients
+        for server_name, result in zip(server_names, results):
+            if isinstance(result, Exception):
+                logger.error(f"✗ Exception during client initialization for {server_name}: {result}", exc_info=True)
+            elif result is not None:
+                self.clients[server_name] = result
+                logger.info(f"✓ Successfully initialized client for {server_name}")
+            else:
+                logger.warning(f"⚠ Failed to initialize client for {server_name}")
         
         logger.info(f"=== CLIENT INITIALIZATION COMPLETE ===")
         logger.info(f"Successfully initialized {len(self.clients)} clients: {list(self.clients.keys())}")
         logger.info(f"Failed to initialize: {set(self.servers_config.keys()) - set(self.clients.keys())}")
         logger.info(f"=== END CLIENT INITIALIZATION SUMMARY ===")
     
+    async def _discover_tools_for_server(self, server_name: str, client: Client) -> Dict[str, Any]:
+        """Discover tools for a single server. Returns server tools data."""
+        logger.info(f"=== TOOL DISCOVERY: Starting discovery for server '{server_name}' ===")
+        logger.debug(f"Server config: {self.servers_config.get(server_name, 'No config found')}")
+        try:
+            logger.info(f"Opening client connection for {server_name}...")
+            async with client:
+                logger.info(f"Client connected successfully for {server_name}, listing tools...")
+                tools = await client.list_tools()
+                logger.info(f"✓ Successfully got {len(tools)} tools from {server_name}: {[tool.name for tool in tools]}")
+
+                # Log detailed tool information
+                for i, tool in enumerate(tools):
+                    logger.info(
+                        "  Tool %d: name='%s', description='%s'",
+                        i + 1,
+                        tool.name,
+                        getattr(tool, 'description', 'No description'),
+                    )
+
+                server_data = {
+                    'tools': tools,
+                    'config': self.servers_config[server_name]
+                }
+                logger.info(f"✓ Successfully stored {len(tools)} tools for {server_name} in available_tools")
+                logger.info(f"=== TOOL DISCOVERY: Completed successfully for server '{server_name}' ===")
+                return server_data
+        except Exception as e:
+            logger.error(f"✗ TOOL DISCOVERY FAILED for {server_name}: {e}", exc_info=True)
+            logger.error(f"Client object for {server_name}: {client}")
+            logger.error(f"Client type: {type(client)}")
+            server_data = {
+                'tools': [],
+                'config': self.servers_config[server_name]
+            }
+            logger.error(f"Set empty tools list for failed server {server_name}")
+            logger.info(f"=== TOOL DISCOVERY: Failed for server '{server_name}' ===")
+            return server_data
+
     async def discover_tools(self):
-        """Discover tools from all MCP servers."""
-        logger.info(f"Starting tool discovery for {len(self.clients)} clients: {list(self.clients.keys())}")
+        """Discover tools from all MCP servers in parallel."""
+        import asyncio
+        
+        logger.info(f"Starting parallel tool discovery for {len(self.clients)} clients: {list(self.clients.keys())}")
         self.available_tools = {}
 
+        # Create tasks for parallel tool discovery
+        tasks = [
+            self._discover_tools_for_server(server_name, client)
+            for server_name, client in self.clients.items()
+        ]
+        server_names = list(self.clients.keys())
         
-        for server_name, client in self.clients.items():
-            logger.info(f"=== TOOL DISCOVERY: Starting discovery for server '{server_name}' ===")
-            logger.debug(f"Server config: {self.servers_config.get(server_name, 'No config found')}")
-            try:
-                logger.info(f"Opening client connection for {server_name}...")
-                async with client:
-                    logger.info(f"Client connected successfully for {server_name}, listing tools...")
-                    tools = await client.list_tools()
-                    logger.info(f"✓ Successfully got {len(tools)} tools from {server_name}: {[tool.name for tool in tools]}")
-                    
-                    # Log detailed tool information
-                    for i, tool in enumerate(tools):
-                        logger.info(f"  Tool {i+1}: name='{tool.name}', description='{getattr(tool, 'description', 'No description')}'")
-                    
-                    self.available_tools[server_name] = {
-                        'tools': tools,
-                        'config': self.servers_config[server_name]
-                    }
-                    logger.info(f"✓ Successfully stored {len(tools)} tools for {server_name} in available_tools")
-                    logger.info(f"=== TOOL DISCOVERY: Completed successfully for server '{server_name}' ===")
-            except Exception as e:
-                logger.error(f"✗ TOOL DISCOVERY FAILED for {server_name}: {e}", exc_info=True)
-                logger.error(f"Client object for {server_name}: {client}")
-                logger.error(f"Client type: {type(client)}")
+        # Run all tool discovery tasks in parallel
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Process results and store server tools data
+        for server_name, result in zip(server_names, results):
+            if isinstance(result, Exception):
+                logger.error(f"✗ Exception during tool discovery for {server_name}: {result}", exc_info=True)
+                # Set empty tools list for failed server
                 self.available_tools[server_name] = {
                     'tools': [],
                     'config': self.servers_config[server_name]
                 }
-                logger.error(f"Set empty tools list for failed server {server_name}")
-                logger.info(f"=== TOOL DISCOVERY: Failed for server '{server_name}' ===")
+            else:
+                self.available_tools[server_name] = result
         
         logger.info(f"=== TOOL DISCOVERY COMPLETE ===")
         logger.info(f"Final available_tools summary:")
@@ -225,41 +278,77 @@ class MCPToolManager:
             logger.info(f"  {server_name}: {tool_count} tools {tool_names}")
         logger.info(f"=== END TOOL DISCOVERY SUMMARY ===")
     
+    async def _discover_prompts_for_server(self, server_name: str, client: Client) -> Dict[str, Any]:
+        """Discover prompts for a single server. Returns server prompts data."""
+        logger.debug(f"Attempting to discover prompts from {server_name}")
+        try:
+            logger.debug(f"Opening client connection for {server_name}")
+            async with client:
+                logger.debug(f"Client connected for {server_name}, listing prompts...")
+                try:
+                    prompts = await client.list_prompts()
+                    logger.debug(
+                        f"Got {len(prompts)} prompts from {server_name}: {[prompt.name for prompt in prompts]}"
+                    )
+                    server_data = {
+                        'prompts': prompts,
+                        'config': self.servers_config[server_name]
+                    }
+                    logger.info(f"Discovered {len(prompts)} prompts from {server_name}")
+                    logger.debug(f"Successfully stored prompts for {server_name}")
+                    return server_data
+                except Exception:
+                    # Server might not support prompts – store empty list
+                    logger.debug(f"Server {server_name} does not support prompts")
+                    return {
+                        'prompts': [],
+                        'config': self.servers_config[server_name]
+                    }
+        except Exception as e:
+            logger.error(f"Error discovering prompts from {server_name}: {e}", exc_info=True)
+            logger.debug(f"Set empty prompts list for failed server {server_name}")
+            return {
+                'prompts': [],
+                'config': self.servers_config[server_name]
+            }
+
     async def discover_prompts(self):
-        """Discover prompts from all MCP servers."""
+        """Discover prompts from all MCP servers in parallel."""
+        import asyncio
+        
+        logger.info(f"Starting parallel prompt discovery for {len(self.clients)} clients: {list(self.clients.keys())}")
         self.available_prompts = {}
         
-        for server_name, client in self.clients.items():
-            logger.debug(f"Attempting to discover prompts from {server_name}")
-            try:
-                logger.debug(f"Opening client connection for {server_name}")
-                async with client:
-                    logger.debug(f"Client connected for {server_name}, listing prompts...")
-                    try:
-                        prompts = await client.list_prompts()
-                        logger.debug(
-                            f"Got {len(prompts)} prompts from {server_name}: {[prompt.name for prompt in prompts]}"
-                        )
-                        self.available_prompts[server_name] = {
-                            'prompts': prompts,
-                            'config': self.servers_config[server_name]
-                        }
-                        logger.info(f"Discovered {len(prompts)} prompts from {server_name}")
-                        logger.debug(f"Successfully stored prompts for {server_name}")
-                    except Exception:
-                        # Server might not support prompts – store empty list
-                        logger.debug(f"Server {server_name} does not support prompts")
-                        self.available_prompts[server_name] = {
-                            'prompts': [],
-                            'config': self.servers_config[server_name]
-                        }
-            except Exception as e:
-                logger.error(f"Error discovering prompts from {server_name}: {e}", exc_info=True)
+        # Create tasks for parallel prompt discovery
+        tasks = [
+            self._discover_prompts_for_server(server_name, client)
+            for server_name, client in self.clients.items()
+        ]
+        server_names = list(self.clients.keys())
+        
+        # Run all prompt discovery tasks in parallel
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Process results and store server prompts data
+        for server_name, result in zip(server_names, results):
+            if isinstance(result, Exception):
+                logger.error(f"✗ Exception during prompt discovery for {server_name}: {result}", exc_info=True)
+                # Set empty prompts list for failed server
                 self.available_prompts[server_name] = {
                     'prompts': [],
                     'config': self.servers_config[server_name]
                 }
-                logger.debug(f"Set empty prompts list for failed server {server_name}")
+            else:
+                self.available_prompts[server_name] = result
+        
+        logger.info(f"=== PROMPT DISCOVERY COMPLETE ===")
+        total_prompts = sum(len(server_data['prompts']) for server_data in self.available_prompts.values())
+        logger.info(f"Total prompts discovered: {total_prompts}")
+        for server_name, server_data in self.available_prompts.items():
+            prompt_count = len(server_data['prompts'])
+            prompt_names = [prompt.name for prompt in server_data['prompts']]
+            logger.info(f"  {server_name}: {prompt_count} prompts {prompt_names}")
+        logger.info(f"=== END PROMPT DISCOVERY SUMMARY ===")
     
     def get_server_groups(self, server_name: str) -> List[str]:
         """Get required groups for a server."""
@@ -641,40 +730,56 @@ class MCPToolManager:
             raw_result = await self.call_tool(server_name, actual_tool_name, tool_call.arguments)
             normalized_content = self._normalize_mcp_tool_result(raw_result)
             content_str = json.dumps(normalized_content, ensure_ascii=False)
-            # Extract returned file metadata (don't embed raw base64 in content)
-            returned_file_names: List[str] = []
-            returned_file_contents: List[str] = []
-            if isinstance(raw_result, dict):
-                try:
-                    # v2 artifacts support
-                    artifacts = raw_result.get("artifacts")
-                    if isinstance(artifacts, list) and artifacts:
-                        for art in artifacts:
-                            if not isinstance(art, dict):
-                                continue
-                            name = art.get("name")
-                            b64 = art.get("b64")
-                            if isinstance(name, str) and isinstance(b64, str):
-                                returned_file_names.append(name)
-                                returned_file_contents.append(b64)
-                        # If artifacts were present, prefer them over legacy arrays
-                    else:
-                        rn = raw_result.get("returned_file_names") or []
-                        rc = raw_result.get("returned_file_contents") or []
-                        if isinstance(rn, list):
-                            returned_file_names = [str(x) for x in rn]
-                        if isinstance(rc, list):
-                            # Keep only str items (base64 strings) – do NOT add to normalized content
-                            returned_file_contents = [c for c in rc if isinstance(c, str)]
-                except Exception:  # pragma: no cover - defensive
-                    pass
+            
+            # Extract v2 MCP response components (supports dict or FastMCP result objects)
+            artifacts: List[Dict[str, Any]] = []
+            display_config: Optional[Dict[str, Any]] = None
+            meta_data: Optional[Dict[str, Any]] = None
+
+            try:
+                if isinstance(raw_result, dict):
+                    structured = raw_result
+                else:
+                    structured = {}
+                    if hasattr(raw_result, "structured_content") and raw_result.structured_content:  # type: ignore[attr-defined]
+                        sc = raw_result.structured_content  # type: ignore[attr-defined]
+                        if isinstance(sc, dict):
+                            structured = sc
+                    elif hasattr(raw_result, "data") and raw_result.data:  # type: ignore[attr-defined]
+                        dt = raw_result.data  # type: ignore[attr-defined]
+                        if isinstance(dt, dict):
+                            structured = dt
+
+                if isinstance(structured, dict) and structured:
+                    # Extract artifacts
+                    raw_artifacts = structured.get("artifacts")
+                    if isinstance(raw_artifacts, list):
+                        for art in raw_artifacts:
+                            if isinstance(art, dict):
+                                name = art.get("name")
+                                b64 = art.get("b64")
+                                if name and b64:
+                                    artifacts.append(art)
+
+                    # Extract display
+                    disp = structured.get("display")
+                    if isinstance(disp, dict):
+                        display_config = disp
+
+                    # Extract metadata
+                    md = structured.get("meta_data")
+                    if isinstance(md, dict):
+                        meta_data = md
+            except Exception:
+                logger.warning("Error extracting v2 MCP components from tool result", exc_info=True)
 
             return ToolResult(
                 tool_call_id=tool_call.id,
                 content=content_str,
                 success=True,
-                returned_file_names=returned_file_names,
-                returned_file_contents=returned_file_contents
+                artifacts=artifacts,
+                display_config=display_config,
+                meta_data=meta_data
             )
         except Exception as e:
             logger.error(f"Error executing tool {tool_call.name}: {e}")

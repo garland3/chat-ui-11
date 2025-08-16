@@ -150,6 +150,35 @@ async def websocket_endpoint(websocket: WebSocket):
             if message_type == "chat":
                 # Define the WebSocket update callback
                 async def websocket_update_callback(message: dict):
+                    try:
+                        mtype = message.get("type")
+                        if mtype == "intermediate_update":
+                            utype = message.get("update_type") or message.get("data", {}).get("update_type")
+                            if utype == "canvas_files":
+                                files = (message.get("data") or {}).get("files") or []
+                                logger.info(
+                                    "WS SEND: intermediate_update canvas_files count=%d files=%s display=%s",
+                                    len(files),
+                                    [f.get("filename") for f in files if isinstance(f, dict)],
+                                    (message.get("data") or {}).get("display"),
+                                )
+                            elif utype == "files_update":
+                                files = (message.get("data") or {}).get("files") or []
+                                logger.info(
+                                    "WS SEND: intermediate_update files_update total=%d",
+                                    len(files),
+                                )
+                            else:
+                                logger.info("WS SEND: intermediate_update update_type=%s", utype)
+                        elif mtype == "canvas_content":
+                            content = message.get("content")
+                            clen = len(content) if isinstance(content, str) else "obj"
+                            logger.info("WS SEND: canvas_content length=%s", clen)
+                        else:
+                            logger.info("WS SEND: %s", mtype)
+                    except Exception:
+                        # Non-fatal logging error; continue to send
+                        pass
                     await websocket.send_json(message)
                 
                 # Handle chat message with streaming updates

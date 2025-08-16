@@ -59,6 +59,11 @@ async def handle_session_files(
         # Emit files update if successful uploads
         if uploaded_refs and update_callback:
             organized = file_manager.organize_files_metadata(uploaded_refs)
+            logger.info(
+                "Emitting files_update for user uploads: total=%d, names=%s",
+                len(organized.get('files', [])),
+                list(uploaded_refs.keys()),
+            )
             await update_callback({
                 "type": "intermediate_update",
                 "update_type": "files_update",
@@ -78,11 +83,11 @@ async def process_tool_artifacts(
     update_callback: Optional[UpdateCallback] = None
 ) -> Dict[str, Any]:
     """
-    Process artifacts produced by a tool and return updated session context.
+    Process v2 MCP artifacts produced by a tool and return updated session context.
     
     Pure function that handles tool files without side effects on input context.
     """
-    if not tool_result.returned_file_names or not file_manager:
+    if not tool_result.artifacts or not file_manager:
         return session_context
 
     user_email = session_context.get("user_email")
@@ -92,8 +97,8 @@ async def process_tool_artifacts(
     # Work with a copy to avoid mutations
     updated_context = dict(session_context)
     
-    # Process tool files
-    updated_context = await ingest_tool_files(
+    # Process v2 artifacts
+    updated_context = await ingest_v2_artifacts(
         session_context=updated_context,
         tool_result=tool_result,
         user_email=user_email,
@@ -101,10 +106,10 @@ async def process_tool_artifacts(
         update_callback=update_callback
     )
 
-    # Handle canvas file notifications
-    await notify_canvas_files(
+    # Handle canvas file notifications with v2 display config
+    await notify_canvas_files_v2(
         session_context=updated_context,
-        file_names=tool_result.returned_file_names,
+        tool_result=tool_result,
         file_manager=file_manager,
         update_callback=update_callback
     )
@@ -176,6 +181,11 @@ async def ingest_tool_files(
     if uploaded_refs and update_callback:
         try:
             organized = file_manager.organize_files_metadata(uploaded_refs)
+            logger.info(
+                "Emitting files_update for tool uploads: total=%d, names=%s",
+                len(organized.get('files', [])),
+                list(uploaded_refs.keys()),
+            )
             await update_callback({
                 "type": "intermediate_update",
                 "update_type": "files_update",
@@ -265,6 +275,10 @@ async def emit_files_update_from_context(
             }
         
         organized = file_manager.organize_files_metadata(file_refs)
+        logger.info(
+            "Emitting files_update from context: total=%d",
+            len(organized.get('files', [])),
+        )
         await update_callback({
             "type": "intermediate_update",
             "update_type": "files_update",
@@ -272,6 +286,150 @@ async def emit_files_update_from_context(
         })
     except Exception as e:
         logger.error(f"Failed emitting files update: {e}")
+
+
+async def ingest_v2_artifacts(
+    session_context: Dict[str, Any],
+    tool_result,
+    user_email: str,
+    file_manager,
+    update_callback: Optional[UpdateCallback] = None
+) -> Dict[str, Any]:
+    """
+    Persist v2 MCP artifacts into storage and update session context.
+    
+    Pure function that returns updated context without mutations.
+    """
+    if not tool_result.artifacts:
+        return session_context
+
+    # Work with a copy
+    updated_context = dict(session_context)
+    
+    # Safety: avoid huge ingestions
+    MAX_ARTIFACTS = 10
+    artifacts = tool_result.artifacts[:MAX_ARTIFACTS]
+    
+    try:
+        # Prepare files for upload
+        files_to_upload = []
+        for artifact in artifacts:
+            name = artifact.get("name")
+            b64_content = artifact.get("b64")
+            mime_type = artifact.get("mime")
+            
+            if not name or not b64_content:
+                logger.warning(f"Skipping artifact with missing name or content")
+                continue
+                
+            files_to_upload.append({
+                "filename": name,
+                "content": b64_content,
+                "mime_type": mime_type
+            })
+        
+        if not files_to_upload:
+            return updated_context
+            
+        # Upload files to storage
+        uploaded_refs = await file_manager.upload_files_from_base64(
+            files_to_upload, user_email
+        )
+        
+        # Add file references to session context
+        current_files = updated_context.setdefault("files", {})
+        current_files.update(uploaded_refs)
+        
+        # Emit files update if successful uploads
+        if uploaded_refs and update_callback:
+            organized = file_manager.organize_files_metadata(uploaded_refs)
+            await update_callback({
+                "type": "intermediate_update",
+                "update_type": "files_update",
+                "data": organized
+            })
+            
+    except Exception as e:
+        logger.error(f"Error ingesting v2 artifacts: {e}", exc_info=True)
+    
+    return updated_context
+
+
+async def notify_canvas_files_v2(
+    session_context: Dict[str, Any],
+    tool_result,
+    file_manager,
+    update_callback: Optional[UpdateCallback] = None
+) -> None:
+    """
+    Send v2 canvas files notification with display configuration.
+    
+    Pure function with no side effects on session context.
+    """
+    if not update_callback or not tool_result.artifacts:
+        return
+        
+    try:
+        # Get uploaded file references from session context
+        uploaded_refs = session_context.get("files", {})
+        artifact_names = [artifact.get("name") for artifact in tool_result.artifacts if artifact.get("name")]
+        
+        if uploaded_refs and artifact_names:
+            canvas_files = []
+            for fname in artifact_names:
+                meta = uploaded_refs.get(fname)
+                if meta and file_manager.should_display_in_canvas(fname):
+                    # Get MIME type from artifact if available
+                    artifact = next((a for a in tool_result.artifacts if a.get("name") == fname), {})
+                    mime_type = artifact.get("mime")
+                    
+                    file_ext = file_manager.get_file_extension(fname).lower()
+                    canvas_files.append({
+                        "filename": fname,
+                        "type": file_manager.get_canvas_file_type(file_ext),
+                        "s3_key": meta.get("key"),
+                        "size": meta.get("size", 0),
+                        "mime_type": mime_type
+                    })
+            
+            if canvas_files:
+                # Reorder files to put primary_file first if provided
+                primary = None
+                if tool_result.display_config and isinstance(tool_result.display_config, dict):
+                    primary = tool_result.display_config.get("primary_file")
+                if primary:
+                    # stable reorder
+                    canvas_files = sorted(
+                        canvas_files,
+                        key=lambda f: 0 if f.get("filename") == primary else 1
+                    )
+
+                # Build canvas update with v2 display configuration
+                logger.info(
+                    "Emitting canvas_files event: count=%d, files=%s, display=%s",
+                    len(canvas_files),
+                    [f.get("filename") for f in canvas_files],
+                    tool_result.display_config,
+                )
+                canvas_update = {
+                    "type": "intermediate_update",
+                    "update_type": "canvas_files",
+                    "data": {"files": canvas_files}
+                }
+                
+                # Add v2 display configuration if present
+                if tool_result.display_config:
+                    canvas_update["data"]["display"] = tool_result.display_config
+                    
+                await update_callback(canvas_update)
+            else:
+                logger.info(
+                    "No canvas-displayable artifacts found. artifact_names=%s",
+                    artifact_names,
+                )
+                
+    except Exception as emit_err:
+        logger.warning(f"Non-fatal: failed to emit v2 canvas_files update: {emit_err}")
 
 
 def build_files_manifest(session_context: Dict[str, Any]) -> Optional[Dict[str, str]]:
