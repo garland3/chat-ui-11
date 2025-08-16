@@ -251,6 +251,9 @@ class ChatService:
             # Update session context with any tool artifacts
             await self._update_session_from_tool_results(session, llm_response, update_callback)
             metadata = {"tools_used": selected_tools}
+
+            # Signal completion to UI (prevents lingering spinner when only tool_synthesis was sent)
+            await notification_utils.notify_response_complete(update_callback)
         else:
             final_response = llm_response.content
             metadata = {}
