@@ -1,5 +1,5 @@
 {
-  "timestamp": 1582.731537831,
+  "timestamp": 23612.113000144,
   "config": {
     "servers_config": {
       "thinking": {
@@ -72,6 +72,25 @@
         "command": [
           "python",
           "mcp/ui-demo/main.py"
+        ],
+        "cwd": "backend",
+        "url": null,
+        "type": "stdio",
+        "transport": null
+      },
+      "order_database": {
+        "description": "Customer order database with retrieval and status update functionality",
+        "author": "Chat UI Team",
+        "short_description": "Customer order management",
+        "help_email": "support@chatui.example.com",
+        "groups": [
+          "users"
+        ],
+        "is_exclusive": false,
+        "enabled": true,
+        "command": [
+          "python",
+          "mcp/order_database/main.py"
         ],
         "cwd": "backend",
         "url": null,
@@ -296,6 +315,91 @@
             "type": "object"
           },
           "type": "Tool"
+        },
+        {
+          "name": "get_image",
+          "description": "Return the badmesh.png image from the ui-demo directory.\n\nReturns:\n    Dictionary with the image data encoded in base64",
+          "inputSchema": {
+            "properties": {},
+            "type": "object"
+          },
+          "type": "Tool"
+        }
+      ],
+      "prompts": [],
+      "tool_count": 4,
+      "prompt_count": 0,
+      "errors": []
+    },
+    "order_database": {
+      "config": {
+        "description": "Customer order database with retrieval and status update functionality",
+        "author": "Chat UI Team",
+        "short_description": "Customer order management",
+        "help_email": "support@chatui.example.com",
+        "groups": [
+          "users"
+        ],
+        "is_exclusive": false,
+        "enabled": true,
+        "command": [
+          "python",
+          "mcp/order_database/main.py"
+        ],
+        "cwd": "backend",
+        "url": null,
+        "type": "stdio",
+        "transport": null
+      },
+      "initialized": true,
+      "tools": [
+        {
+          "name": "get_order",
+          "description": "Retrieve a customer order by order number.\n\nArgs:\n    order_number: The order number to retrieve\n    \nReturns:\n    Dictionary with order details or error message",
+          "inputSchema": {
+            "properties": {
+              "order_number": {
+                "title": "Order Number",
+                "type": "string"
+              }
+            },
+            "required": [
+              "order_number"
+            ],
+            "type": "object"
+          },
+          "type": "Tool"
+        },
+        {
+          "name": "update_order_status",
+          "description": "Update the status of a customer order.\n\nArgs:\n    order_number: The order number to update\n    new_status: The new status (submitted, items-packaged, items-shipped, delivered)\n    \nReturns:\n    Dictionary with success status or error message",
+          "inputSchema": {
+            "properties": {
+              "order_number": {
+                "title": "Order Number",
+                "type": "string"
+              },
+              "new_status": {
+                "title": "New Status",
+                "type": "string"
+              }
+            },
+            "required": [
+              "order_number",
+              "new_status"
+            ],
+            "type": "object"
+          },
+          "type": "Tool"
+        },
+        {
+          "name": "list_all_orders",
+          "description": "List all customer orders with their basic information.\n\nReturns:\n    Dictionary with list of all orders",
+          "inputSchema": {
+            "properties": {},
+            "type": "object"
+          },
+          "type": "Tool"
         }
       ],
       "prompts": [],
@@ -305,16 +409,17 @@
     }
   },
   "summary": {
-    "total_servers_configured": 4,
-    "total_servers_initialized": 4,
-    "total_tools_discovered": 6,
+    "total_servers_configured": 5,
+    "total_servers_initialized": 5,
+    "total_tools_discovered": 10,
     "total_prompts_discovered": 5,
     "failed_servers": [],
     "successful_servers": [
       "thinking",
       "calculator",
       "prompts",
-      "ui-demo"
+      "ui-demo",
+      "order_database"
     ]
   },
   "tool_schemas": [
@@ -402,6 +507,71 @@
           "type": "object"
         }
       }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "ui-demo_get_image",
+        "description": "Return the badmesh.png image from the ui-demo directory.\n\nReturns:\n    Dictionary with the image data encoded in base64",
+        "parameters": {
+          "properties": {},
+          "type": "object"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "order_database_get_order",
+        "description": "Retrieve a customer order by order number.\n\nArgs:\n    order_number: The order number to retrieve\n    \nReturns:\n    Dictionary with order details or error message",
+        "parameters": {
+          "properties": {
+            "order_number": {
+              "title": "Order Number",
+              "type": "string"
+            }
+          },
+          "required": [
+            "order_number"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "order_database_update_order_status",
+        "description": "Update the status of a customer order.\n\nArgs:\n    order_number: The order number to update\n    new_status: The new status (submitted, items-packaged, items-shipped, delivered)\n    \nReturns:\n    Dictionary with success status or error message",
+        "parameters": {
+          "properties": {
+            "order_number": {
+              "title": "Order Number",
+              "type": "string"
+            },
+            "new_status": {
+              "title": "New Status",
+              "type": "string"
+            }
+          },
+          "required": [
+            "order_number",
+            "new_status"
+          ],
+          "type": "object"
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "order_database_list_all_orders",
+        "description": "List all customer orders with their basic information.\n\nReturns:\n    Dictionary with list of all orders",
+        "parameters": {
+          "properties": {},
+          "type": "object"
+        }
+      }
     }
   ],
   "tool_mapping": {
@@ -428,6 +598,22 @@
     "ui-demo_create_form_demo": {
       "server": "ui-demo",
       "tool_name": "create_form_demo"
+    },
+    "ui-demo_get_image": {
+      "server": "ui-demo",
+      "tool_name": "get_image"
+    },
+    "order_database_get_order": {
+      "server": "order_database",
+      "tool_name": "get_order"
+    },
+    "order_database_update_order_status": {
+      "server": "order_database",
+      "tool_name": "update_order_status"
+    },
+    "order_database_list_all_orders": {
+      "server": "order_database",
+      "tool_name": "list_all_orders"
     }
   },
   "available_tools_list": [
@@ -436,6 +622,10 @@
     "prompts_list_available_prompts",
     "ui-demo_create_button_demo",
     "ui-demo_create_data_visualization",
-    "ui-demo_create_form_demo"
+    "ui-demo_create_form_demo",
+    "ui-demo_get_image",
+    "order_database_get_order",
+    "order_database_update_order_status",
+    "order_database_list_all_orders"
   ]
 }

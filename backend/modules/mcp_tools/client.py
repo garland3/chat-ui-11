@@ -168,7 +168,53 @@ class MCPToolManager:
                 return None
                         
         except Exception as e:
-            logger.error(f"✗ Error creating client for {server_name}: {e}", exc_info=True)
+            # Targeted debugging for MCP startup errors
+            error_type = type(e).__name__
+            logger.error(f"✗ Error creating client for {server_name}: {error_type}: {e}")
+            
+            # Provide specific debugging information based on error type and config
+            if "connection" in str(e).lower() or "refused" in str(e).lower():
+                if transport_type in ["http", "sse"]:
+                    logger.error(f"🔍 DEBUG: Connection failed for HTTP/SSE server '{server_name}'")
+                    logger.error(f"    → URL: {config.get('url', 'Not specified')}")
+                    logger.error(f"    → Transport: {transport_type}")
+                    logger.error(f"    → Check if server is running and accessible")
+                else:
+                    logger.error(f"🔍 DEBUG: STDIO connection failed for server '{server_name}'")
+                    logger.error(f"    → Command: {config.get('command', 'Not specified')}")
+                    logger.error(f"    → CWD: {config.get('cwd', 'Not specified')}")
+                    logger.error(f"    → Check if command exists and is executable")
+                    
+            elif "timeout" in str(e).lower():
+                logger.error(f"🔍 DEBUG: Timeout connecting to server '{server_name}'")
+                logger.error(f"    → Server may be slow to start or overloaded")
+                logger.error(f"    → Consider increasing timeout or checking server health")
+                
+            elif "permission" in str(e).lower() or "access" in str(e).lower():
+                logger.error(f"🔍 DEBUG: Permission error for server '{server_name}'")
+                if config.get('cwd'):
+                    logger.error(f"    → Check directory permissions: {config.get('cwd')}")
+                if config.get('command'):
+                    logger.error(f"    → Check executable permissions: {config.get('command')}")
+                    
+            elif "module" in str(e).lower() or "import" in str(e).lower():
+                logger.error(f"🔍 DEBUG: Import/module error for server '{server_name}'")
+                logger.error(f"    → Check if required dependencies are installed")
+                logger.error(f"    → Check Python path and virtual environment")
+                
+            elif "json" in str(e).lower() or "decode" in str(e).lower():
+                logger.error(f"🔍 DEBUG: JSON/protocol error for server '{server_name}'")
+                logger.error(f"    → Server may not be MCP-compatible")
+                logger.error(f"    → Check server output format")
+                
+            else:
+                # Generic debugging info
+                logger.error(f"🔍 DEBUG: Generic error for server '{server_name}'")
+                logger.error(f"    → Config: {config}")
+                logger.error(f"    → Transport type: {transport_type}")
+                
+            # Always show the full traceback in debug mode
+            logger.debug(f"Full traceback for {server_name}:", exc_info=True)
             return None
 
     async def initialize_clients(self):
@@ -230,9 +276,29 @@ class MCPToolManager:
                 logger.info(f"=== TOOL DISCOVERY: Completed successfully for server '{server_name}' ===")
                 return server_data
         except Exception as e:
-            logger.error(f"✗ TOOL DISCOVERY FAILED for {server_name}: {e}", exc_info=True)
-            logger.error(f"Client object for {server_name}: {client}")
-            logger.error(f"Client type: {type(client)}")
+            error_type = type(e).__name__
+            logger.error(f"✗ TOOL DISCOVERY FAILED for {server_name}: {error_type}: {e}")
+            
+            # Targeted debugging for tool discovery errors
+            if "connection" in str(e).lower() or "refused" in str(e).lower():
+                logger.error(f"🔍 DEBUG: Connection lost during tool discovery for '{server_name}'")
+                logger.error(f"    → Server may have crashed or disconnected")
+                logger.error(f"    → Check server logs for startup errors")
+            elif "timeout" in str(e).lower():
+                logger.error(f"🔍 DEBUG: Timeout during tool discovery for '{server_name}'")
+                logger.error(f"    → Server is slow to respond to list_tools() request")
+                logger.error(f"    → Server may be overloaded or hanging")
+            elif "json" in str(e).lower() or "decode" in str(e).lower():
+                logger.error(f"🔍 DEBUG: Protocol error during tool discovery for '{server_name}'")
+                logger.error(f"    → Server returned invalid MCP response")
+                logger.error(f"    → Check if server implements MCP protocol correctly")
+            else:
+                logger.error(f"🔍 DEBUG: Generic tool discovery error for '{server_name}'")
+                logger.error(f"    → Client object: {client}")
+                logger.error(f"    → Client type: {type(client)}")
+                
+            logger.debug(f"Full tool discovery traceback for {server_name}:", exc_info=True)
+            
             server_data = {
                 'tools': [],
                 'config': self.servers_config[server_name]
@@ -305,7 +371,23 @@ class MCPToolManager:
                         'config': self.servers_config[server_name]
                     }
         except Exception as e:
-            logger.error(f"Error discovering prompts from {server_name}: {e}", exc_info=True)
+            error_type = type(e).__name__
+            logger.error(f"✗ PROMPT DISCOVERY FAILED for {server_name}: {error_type}: {e}")
+            
+            # Targeted debugging for prompt discovery errors
+            if "connection" in str(e).lower() or "refused" in str(e).lower():
+                logger.error(f"🔍 DEBUG: Connection lost during prompt discovery for '{server_name}'")
+                logger.error(f"    → Server may have crashed or disconnected")
+            elif "timeout" in str(e).lower():
+                logger.error(f"🔍 DEBUG: Timeout during prompt discovery for '{server_name}'")
+                logger.error(f"    → Server is slow to respond to list_prompts() request")
+            elif "json" in str(e).lower() or "decode" in str(e).lower():
+                logger.error(f"🔍 DEBUG: Protocol error during prompt discovery for '{server_name}'")
+                logger.error(f"    → Server returned invalid MCP response for prompts")
+            else:
+                logger.error(f"🔍 DEBUG: Generic prompt discovery error for '{server_name}'")
+                
+            logger.debug(f"Full prompt discovery traceback for {server_name}:", exc_info=True)
             logger.debug(f"Set empty prompts list for failed server {server_name}")
             return {
                 'prompts': [],

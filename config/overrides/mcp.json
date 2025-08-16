@@ -43,6 +43,16 @@
     "author": "Chat UI Team",
     "short_description": "UI customization demo",
     "help_email": "support@chatui.example.com"
+  },
+
+  "order_database": {
+    "command": ["python", "mcp/order_database/main.py"],
+    "cwd": "backend",
+    "groups": ["users"],
+    "is_exclusive": false,
+    "description": "Customer order database with retrieval and status update functionality",
+    "author": "Chat UI Team",
+    "short_description": "Customer order management",
+    "help_email": "support@chatui.example.com"
   }
- 
 }
