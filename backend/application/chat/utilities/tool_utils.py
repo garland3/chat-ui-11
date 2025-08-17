@@ -265,9 +265,10 @@ def inject_context_into_args(parsed_args: Dict[str, Any], session_context: Dict[
         return parsed_args
 
     try:
-        # Inject username ONLY if tool schema accepts it (per v2 MCP spec)
+        # Inject username. Prefer schema-aware injection; if schema unavailable,
+        # include username by default to support tools that expect it.
         user_email = session_context.get("user_email")
-        if user_email and tool_accepts_username(tool_name, tool_manager):
+        if user_email and (not tool_manager or tool_accepts_username(tool_name, tool_manager)):
             parsed_args["username"] = user_email
 
         # Provide URL hints for filename/file_names fields

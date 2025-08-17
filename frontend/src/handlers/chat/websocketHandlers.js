@@ -6,6 +6,8 @@ export function createWebSocketHandler(deps) {
     mapMessages,
     setIsThinking,
     setCurrentAgentStep,
+  // Optional setters for extra UI state
+  setAgentPendingQuestion,
     setCanvasContent,
     setCanvasFiles,
     setCurrentCanvasFileIndex,
@@ -17,13 +19,34 @@ export function createWebSocketHandler(deps) {
 
   const handleAgentUpdate = (data) => {
     try {
-      switch (data.type) {
+      const kind = data.update_type || data.type
+      switch (kind) {
         case 'agent_start':
-          addMessage({ role: 'system', content: `**Agent Mode Started** - ${data.message}`, type: 'agent_status', timestamp: new Date().toISOString() })
+          addMessage({ role: 'system', content: `**Agent Mode Started** (max steps: ${data.max_steps ?? '?'})`, type: 'agent_status', timestamp: new Date().toISOString(), agent_mode: true })
           break
-        case 'agent_turn_start':
-          setCurrentAgentStep(data.turn)
+        case 'agent_turn_start': {
+          const step = data.step || data.turn || 1
+          setCurrentAgentStep(step)
           break
+        }
+        case 'agent_reason': {
+          if (data.message) {
+            addMessage({ role: 'system', content: `Agent thinking (Reason):\n\n${data.message}`, type: 'agent_reason', agent_mode: true, timestamp: new Date().toISOString() })
+          }
+          break
+        }
+        case 'agent_observe': {
+          if (data.message) {
+            addMessage({ role: 'system', content: `Observation (Observe):\n\n${data.message}`, type: 'agent_observe', agent_mode: true, timestamp: new Date().toISOString() })
+          }
+          break
+        }
+        case 'agent_request_input': {
+          const q = data.question || 'The agent requests additional input.'
+          addMessage({ role: 'system', content: `Agent needs your input:\n\n${q}`, type: 'agent_request_input', agent_mode: true, timestamp: new Date().toISOString() })
+          if (typeof setAgentPendingQuestion === 'function') setAgentPendingQuestion(q)
+          break
+        }
         case 'agent_tool_call':
           addMessage({
             role: 'system',
@@ -42,7 +65,8 @@ export function createWebSocketHandler(deps) {
         case 'agent_completion':
           setCurrentAgentStep(0)
           setIsThinking(false)
-          addMessage({ role: 'assistant', content: `${data.final_response}\n\n*Agent completed task in ${data.total_steps} steps*`, timestamp: new Date().toISOString() })
+          if (typeof setAgentPendingQuestion === 'function') setAgentPendingQuestion(null)
+          addMessage({ role: 'system', content: `**Agent Completed** in ${data.steps ?? '?'} step(s)`, type: 'agent_status', timestamp: new Date().toISOString(), agent_mode: true })
           break
         case 'agent_error':
           addMessage({ role: 'system', content: `**Agent Error** (Step ${data.turn}): ${data.message}`, type: 'agent_error', timestamp: new Date().toISOString() })
@@ -136,7 +160,7 @@ export function createWebSocketHandler(deps) {
   const handleWebSocketMessage = (data) => {
     try {
       console.log(`WebSocket message from backend: ${data.type || 'unknown'}`)
-      switch (data.type) {
+  switch (data.type) {
         // Direct tool lifecycle events (new simplified callback path)
         case 'tool_start': {
           if (data.tool_name === 'canvas_canvas') break; // Suppress any chat message for canvas
@@ -232,7 +256,11 @@ export function createWebSocketHandler(deps) {
           handleIntermediateUpdate(data)
           break
         default:
-          if (data.update_type === 'agent_update' && data.data) {
+          // New backend sends { type: 'agent_update', update_type: '...' }
+          if (data.type === 'agent_update' && data.update_type) {
+            handleAgentUpdate(data)
+          } else if (data.update_type === 'agent_update' && data.data) {
+            // legacy wrapping
             handleAgentUpdate(data.data)
           } else {
             console.log('Unknown WebSocket message type:', data)

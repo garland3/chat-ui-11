@@ -21,14 +21,14 @@ export const ChatProvider = ({ children }) => {
 	const config = useChatConfig()
 	const selections = useSelections()
 	// Pass through dynamic availability from backend config
-	const agent = useAgentMode(config.agentModeAvailable)
+		const agent = useAgentMode(config.agentModeAvailable)
 	const files = useFiles()
 	const { messages, addMessage, mapMessages, resetMessages } = useMessages()
 
 	const [isWelcomeVisible, setIsWelcomeVisible] = useState(true)
 	const [isThinking, setIsThinking] = useState(false)
 
-	const { sendMessage, addMessageHandler } = useWS()
+		const { sendMessage, addMessageHandler } = useWS()
 	const { currentModel } = config
 	const { selectedTools, selectedPrompts, selectedDataSources } = selections
 
@@ -45,18 +45,19 @@ export const ChatProvider = ({ children }) => {
 	}, [])
 
 	useEffect(() => {
-		const handler = createWebSocketHandler({
+				const handler = createWebSocketHandler({
 			addMessage,
 			mapMessages,
 			setIsThinking,
-			setCurrentAgentStep: agent.setCurrentAgentStep,
+				setCurrentAgentStep: agent.setCurrentAgentStep,
+					setAgentPendingQuestion: agent.setAgentPendingQuestion,
 			setCanvasContent: files.setCanvasContent,
 			setCanvasFiles: files.setCanvasFiles,
 			setCurrentCanvasFileIndex: files.setCurrentCanvasFileIndex,
 			setCustomUIContent: files.setCustomUIContent,
 			setSessionFiles: files.setSessionFiles,
 			getFileType: files.getFileType,
-			triggerFileDownload,
+				triggerFileDownload
 		})
 		return addMessageHandler(handler)
 	}, [addMessageHandler, addMessage, mapMessages, agent.setCurrentAgentStep, files, triggerFileDownload])
@@ -120,6 +121,18 @@ export const ChatProvider = ({ children }) => {
 		if (!files.sessionFiles.files.find(f => f.filename === filename)) return
 		sendMessage({ type: 'download_file', filename, user: config.user })
 	}, [files.sessionFiles.files, sendMessage, config.user])
+
+		// Agent controls
+		const stopAgent = useCallback(() => {
+			if (sendMessage) sendMessage({ type: 'agent_control', action: 'stop' })
+		}, [sendMessage])
+
+			const answerAgentQuestion = useCallback((content) => {
+			if (!content || !content.trim()) return
+				// Show immediately in UI
+				addMessage({ role: 'user', content, timestamp: new Date().toISOString() })
+				if (sendMessage) sendMessage({ type: 'agent_user_input', content })
+			}, [sendMessage, addMessage])
 
 	const deleteFile = useCallback((filename) => {
 		if (!confirm(`Delete ${filename}?`)) return
@@ -212,12 +225,16 @@ export const ChatProvider = ({ children }) => {
 		setAgentMaxSteps: agent.setAgentMaxSteps,
 		agentModeAvailable: agent.agentModeAvailable,
 		currentAgentStep: agent.currentAgentStep,
+		agentPendingQuestion: agent.agentPendingQuestion,
+		setAgentPendingQuestion: agent.setAgentPendingQuestion,
 		isInAdminGroup: config.isInAdminGroup,
 		messages,
 		isWelcomeVisible,
 		isThinking,
 		sendChatMessage,
 		clearChat,
+		stopAgent,
+		answerAgentQuestion,
 		downloadChat,
 		downloadChatAsText,
 		canvasContent: files.canvasContent,

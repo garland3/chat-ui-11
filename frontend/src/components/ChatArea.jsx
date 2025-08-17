@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { useChat } from '../contexts/ChatContext'
 import { useWS } from '../contexts/WSContext'
-import { Send, Paperclip, X } from 'lucide-react'
+import { Send, Paperclip, X, Square } from 'lucide-react'
 import Message from './Message'
 import WelcomeScreen from './WelcomeScreen'
 import EnabledToolsIndicator from './EnabledToolsIndicator'
@@ -34,7 +34,12 @@ const ChatArea = () => {
     toggleTool,
     toolChoiceRequired,
     setToolChoiceRequired,
-    sessionFiles
+  sessionFiles,
+  agentModeEnabled,
+  agentPendingQuestion,
+  setAgentPendingQuestion,
+  stopAgent,
+  answerAgentQuestion
   } = useChat()
   const { isConnected } = useWS()
 
@@ -501,6 +506,7 @@ const ChatArea = () => {
   }
 
   const canSend = inputValue.trim().length > 0 && currentModel && isConnected
+  const [agentAnswer, setAgentAnswer] = useState('')
 
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
@@ -518,6 +524,31 @@ const ChatArea = () => {
             message={message}
           />
         ))}
+        {agentModeEnabled && agentPendingQuestion && (
+          <div className="flex items-start gap-3 w-full">
+            <div className="w-8 h-8 rounded-full bg-purple-600 flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
+              A
+            </div>
+            <div className="w-full bg-gray-800 rounded-lg p-4 border border-purple-700">
+              <div className="text-sm font-medium text-purple-300 mb-2">Agent needs your input</div>
+              <div className="text-gray-200 mb-3">{agentPendingQuestion}</div>
+              <div className="flex gap-2">
+                <input
+                  value={agentAnswer}
+                  onChange={(e) => setAgentAnswer(e.target.value)}
+                  placeholder="Type your answer..."
+                  className="flex-1 px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg text-gray-200"
+                />
+                <button
+                  onClick={() => { if (agentAnswer.trim()) { answerAgentQuestion(agentAnswer.trim()); setAgentAnswer(''); setAgentPendingQuestion(null) } }}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
+                >
+                  Send
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
         {isThinking && (
           <div className="flex items-start gap-3 w-full">
             <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-medium flex-shrink-0">
@@ -540,7 +571,7 @@ const ChatArea = () => {
       </main>
 
       {/* Input Area */}
-      <footer 
+  <footer 
         className="p-4 border-t border-gray-700 flex-shrink-0"
       >
         <div className="max-w-4xl mx-auto">
@@ -575,6 +606,16 @@ const ChatArea = () => {
             >
               <Paperclip className="w-5 h-5" />
             </button>
+            {agentModeEnabled && (isThinking || agentPendingQuestion) && (
+              <button
+                type="button"
+                onClick={stopAgent}
+                className="px-3 py-3 bg-red-700 hover:bg-red-600 text-white rounded-lg flex items-center justify-center transition-colors flex-shrink-0"
+                title="Stop agent"
+              >
+                <Square className="w-5 h-5" />
+              </button>
+            )}
             <div className="flex-1 relative">
               <textarea
                 ref={textareaRef}

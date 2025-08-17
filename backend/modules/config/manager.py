@@ -141,6 +141,9 @@ class AppSettings(BaseSettings):
     # Prompt / template settings
     prompt_base_path: str = "prompts"  # Relative or absolute path to directory containing prompt templates
     tool_synthesis_prompt_filename: str = "tool_synthesis_prompt.md"  # Filename for tool synthesis prompt template
+    # Agent prompts
+    agent_reason_prompt_filename: str = "agent_reason_prompt.md"  # Filename for agent reason phase
+    agent_observe_prompt_filename: str = "agent_observe_prompt.md"  # Filename for agent observe phase
     
     model_config = {
         "env_file": "../.env", 
