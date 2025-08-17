@@ -14,23 +14,56 @@ Demonstrates: JSON input handling, file output with base64 encoding, and structu
 from __future__ import annotations
 
 import base64
+import logging
 import os
 import tempfile
 import io
 import re
 import requests
+from pathlib import Path
 from typing import Any, Dict, List, Annotated, Optional
 from fastmcp import FastMCP
 from pptx import Presentation
 from pptx.util import Inches, Pt
 from pptx.enum.text import PP_ALIGN
 from pptx.dml.color import RGBColor
-from pdfkit import from_string
 from PIL import Image
 
 
-mcp = FastMCP("pptx_generator")
+# Configuration
+VERBOSE = True
 
+# Configure logging first
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - PPTX_GENERATOR - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
+
+# Configure paths and add file handler if available
+current_dir = Path(__file__).parent
+logger.info(f"Current dir: {current_dir.absolute()}")
+backend_dir = current_dir.parent.parent
+logger.info(f"Backend dir: {backend_dir.absolute()}")
+project_root = backend_dir.parent
+logger.info(f"Project root: {project_root.absolute()}")
+logs_dir = project_root / 'logs'
+logger.info(f"Logs dir: {logs_dir.absolute()}")
+main_log_path = logs_dir / 'app.jsonl'
+logger.info(f"Log path: {main_log_path.absolute()}")
+logger.info(f"Log path exists: {main_log_path.exists()}")
+logger.info(f"Logs dir exists: {logs_dir.exists()}")
+
+# Add file handler if log path exists
+if main_log_path.exists():
+    file_handler = logging.FileHandler(main_log_path)
+    file_handler.setFormatter(logging.Formatter('%(asctime)s - PPTX_GENERATOR - %(name)s - %(levelname)s - %(message)s'))
+    logger.addHandler(file_handler)
+
+mcp = FastMCP("pptx_generator")
 
 def _is_backend_download_path(s: str) -> bool:
     """Detect backend-relative download paths like /api/files/download/...."""
@@ -48,19 +81,22 @@ def _load_image_bytes(filename: str, file_data_base64: str = "") -> Optional[byt
         try:
             return base64.b64decode(file_data_base64)
         except Exception as e:
-            print(f"Error decoding base64 image data: {e}")
+            if VERBOSE:
+                logger.info(f"Error decoding base64 image data: {e}")
             return None
     
     if _is_backend_download_path(filename):
         # Backend provided a download path
         full_url = _backend_base_url() + filename
         try:
-            print(f"Fetching image from {full_url}")
+            if VERBOSE:
+                logger.info(f"Fetching image from {full_url}")
             response = requests.get(full_url, timeout=30)
             response.raise_for_status()
             return response.content
         except Exception as e:
-            print(f"Error fetching image from {full_url}: {e}")
+            if VERBOSE:
+                logger.info(f"Error fetching image from {full_url}: {e}")
             return None
     
     # Try as local file path
@@ -69,10 +105,12 @@ def _load_image_bytes(filename: str, file_data_base64: str = "") -> Optional[byt
             with open(filename, "rb") as f:
                 return f.read()
         except Exception as e:
-            print(f"Error reading local image file {filename}: {e}")
+            if VERBOSE:
+                logger.info(f"Error reading local image file {filename}: {e}")
             return None
     
-    print(f"Image file not found: {filename}")
+    if VERBOSE:
+        logger.info(f"Image file not found: {filename}")
     return None
 
 
@@ -137,8 +175,8 @@ def json_to_pptx(
     Args:
         input_data: JSON string containing slide data in this format:
             {"slides": [
-                {"title": "Slide 1", "content": "- Item 1\\n- Item 2\\n- Item 3"},
-                {"title": "Slide 2", "content": "- Item A\\n- Item B"}
+                {"title": "Slide 1", "content": "- Item 1\n- Item 2\n- Item 3"},
+                {"title": "Slide 2", "content": "- Item A\n- Item B"}
             ]}
         image_filename: Optional image filename to integrate into the presentation
         image_data_base64: Framework may supply Base64 image content as fallback
@@ -157,7 +195,8 @@ def json_to_pptx(
             return {"results": {"error": "Input must be a JSON object containing 'slides' array"}}
             
         slides = data['slides']
-        print(f"Processing {len(slides)} slides...")
+        if VERBOSE:
+            logger.info(f"Processing {len(slides)} slides...")
         
         # Load image if provided
         image_bytes = None
@@ -170,7 +209,8 @@ def json_to_pptx(
         
         # Create presentation
         prs = Presentation()
-        print("Created PowerPoint presentation object")
+        if VERBOSE:
+            logger.info("Created PowerPoint presentation object")
         
         for i, slide in enumerate(slides):
             title = slide.get('title', 'Untitled Slide')
@@ -183,7 +223,8 @@ def json_to_pptx(
             # Add title
             title_shape = slide_obj.shapes.title
             title_shape.text = title
-            print(f"Added slide {i+1}: {title}")
+            if VERBOSE:
+                logger.info(f"Added slide {i+1}: {title}")
             
             # Add content
             body_shape = slide_obj.placeholders[1]
@@ -197,7 +238,8 @@ def json_to_pptx(
             if content.strip() and content.strip().startswith('-'):
                 # Split by newline and process each line
                 items = [item.strip() for item in content.split('\n') if item.strip()]
-                print(f"Slide {i+1} has {len(items)} bullet points")
+                if VERBOSE:
+                    logger.info(f"Slide {i+1} has {len(items)} bullet points")
                 for item in items:
                     if item.startswith('-'):
                         item_text = item[1:].strip()  # Remove the dash
@@ -224,48 +266,92 @@ def json_to_pptx(
         # Save presentation
         pptx_output_path = os.path.join(os.getcwd(), "output_presentation.pptx")
         prs.save(pptx_output_path)
-        print(f"Saved PowerPoint presentation to {pptx_output_path}")
+        if VERBOSE:
+            logger.info(f"Saved PowerPoint presentation to {pptx_output_path}")
         
-        # Convert to PDF using pdfkit
-        pdf_output_path = os.path.join(os.getcwd(), "output_presentation.pdf")
-        print(f"Starting PDF conversion to {pdf_output_path}")
+        # Create HTML file instead of PDF
+        html_output_path = os.path.join(os.getcwd(), "output_presentation.html")
+        if VERBOSE:
+            logger.info(f"Starting HTML creation to {html_output_path}")
         
         # Create HTML representation of the presentation
-        html_content = "<html><head><title>PowerPoint Presentation</title></head><body>"
+        html_content = """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PowerPoint Presentation</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }
+        .slide { background: white; margin: 20px auto; padding: 40px; max-width: 800px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-radius: 8px; page-break-after: always; }
+        .slide-title { color: #2c3e50; font-size: 28px; font-weight: bold; margin-bottom: 20px; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        .slide-content { font-size: 18px; line-height: 1.6; }
+        .slide-content ul { margin: 0; padding-left: 30px; }
+        .slide-content li { margin-bottom: 8px; }
+        .slide-image { max-width: 400px; max-height: 300px; display: block; margin: 20px auto; border-radius: 4px; }
+        .slide-number { position: absolute; top: 10px; right: 20px; color: #7f8c8d; font-size: 14px; }
+    </style>
+</head>
+<body>"""
         
         for i, slide in enumerate(slides):
             title = slide.get('title', 'Untitled Slide')
             content = slide.get('content', '')
             
-            html_content += f"<div style='margin-bottom: 20px; border: 1px solid #ddd; padding: 10px; border-radius: 4px;'><h2 style='color: #2c3e50; margin-bottom: 10px;'>{title}</h2>"
+            html_content += f"""
+    <div class="slide">
+        <div class="slide-number">Slide {i+1}</div>
+        <div class="slide-title">{title}</div>
+        <div class="slide-content">"""
+            
+            # Add image to first slide if provided
+            if i == 0 and image_bytes:
+                try:
+                    img = Image.open(io.BytesIO(image_bytes))
+                    mime_type = Image.MIME.get(img.format)
+                    if mime_type:
+                        img_b64 = base64.b64encode(image_bytes).decode('utf-8')
+                        html_content += f'<img src="data:{mime_type};base64,{img_b64}" class="slide-image" />'
+                except Exception as e:
+                    if VERBOSE:
+                        logger.warning(f"Could not process image for HTML conversion: {e}")
             
             if content.strip() and content.strip().startswith('-'):
                 items = [item.strip() for item in content.split('\n') if item.strip()]
-                html_content += "<ul style='margin: 0; padding-left: 20px;'>"
+                html_content += "<ul>"
                 for item in items:
                     if item.startswith('-'):
                         item_text = item[1:].strip()
-                        html_content += f"<li style='margin-bottom: 5px; font-size: 18px;'>{item_text}</li>"
+                        html_content += f"<li>{item_text}</li>"
                 html_content += "</ul>"
             else:
-                html_content += f"<p style='margin: 0; font-size: 18px;'>{content}</p>"
+                html_content += f"<p>{content}</p>"
             
-            html_content += "</div>"
+            html_content += """
+        </div>
+    </div>"""
         
-        html_content += "</body></html>"
+        html_content += """
+</body>
+</html>"""
         
-        # Generate PDF from HTML
+        # Save HTML file
         try:
-            print("Converting HTML to PDF...")
-            from_string(html_content, pdf_output_path, options={"page-size": "A4", "margin-top": "0.75in", "margin-right": "0.75in", "margin-bottom": "0.75in", "margin-left": "0.75in"})
-            print(f"PDF successfully created at {pdf_output_path}")
+            if VERBOSE:
+                logger.info("Saving HTML file...")
+            with open(html_output_path, "w", encoding="utf-8") as f:
+                f.write(html_content)
+            if VERBOSE:
+                logger.info(f"HTML successfully created at {html_output_path}")
         except Exception as e:
-            # If pdfkit fails, return only PPTX
-            print(f"Warning: PDF conversion failed: {str(e)}")
-            # Remove the PDF file if it exists
-            if os.path.exists(pdf_output_path):
-                os.remove(pdf_output_path)
-            print("PDF file removed due to conversion error")
+            # If HTML save fails, continue with just PPTX
+            if VERBOSE:
+                logger.warning(f"HTML creation failed: {str(e)}")
+            # Remove the HTML file if it exists
+            if os.path.exists(html_output_path):
+                os.remove(html_output_path)
+            if VERBOSE:
+                logger.info("HTML file removed due to creation error")
         
         # Read PPTX file as bytes
         with open(pptx_output_path, "rb") as f:
@@ -273,15 +359,17 @@ def json_to_pptx(
             
         # Encode PPTX as base64
         pptx_b64 = base64.b64encode(pptx_bytes).decode('utf-8')
-        print("PPTX file successfully encoded to base64")
+        if VERBOSE:
+            logger.info("PPTX file successfully encoded to base64")
         
-        # Read PDF file as bytes if it exists
-        pdf_b64 = None
-        if os.path.exists(pdf_output_path):
-            with open(pdf_output_path, "rb") as f:
-                pdf_bytes = f.read()
-            pdf_b64 = base64.b64encode(pdf_bytes).decode('utf-8')
-            print("PDF file successfully encoded to base64")
+        # Read HTML file as bytes if it exists
+        html_b64 = None
+        if os.path.exists(html_output_path):
+            with open(html_output_path, "r", encoding="utf-8") as f:
+                html_content_file = f.read()
+            html_b64 = base64.b64encode(html_content_file.encode('utf-8')).decode('utf-8')
+            if VERBOSE:
+                logger.info("HTML file successfully encoded to base64")
         
         # Prepare artifacts
         artifacts = [
@@ -292,22 +380,24 @@ def json_to_pptx(
             }
         ]
         
-        # Add PDF if conversion was successful
-        if pdf_b64:
+        # Add HTML if creation was successful
+        if html_b64:
             artifacts.append({
-                "name": "presentation.pdf",
-                "b64": pdf_b64,
-                "mime": "application/pdf",
+                "name": "presentation.html",
+                "b64": html_b64,
+                "mime": "text/html",
             })
-            print(f"Added {len(artifacts)} artifacts to response")
+            if VERBOSE:
+                logger.info(f"Added {len(artifacts)} artifacts to response")
         else:
-            print("No PDF artifact added due to conversion failure")
+            if VERBOSE:
+                logger.info("No HTML artifact added due to creation failure")
         
         return {
             "results": {
                 "operation": "json_to_pptx",
-                "message": "PowerPoint presentation generated successfully.",
-                "pdf_generated": pdf_b64 is not None,
+                "message": "PowerPoint presentation and HTML file generated successfully.",
+                "html_generated": html_b64 is not None,
                 "image_included": image_bytes is not None,
             },
             "artifacts": artifacts,
@@ -319,12 +409,13 @@ def json_to_pptx(
             },
             "meta_data": {
                 "generated_slides": len(slides),
-                "output_files": [f"presentation.pptx", "presentation.pdf"] if pdf_b64 else ["presentation.pptx"],
-                "output_file_paths": [pptx_output_path, pdf_output_path] if pdf_b64 else [pptx_output_path],
+                "output_files": [f"presentation.pptx", "presentation.html"] if html_b64 else ["presentation.pptx"],
+                "output_file_paths": [pptx_output_path, html_output_path] if html_b64 else [pptx_output_path],
             },
         }
     except Exception as e:
-        print(f"Error in json_to_pptx: {str(e)}")
+        if VERBOSE:
+            logger.info(f"Error in json_to_pptx: {str(e)}")
         return {"results": {"error": f"Error creating PowerPoint: {str(e)}"}}
 
 
@@ -347,11 +438,13 @@ def markdown_to_pptx(
         - 'results': Success message or error message
         - 'artifacts': List of artifact dictionaries with 'name', 'b64', and 'mime' keys
     """
-    print("Starting markdown_to_pptx execution...")
+    if VERBOSE:
+        logger.info("Starting markdown_to_pptx execution...")
     try:
         # Parse markdown into slides
         slides = _parse_markdown_slides(markdown_content)
-        print(f"Parsed {len(slides)} slides from markdown")
+        if VERBOSE:
+            logger.info(f"Parsed {len(slides)} slides from markdown")
         
         if not slides:
             return {"results": {"error": "No slides could be parsed from markdown content"}}
@@ -361,9 +454,11 @@ def markdown_to_pptx(
         if image_filename:
             image_bytes = _load_image_bytes(image_filename, image_data_base64)
             if image_bytes:
-                print(f"Loaded image: {image_filename}")
+                if VERBOSE:
+                    logger.info(f"Loaded image: {image_filename}")
             else:
-                print(f"Failed to load image: {image_filename}")
+                if VERBOSE:
+                    logger.info(f"Failed to load image: {image_filename}")
         
         # Create presentation
         prs = Presentation()
@@ -380,7 +475,8 @@ def markdown_to_pptx(
             # Add title
             title_shape = slide_obj.shapes.title
             title_shape.text = title
-            print(f"Added slide {i+1}: {title}")
+            if VERBOSE:
+                logger.info(f"Added slide {i+1}: {title}")
             
             # Add content
             body_shape = slide_obj.placeholders[1]
@@ -426,20 +522,55 @@ def markdown_to_pptx(
         # Save presentation
         pptx_output_path = os.path.join(os.getcwd(), "output_presentation.pptx")
         prs.save(pptx_output_path)
-        print(f"Saved PowerPoint presentation to {pptx_output_path}")
+        if VERBOSE:
+            logger.info(f"Saved PowerPoint presentation to {pptx_output_path}")
         
-        # Convert to PDF using pdfkit
-        pdf_output_path = os.path.join(os.getcwd(), "output_presentation.pdf")
-        print(f"Starting PDF conversion to {pdf_output_path}")
+        # Create HTML file instead of PDF
+        html_output_path = os.path.join(os.getcwd(), "output_presentation.html")
+        if VERBOSE:
+            logger.info(f"Starting HTML creation to {html_output_path}")
         
         # Create HTML representation of the presentation
-        html_content = "<html><head><title>PowerPoint Presentation</title></head><body>"
+        html_content = """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PowerPoint Presentation</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }
+        .slide { background: white; margin: 20px auto; padding: 40px; max-width: 800px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); border-radius: 8px; page-break-after: always; }
+        .slide-title { color: #2c3e50; font-size: 28px; font-weight: bold; margin-bottom: 20px; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        .slide-content { font-size: 18px; line-height: 1.6; }
+        .slide-content ul { margin: 0; padding-left: 30px; }
+        .slide-content li { margin-bottom: 8px; }
+        .slide-image { max-width: 400px; max-height: 300px; display: block; margin: 20px auto; border-radius: 4px; }
+        .slide-number { position: absolute; top: 10px; right: 20px; color: #7f8c8d; font-size: 14px; }
+    </style>
+</head>
+<body>"""
         
         for i, slide_data in enumerate(slides):
             title = slide_data.get('title', 'Untitled Slide')
             content = slide_data.get('content', '')
             
-            html_content += f"<div style='margin-bottom: 20px; border: 1px solid #ddd; padding: 10px; border-radius: 4px;'><h2 style='color: #2c3e50; margin-bottom: 10px;'>{title}</h2>"
+            html_content += f"""
+    <div class="slide">
+        <div class="slide-number">Slide {i+1}</div>
+        <div class="slide-title">{title}</div>
+        <div class="slide-content">"""
+            
+            # Add image to first slide if provided
+            if i == 0 and image_bytes:
+                try:
+                    img = Image.open(io.BytesIO(image_bytes))
+                    mime_type = Image.MIME.get(img.format)
+                    if mime_type:
+                        img_b64 = base64.b64encode(image_bytes).decode('utf-8')
+                        html_content += f'<img src="data:{mime_type};base64,{img_b64}" class="slide-image" />'
+                except Exception as e:
+                    if VERBOSE:
+                        logger.warning(f"Could not process image for HTML conversion: {e}")
             
             if content.strip():
                 lines = content.split('\n')
@@ -456,31 +587,40 @@ def markdown_to_pptx(
                         regular_lines.append(line)
                 
                 if bullet_lines:
-                    html_content += "<ul style='margin: 0; padding-left: 20px;'>"
+                    html_content += "<ul>"
                     for item in bullet_lines:
-                        html_content += f"<li style='margin-bottom: 5px; font-size: 18px;'>{item}</li>"
+                        html_content += f"<li>{item}</li>"
                     html_content += "</ul>"
                 
                 if regular_lines:
                     for line in regular_lines:
-                        html_content += f"<p style='margin: 5px 0; font-size: 18px;'>{line}</p>"
+                        html_content += f"<p>{line}</p>"
             
-            html_content += "</div>"
+            html_content += """
+        </div>
+    </div>"""
         
-        html_content += "</body></html>"
+        html_content += """
+</body>
+</html>"""
         
-        # Generate PDF from HTML
+        # Save HTML file
         try:
-            print("Converting HTML to PDF...")
-            from_string(html_content, pdf_output_path, options={"page-size": "A4", "margin-top": "0.75in", "margin-right": "0.75in", "margin-bottom": "0.75in", "margin-left": "0.75in"})
-            print(f"PDF successfully created at {pdf_output_path}")
+            if VERBOSE:
+                logger.info("Saving HTML file...")
+            with open(html_output_path, "w", encoding="utf-8") as f:
+                f.write(html_content)
+            if VERBOSE:
+                logger.info(f"HTML successfully created at {html_output_path}")
         except Exception as e:
-            # If pdfkit fails, return only PPTX
-            print(f"Warning: PDF conversion failed: {str(e)}")
-            # Remove the PDF file if it exists
-            if os.path.exists(pdf_output_path):
-                os.remove(pdf_output_path)
-            print("PDF file removed due to conversion error")
+            # If HTML save fails, continue with just PPTX
+            if VERBOSE:
+                logger.warning(f"HTML creation failed: {str(e)}")
+            # Remove the HTML file if it exists
+            if os.path.exists(html_output_path):
+                os.remove(html_output_path)
+            if VERBOSE:
+                logger.info("HTML file removed due to creation error")
         
         # Read PPTX file as bytes
         with open(pptx_output_path, "rb") as f:
@@ -488,15 +628,17 @@ def markdown_to_pptx(
             
         # Encode PPTX as base64
         pptx_b64 = base64.b64encode(pptx_bytes).decode('utf-8')
-        print("PPTX file successfully encoded to base64")
+        if VERBOSE:
+            logger.info("PPTX file successfully encoded to base64")
         
-        # Read PDF file as bytes if it exists
-        pdf_b64 = None
-        if os.path.exists(pdf_output_path):
-            with open(pdf_output_path, "rb") as f:
-                pdf_bytes = f.read()
-            pdf_b64 = base64.b64encode(pdf_bytes).decode('utf-8')
-            print("PDF file successfully encoded to base64")
+        # Read HTML file as bytes if it exists
+        html_b64 = None
+        if os.path.exists(html_output_path):
+            with open(html_output_path, "r", encoding="utf-8") as f:
+                html_content_file = f.read()
+            html_b64 = base64.b64encode(html_content_file.encode('utf-8')).decode('utf-8')
+            if VERBOSE:
+                logger.info("HTML file successfully encoded to base64")
         
         # Prepare artifacts
         artifacts = [
@@ -507,22 +649,24 @@ def markdown_to_pptx(
             }
         ]
         
-        # Add PDF if conversion was successful
-        if pdf_b64:
+        # Add HTML if creation was successful
+        if html_b64:
             artifacts.append({
-                "name": "presentation.pdf",
-                "b64": pdf_b64,
-                "mime": "application/pdf",
+                "name": "presentation.html",
+                "b64": html_b64,
+                "mime": "text/html",
             })
-            print(f"Added {len(artifacts)} artifacts to response")
+            if VERBOSE:
+                logger.info(f"Added {len(artifacts)} artifacts to response")
         else:
-            print("No PDF artifact added due to conversion failure")
+            if VERBOSE:
+                logger.info("No HTML artifact added due to creation failure")
         
         return {
             "results": {
                 "operation": "markdown_to_pptx",
-                "message": "PowerPoint presentation generated successfully from markdown.",
-                "pdf_generated": pdf_b64 is not None,
+                "message": "PowerPoint presentation and HTML file generated successfully from markdown.",
+                "html_generated": html_b64 is not None,
                 "image_included": image_bytes is not None,
             },
             "artifacts": artifacts,
@@ -534,8 +678,8 @@ def markdown_to_pptx(
             },
             "meta_data": {
                 "generated_slides": len(slides),
-                "output_files": [f"presentation.pptx", "presentation.pdf"] if pdf_b64 else ["presentation.pptx"],
-                "output_file_paths": [pptx_output_path, pdf_output_path] if pdf_b64 else [pptx_output_path],
+                "output_files": [f"presentation.pptx", "presentation.html"] if html_b64 else ["presentation.pptx"],
+                "output_file_paths": [pptx_output_path, html_output_path] if html_b64 else [pptx_output_path],
             },
         }
     except Exception as e:
