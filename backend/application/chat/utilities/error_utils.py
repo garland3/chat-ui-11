@@ -67,7 +67,8 @@ async def safe_call_llm_with_tools(
     tools_schema: List[Dict[str, Any]],
     data_sources: Optional[List[str]] = None,
     user_email: Optional[str] = None,
-    tool_choice: str = "auto"
+    tool_choice: str = "auto",
+    temperature: float = 0.7,
 ):
     """
     Safely call LLM with tools and error handling.
@@ -77,12 +78,12 @@ async def safe_call_llm_with_tools(
     try:
         if data_sources and user_email:
             llm_response = await llm_caller.call_with_rag_and_tools(
-                model, messages, data_sources, tools_schema, user_email, tool_choice
+                model, messages, data_sources, tools_schema, user_email, tool_choice, temperature=temperature
             )
             logger.info(f"LLM response received with RAG and tools for user {user_email}, has_tool_calls: {llm_response.has_tool_calls()}")
         else:
             llm_response = await llm_caller.call_with_tools(
-                model, messages, tools_schema, tool_choice
+                model, messages, tools_schema, tool_choice, temperature=temperature
             )
             logger.info(f"LLM response received with tools only, has_tool_calls: {llm_response.has_tool_calls()}")
         return llm_response

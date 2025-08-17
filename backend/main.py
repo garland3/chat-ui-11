@@ -197,6 +197,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         user_email=data.get("user"),
                         agent_mode=data.get("agent_mode", False),
                         agent_max_steps=data.get("agent_max_steps", 10),
+                        temperature=data.get("temperature", 0.7),
                         update_callback=lambda message: websocket_update_callback(websocket, message),
                         files=data.get("files")
                     )

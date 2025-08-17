@@ -87,6 +87,7 @@ class ChatService:
         tool_choice_required: bool = False,
         user_email: Optional[str] = None,
         agent_mode: bool = False,
+        temperature: float = 0.7,
         update_callback: Optional[UpdateCallback] = None,
         **kwargs
     ) -> Dict[str, Any]:
@@ -149,18 +150,19 @@ class ChatService:
                     selected_data_sources,
                     kwargs.get("agent_max_steps", 30),
                     update_callback,
+                    temperature=temperature,
                 )
             elif selected_tools and not only_rag:
                 response = await self._handle_tools_mode_with_utilities(
                     session, model, messages, selected_tools, selected_data_sources,
-                    user_email, tool_choice_required, update_callback
+                    user_email, tool_choice_required, update_callback, temperature=temperature
                 )
             elif selected_data_sources:
                 response = await self._handle_rag_mode(
-                    session, model, messages, selected_data_sources, user_email
+                    session, model, messages, selected_data_sources, user_email, temperature=temperature
                 )
             else:
-                response = await self._handle_plain_mode(session, model, messages)
+                response = await self._handle_plain_mode(session, model, messages, temperature=temperature)
             
             return response
             
@@ -191,10 +193,11 @@ class ChatService:
         self,
         session: Session,
         model: str,
-        messages: List[Dict[str, str]]
+        messages: List[Dict[str, str]],
+        temperature: float = 0.7,
     ) -> Dict[str, Any]:
         """Handle plain LLM call without tools or RAG."""
-        response_content = await self.llm.call_plain(model, messages)
+        response_content = await self.llm.call_plain(model, messages, temperature=temperature)
 
         # Add assistant message to history
         assistant_message = Message(
@@ -224,6 +227,7 @@ class ChatService:
         user_email: Optional[str] = None,
         tool_choice_required: bool = False,
         update_callback: Optional[UpdateCallback] = None,
+        temperature: float = 0.7,
     ) -> Dict[str, Any]:
         """Handle tools mode using utility helpers and stream updates.
 
@@ -245,6 +249,7 @@ class ChatService:
             data_sources=selected_data_sources,
             user_email=user_email,
             tool_choice=("required" if tool_choice_required else "auto"),
+            temperature=temperature,
         )
 
         # No tool calls -> treat as plain content
@@ -399,11 +404,12 @@ class ChatService:
         model: str,
         messages: List[Dict[str, str]],
         data_sources: List[str],
-        user_email: str
+        user_email: str,
+        temperature: float = 0.7,
     ) -> Dict[str, Any]:
         """Handle LLM call with RAG integration."""
         response_content = await self.llm.call_with_rag(
-            model, messages, data_sources, user_email
+            model, messages, data_sources, user_email, temperature=temperature
         )
 
         # Add assistant message to history
@@ -425,6 +431,7 @@ class ChatService:
         data_sources: Optional[List[str]],
         max_steps: int,
         update_callback: Optional[UpdateCallback] = None,
+        temperature: float = 0.7,
     ) -> Dict[str, Any]:
         """Handle agent mode with strict Reason–Act–Observe loop and UI streaming.
 
@@ -561,14 +568,14 @@ class ChatService:
             ]
 
             reason_resp: LLMResponse = await self.llm.call_with_tools(
-                model, reason_messages, reason_tools_schema, "required"
+                model, reason_messages, reason_tools_schema, "required", temperature=temperature
             )
             # Decide which content/control to use (prefer tool args, else fallback to plain)
             reason_ctrl = _extract_tool_args(reason_resp, "agent_decide_next") or _parse_control_json(reason_resp.content)
             reason_visible_text: str = reason_resp.content or ""
             if not reason_ctrl:
                 # Fallback to plain model output that includes control JSON (for older tests/mocks)
-                reason_text_fallback = await self.llm.call_plain(model, reason_messages)
+                reason_text_fallback = await self.llm.call_plain(model, reason_messages, temperature=temperature)
                 reason_visible_text = reason_text_fallback
                 reason_ctrl = _parse_control_json(reason_text_fallback)
 
@@ -630,11 +637,11 @@ class ChatService:
                 # Request LLM to make tool calls using current conversation
                 if data_sources and session.user_email:
                     llm_response = await self.llm.call_with_rag_and_tools(
-                        model, messages, data_sources, tools_schema, session.user_email, "auto"
+                        model, messages, data_sources, tools_schema, session.user_email, "auto", temperature=temperature
                     )
                 else:
                     llm_response = await self.llm.call_with_tools(
-                        model, messages, tools_schema, "auto"
+                        model, messages, tools_schema, "auto", temperature=temperature
                     )
 
                 if llm_response.has_tool_calls():
@@ -734,13 +741,13 @@ class ChatService:
             ]
 
             observe_resp: LLMResponse = await self.llm.call_with_tools(
-                model, observe_messages, observe_tools_schema, "required"
+                model, observe_messages, observe_tools_schema, "required", temperature=temperature
             )
             observe_ctrl = _extract_tool_args(observe_resp, "agent_observe_decide") or _parse_control_json(observe_resp.content)
             observe_visible_text: str = observe_resp.content or ""
             if not observe_ctrl:
                 # Fallback to plain model output
-                observe_text_fallback = await self.llm.call_plain(model, observe_messages)
+                observe_text_fallback = await self.llm.call_plain(model, observe_messages, temperature=temperature)
                 observe_visible_text = observe_text_fallback
                 observe_ctrl = _parse_control_json(observe_text_fallback)
 
@@ -767,7 +774,7 @@ class ChatService:
 
         if not final_response:
             # Reached max steps, get final response
-            final_response = await self.llm.call_plain(model, messages)
+            final_response = await self.llm.call_plain(model, messages, temperature=temperature)
 
         # Add to history
         assistant_message = Message(

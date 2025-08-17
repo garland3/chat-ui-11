@@ -29,7 +29,8 @@ class LLMProtocol(Protocol):
     async def call_plain(
         self,
         model_name: str,
-        messages: List[Dict[str, str]]
+        messages: List[Dict[str, str]],
+        temperature: float = 0.7,
     ) -> str:
         """Plain LLM call without tools or RAG."""
         ...
@@ -39,7 +40,8 @@ class LLMProtocol(Protocol):
         model_name: str,
         messages: List[Dict[str, str]],
         tools_schema: List[Dict],
-        tool_choice: str = "auto"
+        tool_choice: str = "auto",
+        temperature: float = 0.7,
     ) -> LLMResponse:
         """LLM call with tool support."""
         ...
@@ -49,7 +51,8 @@ class LLMProtocol(Protocol):
         model_name: str,
         messages: List[Dict[str, str]],
         data_sources: List[str],
-        user_email: str
+        user_email: str,
+        temperature: float = 0.7,
     ) -> str:
         """LLM call with RAG integration."""
         ...
@@ -61,7 +64,8 @@ class LLMProtocol(Protocol):
         data_sources: List[str],
         tools_schema: List[Dict],
         user_email: str,
-        tool_choice: str = "auto"
+        tool_choice: str = "auto",
+        temperature: float = 0.7,
     ) -> LLMResponse:
         """LLM call with both RAG and tools."""
         ...

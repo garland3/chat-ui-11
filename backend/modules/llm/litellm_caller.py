@@ -63,7 +63,7 @@ class LiteLLMCaller:
             # For custom endpoints, use the model_id directly
             return model_id
     
-    def _get_model_kwargs(self, model_name: str) -> Dict[str, Any]:
+    def _get_model_kwargs(self, model_name: str, temperature: Optional[float] = None) -> Dict[str, Any]:
         """Get LiteLLM kwargs for a specific model."""
         if model_name not in self.llm_config.models:
             raise ValueError(f"Model {model_name} not found in configuration")
@@ -71,8 +71,13 @@ class LiteLLMCaller:
         model_config = self.llm_config.models[model_name]
         kwargs = {
             "max_tokens": model_config.max_tokens or 1000,
-            "temperature": model_config.temperature or 0.7,
         }
+        
+        # Use provided temperature or fall back to config temperature
+        if temperature is not None:
+            kwargs["temperature"] = temperature
+        else:
+            kwargs["temperature"] = model_config.temperature or 0.7
         
         # Set API key
         api_key = os.path.expandvars(model_config.api_key)
@@ -95,10 +100,10 @@ class LiteLLMCaller:
         
         return kwargs
 
-    async def call_plain(self, model_name: str, messages: List[Dict[str, str]]) -> str:
+    async def call_plain(self, model_name: str, messages: List[Dict[str, str]], temperature: float = 0.7) -> str:
         """Plain LLM call - no tools, no RAG."""
         litellm_model = self._get_litellm_model_name(model_name)
-        model_kwargs = self._get_model_kwargs(model_name)
+        model_kwargs = self._get_model_kwargs(model_name, temperature)
         
         try:
             total_chars = sum(len(str(msg.get('content', ''))) for msg in messages)
@@ -124,11 +129,12 @@ class LiteLLMCaller:
         messages: List[Dict[str, str]], 
         data_sources: List[str],
         user_email: str,
-        rag_client=None
+        rag_client=None,
+        temperature: float = 0.7,
     ) -> str:
         """LLM call with RAG integration."""
         if not data_sources:
-            return await self.call_plain(model_name, messages)
+            return await self.call_plain(model_name, messages, temperature=temperature)
         
         # Import RAG client if not provided
         if rag_client is None:
@@ -155,7 +161,7 @@ class LiteLLMCaller:
             messages_with_rag.insert(-1, rag_context_message)
             
             # Call LLM with enriched context
-            llm_response = await self.call_plain(model_name, messages_with_rag)
+            llm_response = await self.call_plain(model_name, messages_with_rag, temperature=temperature)
             
             # Append metadata if available
             if rag_response.metadata:
@@ -167,22 +173,23 @@ class LiteLLMCaller:
         except Exception as exc:
             logger.error(f"Error in RAG-integrated query: {exc}")
             # Fallback to plain LLM call
-            return await self.call_plain(model_name, messages)
+            return await self.call_plain(model_name, messages, temperature=temperature)
     
     async def call_with_tools(
         self,
         model_name: str,
         messages: List[Dict[str, str]],
         tools_schema: List[Dict],
-        tool_choice: str = "auto"
+        tool_choice: str = "auto",
+        temperature: float = 0.7,
     ) -> LLMResponse:
         """LLM call with tool support using LiteLLM."""
         if not tools_schema:
-            content = await self.call_plain(model_name, messages)
+            content = await self.call_plain(model_name, messages, temperature=temperature)
             return LLMResponse(content=content, model_used=model_name)
 
         litellm_model = self._get_litellm_model_name(model_name)
-        model_kwargs = self._get_model_kwargs(model_name)
+        model_kwargs = self._get_model_kwargs(model_name, temperature)
         
         # Handle tool_choice parameter - some providers don't support "required"
         final_tool_choice = tool_choice
@@ -244,11 +251,12 @@ class LiteLLMCaller:
         tools_schema: List[Dict],
         user_email: str,
         tool_choice: str = "auto",
-        rag_client=None
+        rag_client=None,
+        temperature: float = 0.7,
     ) -> LLMResponse:
         """Full integration: RAG + Tools."""
         if not data_sources:
-            return await self.call_with_tools(model_name, messages, tools_schema, tool_choice)
+            return await self.call_with_tools(model_name, messages, tools_schema, tool_choice, temperature=temperature)
         
         # Import RAG client if not provided
         if rag_client is None:
@@ -275,7 +283,7 @@ class LiteLLMCaller:
             messages_with_rag.insert(-1, rag_context_message)
             
             # Call LLM with enriched context and tools
-            llm_response = await self.call_with_tools(model_name, messages_with_rag, tools_schema, tool_choice)
+            llm_response = await self.call_with_tools(model_name, messages_with_rag, tools_schema, tool_choice, temperature=temperature)
             
             # Append metadata to content if available and no tool calls
             if rag_response.metadata and not llm_response.has_tool_calls():
@@ -287,7 +295,7 @@ class LiteLLMCaller:
         except Exception as exc:
             logger.error(f"Error in RAG+tools integrated query: {exc}")
             # Fallback to tools-only call
-            return await self.call_with_tools(model_name, messages, tools_schema, tool_choice)
+            return await self.call_with_tools(model_name, messages, tools_schema, tool_choice, temperature=temperature)
     
     def _format_rag_metadata(self, metadata) -> str:
         """Format RAG metadata into a user-friendly summary."""
