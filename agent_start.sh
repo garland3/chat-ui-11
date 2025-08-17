@@ -17,6 +17,10 @@ done
 # clear the log by setting to ""
 # backend/logs/app.jsonl
 
+# Clear mock S3 storage folder
+echo "Clearing mock S3 storage folder..."
+rm -rf ./mocks/s3-mock/s3-mock-storage/*
+echo "Mock S3 storage folder cleared"
 
 # Configuration
 USE_NEW_FRONTEND=${USE_NEW_FRONTEND:-true}

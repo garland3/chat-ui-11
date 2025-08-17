@@ -165,7 +165,7 @@ const CanvasPanel = ({ isOpen, onClose, onWidthChange }) => {
   const handleDownload = () => {
     const currentFile = canvasFiles[currentCanvasFileIndex];
     if (currentFile && downloadFile) {
-      downloadFile(currentFile.s3_key, currentFile.filename);
+      downloadFile(currentFile.filename);
     }
   };
 
