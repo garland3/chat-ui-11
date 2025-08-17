@@ -6,19 +6,21 @@ Provides safe Python code execution with security controls.
 
 import base64
 import logging
+import os
 import time
 import traceback
 from pathlib import Path
 from typing import Any, Dict, List, Annotated, Optional
 
+import requests
 from fastmcp import FastMCP
 
 # Import from modular components
-from .security_checker import check_code_security
-from .execution_environment import CodeExecutionError, create_execution_environment, save_file_to_execution_dir
-from .script_generation import create_safe_execution_script
-from .execution_engine import execute_code_safely
-from .result_processing import (
+from security_checker import check_code_security
+from execution_environment import CodeExecutionError, create_execution_environment, save_file_to_execution_dir
+from script_generation import create_safe_execution_script
+from execution_engine import execute_code_safely
+from result_processing import (
     detect_matplotlib_plots,
     create_visualization_html,
     list_generated_files,
@@ -26,8 +28,22 @@ from .result_processing import (
     truncate_output_for_llm
 )
 
+# Debug logging control
+VERBOSE = False
+
 # Configure logging to use main app log with prefix
-main_log_path = 'logs/app.log'
+current_dir = Path(__file__).parent
+print(f"Current dir: {current_dir.absolute()}")
+backend_dir = current_dir.parent.parent
+print(f"Backend dir: {backend_dir.absolute()}")
+project_root = backend_dir.parent
+print(f"Project root: {project_root.absolute()}")
+logs_dir = project_root / 'logs'
+print(f"Logs dir: {logs_dir.absolute()}")
+main_log_path = logs_dir / 'app.jsonl'
+print(f"Log path: {main_log_path.absolute()}")
+print(f"Log path exists: {main_log_path.exists()}")
+print(f"Logs dir exists: {logs_dir.exists()}")
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - CODE_EXECUTOR - %(name)s - %(levelname)s - %(message)s',
@@ -37,6 +53,83 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+
+# File loading constants and helpers
+RUNTIME_UPLOADS = os.environ.get(
+    "CHATUI_RUNTIME_UPLOADS", "/workspaces/chat-ui-11/runtime/uploads"
+)
+
+def _is_http_url(s: str) -> bool:
+    return s.startswith("http://") or s.startswith("https://")
+
+def _is_backend_download_path(s: str) -> bool:
+    """Detect backend-relative download paths like /api/files/download/...."""
+    return isinstance(s, str) and s.startswith("/api/files/download/")
+
+def _backend_base_url() -> str:
+    """Resolve backend base URL from environment variable.
+
+    Fallback to http://127.0.0.1:8000.
+    """
+    return os.environ.get("CHATUI_BACKEND_BASE_URL", "http://127.0.0.1:8000")
+
+def _extract_clean_filename(filename: str) -> str:
+    """Extract clean filename from backend download URLs.
+    
+    Handles patterns like: /api/files/download/1755397356_8d48a218_signal_data.csv?token=...
+    Returns: signal_data.csv
+    """
+    import re
+    
+    # First, remove query parameters (everything after ?)
+    clean_path = filename.split('?')[0]
+    
+    if clean_path.startswith('/api/files/download/'):
+        url_basename = os.path.basename(clean_path)
+        # Try to extract original filename from pattern: timestamp_hash_originalname.ext
+        match = re.match(r'^\d+_[a-f0-9]+_(.+)$', url_basename)
+        return match.group(1) if match else url_basename
+    else:
+        return os.path.basename(clean_path)
+
+def _load_file_bytes(filename: str, file_data_base64: str = "") -> bytes:
+    """Return raw file bytes from either base64, URL, or local uploads path.
+
+    Priority:
+    1) file_data_base64 if provided
+    2) If filename is backend download path -> GET with base URL
+    3) If filename is URL -> GET
+    4) Try local file in runtime uploads
+    Raises FileNotFoundError or requests.HTTPError as appropriate.
+    """
+    if file_data_base64:
+        return base64.b64decode(file_data_base64)
+    # Support backend-injected relative download URLs by resolving with a base URL
+    if filename and _is_backend_download_path(filename):
+        base = _backend_base_url()
+        url = base.rstrip("/") + filename
+        headers = {"Accept": "*/*"}
+        r = requests.get(url, timeout=20)
+        r.raise_for_status()
+        return r.content
+
+    if filename and _is_http_url(filename):
+        headers = {"Accept": "*/*"}
+        r = requests.get(filename, timeout=20)
+        r.raise_for_status()
+        return r.content
+
+    # Fallback: treat filename as a key under runtime uploads
+    if filename:
+        local_path = filename
+        if not os.path.isabs(local_path):
+            local_path = os.path.join(RUNTIME_UPLOADS, filename)
+        if not os.path.exists(local_path):
+            raise FileNotFoundError(f"File not found: {local_path}")
+        with open(local_path, "rb") as f:
+            return f.read()
+
+    raise FileNotFoundError("No filename or file data provided")
 
 # Initialize the MCP server
 mcp = FastMCP("SecureCodeExecutor")
@@ -67,10 +160,19 @@ mcp = FastMCP("SecureCodeExecutor")
 def execute_python_code_with_file(
     code: Annotated[str, "Python code to execute"],
     filename: Annotated[str, "Name of the file to make available to the code (optional - leave empty if not uploading a file)"] = "",
-    file_data_base64: Annotated[str, "LLM agent can leave blank. Do NOT fill. This will be filled by the framework."] = ""
+    username: Annotated[str, "Injected by backend. Trust this value."] = "",
+    file_data_base64: Annotated[str, "Framework may supply Base64 content as fallback."] = ""
 ) -> Dict[str, Any]:
     """
     Safely execute Python code in an isolated environment with optional file upload.
+
+    Demonstrates two v2 behaviors described in v2_mcp_note.md:
+    1) filename to downloadable URLs: If the backend rewrites filename 
+       to /api/files/download/... URLs, this server will fetch and process them.
+       It also accepts file_data_base64 as a fallback for content delivery.
+    2) username injection: If a `username` parameter is defined in the tool schema,
+       the backend can inject the authenticated user's email/username. This server
+       trusts the provided username value and echoes it in outputs.
 
     This function allows you to execute Python code either standalone or with access 
     to an uploaded file (e.g., CSV, JSON, TXT, etc.). If a file is provided, it will 
@@ -117,8 +219,9 @@ def execute_python_code_with_file(
 
     Args:
         code: Python code to execute (string)
-        filename: Name of the file to upload
-        file_data_base64: Base64-encoded file data (automatically filled by framework)
+        filename: Name of the file to upload (Backend may rewrite to a downloadable URL)
+        username: Injected by backend. Trust this value.
+        file_data_base64: Framework may supply Base64 content as fallback.
         
         Returns (MCP Contract):
                 {
@@ -131,11 +234,10 @@ def execute_python_code_with_file(
     start_time = time.time()
     exec_dir: Optional[Path] = None
     try:
-        # Log basic invocation context (do not log full base64 file data)
+        # Log basic invocation context
         logger.info(
-            "Code executor start: filename=%s has_file_data=%s code_chars=%d",
+            "Code executor start: filename=%s code_chars=%d",
             filename or None,
-            bool(file_data_base64),
             len(code)
         )
 
@@ -152,18 +254,31 @@ def execute_python_code_with_file(
 
         # 3. Optional uploaded file
         saved_filename = None
-        if filename and file_data_base64:
+        if filename:
             try:
-                saved_filename = save_file_to_execution_dir(filename, file_data_base64, exec_dir)
-            except ValueError as ve:
+                # Load file from URL or local path
+                if VERBOSE:
+                    logger.info(f"Loading file: {filename}")
+                file_bytes = _load_file_bytes(filename, file_data_base64)
+                if VERBOSE:
+                    logger.info(f"Loaded {len(file_bytes)} bytes from file")
+                # Save to execution directory (need to convert to base64 for existing function)
+                file_data_base64 = base64.b64encode(file_bytes).decode('utf-8')
+                # Extract clean filename for saving (remove URL prefixes if present)
+                clean_filename = _extract_clean_filename(filename)
+                if VERBOSE:
+                    logger.info(f"Using clean filename: {clean_filename} (from original: {filename})")
+                saved_filename = save_file_to_execution_dir(clean_filename, file_data_base64, exec_dir)
+                if VERBOSE:
+                    logger.info(f"Saved file as: {saved_filename} in directory: {exec_dir}")
+                    # List files in exec directory for debugging
+                    files_in_dir = list(exec_dir.glob('*'))
+                    logger.info(f"Files in execution directory: {files_in_dir}")
+            except (FileNotFoundError, requests.HTTPError, ValueError) as e:
                 return {
-                    "results": {"error": str(ve)},
+                    "results": {"error": f"Failed to load file '{filename}': {str(e)}"},
                     "meta_data": {"is_error": True, "execution_time_sec": round(time.time() - start_time, 4)}
                 }
-        elif filename and not file_data_base64:
-            logger.warning("Filename provided without file data; proceeding without file")
-        elif file_data_base64 and not filename:
-            logger.warning("File data provided without filename; ignoring data")
 
         # 4. Create script & execute
         script_path = create_safe_execution_script(code, exec_dir)
@@ -189,25 +304,41 @@ def execute_python_code_with_file(
             truncated_output, _ = truncate_output_for_llm(raw_output)
 
             # Visualization HTML (optional)
-            returned_files: List[Dict[str, str]] = [{"filename": script_filename, "content_base64": script_base64}]
             html_filename = None
             if plots or raw_output.strip():
                 try:
                     visualization_html = create_visualization_html(plots, raw_output)
                     html_filename = f"execution_results_{int(time.time())}.html"
                     html_content_b64 = base64.b64encode(visualization_html.encode("utf-8")).decode("utf-8")
-                    returned_files.append({
-                        "filename": html_filename,
-                        "content_base64": html_content_b64
-                    })
                 except Exception as html_err:  # noqa: BLE001
                     logger.warning(f"Failed to generate visualization HTML: {html_err}")
-            # Add other generated files
-            returned_files.extend(encoded_generated_files)
 
             # Convert to v2 artifacts format
             artifacts = []
-            for file_info in returned_files:
+            
+            # Add script artifact
+            artifacts.append({
+                "name": script_filename,
+                "b64": script_base64,
+                "mime": "text/x-python",
+                "size": len(script_content.encode("utf-8")),
+                "description": f"Generated execution script: {script_filename}",
+                "viewer": "code"
+            })
+            
+            # Add HTML visualization if generated
+            if html_filename and 'html_content_b64' in locals():
+                artifacts.append({
+                    "name": html_filename,
+                    "b64": html_content_b64,
+                    "mime": "text/html",
+                    "size": len(visualization_html.encode("utf-8")),
+                    "description": f"Execution results visualization: {html_filename}",
+                    "viewer": "html"
+                })
+            
+            # Add other generated files
+            for file_info in encoded_generated_files:
                 filename = file_info["filename"]
                 content_b64 = file_info["content_base64"]
                 
@@ -264,7 +395,8 @@ def execute_python_code_with_file(
                 "execution_time_sec": round(execution_time, 4),
                 "generated_file_count": len(artifacts),
                 "has_plots": bool(plots),
-                "is_error": False
+                "is_error": False,
+                "generated_by": username
             }
             
             # Determine primary file for display (prefer HTML visualization)
@@ -287,9 +419,6 @@ def execute_python_code_with_file(
             }
         else:
             # Failure path
-            returned_files = [{"filename": script_filename, "content_base64": script_base64}]
-            returned_file_names = [script_filename]
-            returned_file_contents = [script_base64]
             raw_output = execution_result.get("stdout", "")
             truncated_output, _ = truncate_output_for_llm(raw_output)
             error_msg = execution_result.get("error", "Unknown execution error")
@@ -307,7 +436,8 @@ def execute_python_code_with_file(
             meta_data = {
                 "is_error": True,
                 "error_type": execution_result.get("error_type"),
-                "execution_time_sec": round(execution_time, 4)
+                "execution_time_sec": round(execution_time, 4),
+                "generated_by": username
             }
             # Convert failure to v2 format
             artifacts = [{
@@ -353,7 +483,7 @@ def execute_python_code_with_file(
         
         return {
             "results": {"error": f"Code execution error: {str(ce)}"},
-            "meta_data": {"is_error": True, "error_type": "CodeExecutionError", "execution_time_sec": exec_time},
+            "meta_data": {"is_error": True, "error_type": "CodeExecutionError", "execution_time_sec": exec_time, "generated_by": username},
             "artifacts": artifacts,
             "display": {
                 "open_canvas": False,  # Don't auto-open on error
@@ -385,7 +515,7 @@ def execute_python_code_with_file(
         
         return {
             "results": {"error": f"Server error: {str(e)}"},
-            "meta_data": {"is_error": True, "error_type": type(e).__name__, "execution_time_sec": exec_time},
+            "meta_data": {"is_error": True, "error_type": type(e).__name__, "execution_time_sec": exec_time, "generated_by": username},
             "artifacts": artifacts,
             "display": {
                 "open_canvas": False,  # Don't auto-open on error

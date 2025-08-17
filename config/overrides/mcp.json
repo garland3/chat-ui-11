@@ -65,5 +65,16 @@
     "author": "Chat UI Team",
     "short_description": "CSV reporting tool",
     "help_email": "support@chatui.example.com"
+  },
+  
+    "code-executor": {
+    "command": ["python", "mcp/code-executor/main.py"],
+    "cwd": "backend",
+    "groups": ["users"],
+    "is_exclusive": false,
+    "description": "Secure code execution environment",
+    "author": "Chat UI Team",
+    "short_description": "Execute code securely",
+    "help_email": "support@chatui.example.com"
   }
 }
