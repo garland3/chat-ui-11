@@ -66,15 +66,15 @@ export function createWebSocketHandler(deps) {
           setCurrentAgentStep(0)
           setIsThinking(false)
           if (typeof setAgentPendingQuestion === 'function') setAgentPendingQuestion(null)
-          addMessage({ role: 'system', content: `**Agent Completed** in ${data.steps ?? '?'} step(s)`, type: 'agent_status', timestamp: new Date().toISOString(), agent_mode: true })
+          addMessage({ role: 'system', content: `Agent Completed in ${data.steps ?? '?'} step(s)`, type: 'agent_status', timestamp: new Date().toISOString(), agent_mode: true })
           break
         case 'agent_error':
-          addMessage({ role: 'system', content: `**Agent Error** (Step ${data.turn}): ${data.message}`, type: 'agent_error', timestamp: new Date().toISOString() })
+          addMessage({ role: 'system', content: `Agent Error (Step ${data.turn}): ${data.message}`, type: 'agent_error', timestamp: new Date().toISOString() })
           setIsThinking(false)
           setCurrentAgentStep(0)
           break
         case 'agent_max_steps':
-          addMessage({ role: 'system', content: `**Agent Max Steps Reached** - ${data.message}`, type: 'agent_status', timestamp: new Date().toISOString() })
+          addMessage({ role: 'system', content: `Agent Max Steps Reached - ${data.message}`, type: 'agent_status', timestamp: new Date().toISOString() })
           setIsThinking(false)
           setCurrentAgentStep(0)
           break
