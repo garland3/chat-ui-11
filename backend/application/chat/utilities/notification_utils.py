@@ -9,6 +9,7 @@ in filenames returned from tools.
 
 import logging
 from typing import Any, Dict, List, Optional, Callable, Awaitable
+import json
 import re
 from urllib.parse import urlparse
 
@@ -141,7 +142,15 @@ async def notify_tool_complete(
 
     # Standard completion notification (with sanitized result for UI)
     result_content = getattr(result, "content", None)
-    sanitized_content = _sanitize_result_for_ui(result_content)
+    # If content is JSON string, parse first so we can sanitize nested filename fields
+    if isinstance(result_content, str):
+        try:
+            parsed = json.loads(result_content)
+            sanitized_content = _sanitize_result_for_ui(parsed)
+        except Exception:
+            sanitized_content = _sanitize_result_for_ui(result_content)
+    else:
+        sanitized_content = _sanitize_result_for_ui(result_content)
     complete_payload = {
         "type": "tool_complete",
         "tool_call_id": tool_call.id,

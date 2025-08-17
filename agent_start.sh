@@ -77,7 +77,7 @@ if [ "$ONLY_BACKEND" = true ]; then
     # Start S3 mock service if enabled
     if [ "$START_S3_MOCK" = true ]; then
         echo "Starting S3 mock service..."
-        cd mocks/s3-mock
+        cd ../mocks/s3-mock
         python main.py &
         cd ../../backend
         echo "S3 mock service started on http://127.0.0.1:8003"
@@ -93,7 +93,7 @@ fi
 # Start S3 mock service if enabled
 if [ "$START_S3_MOCK" = true ]; then
     echo "Starting S3 mock service..."
-    cd mocks/s3-mock
+    cd ../mocks/s3-mock
     python main.py &
     cd ../../backend
     echo "S3 mock service started on http://127.0.0.1:8003"
