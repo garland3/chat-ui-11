@@ -6,6 +6,7 @@ import { useSelections } from '../hooks/chat/useSelections'
 import { useAgentMode } from '../hooks/chat/useAgentMode'
 import { useMessages } from '../hooks/chat/useMessages'
 import { useFiles } from '../hooks/chat/useFiles'
+import { useSettings } from '../hooks/useSettings'
 import { createWebSocketHandler } from '../handlers/chat/websocketHandlers'
 
 const ChatContext = createContext(null)
@@ -24,6 +25,7 @@ export const ChatProvider = ({ children }) => {
 		const agent = useAgentMode(config.agentModeAvailable)
 	const files = useFiles()
 	const { messages, addMessage, mapMessages, resetMessages } = useMessages()
+	const { settings } = useSettings()
 
 	const [isWelcomeVisible, setIsWelcomeVisible] = useState(true)
 	const [isThinking, setIsThinking] = useState(false)
@@ -100,9 +102,10 @@ export const ChatProvider = ({ children }) => {
 			user: config.user,
 			files: { ...extraFiles, ...tagged },
 			agent_mode: agent.agentModeEnabled,
-			agent_max_steps: agent.agentMaxSteps,
+			agent_max_steps: settings.maxIterations || agent.agentMaxSteps,
+			temperature: settings.llmTemperature || 0.7,
 		})
-	}, [addMessage, currentModel, selectedTools, selectedPrompts, selectedDataSources, config, selections.toolChoiceRequired, selections, agent, files, isWelcomeVisible, sendMessage])
+	}, [addMessage, currentModel, selectedTools, selectedPrompts, selectedDataSources, config, selections.toolChoiceRequired, selections, agent, files, isWelcomeVisible, sendMessage, settings])
 
 	const clearChat = useCallback(() => {
 		resetMessages()
@@ -251,6 +254,7 @@ export const ChatProvider = ({ children }) => {
 		taggedFiles: files.taggedFiles,
 		toggleFileTag: files.toggleFileTag,
 		clearTaggedFiles: files.clearTaggedFiles,
+		settings,
 	}
 
 	return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>

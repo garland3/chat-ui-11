@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { usePersistentState } from './usePersistentState'
 
 export function useAgentMode(available = true) {
@@ -6,12 +6,14 @@ export function useAgentMode(available = true) {
   const [agentMaxSteps, setAgentMaxSteps] = usePersistentState('chatui-agent-max-steps', 5)
   const [currentAgentStep, setCurrentAgentStep] = usePersistentState('chatui-agent-current-step', 0)
   const [agentPendingQuestion, setAgentPendingQuestion] = useState(null)
+  const previousAvailable = useRef(available)
 
-  // If availability turns off, force-disable stored state
+  // If availability turns off (but not on initial load), force-disable stored state
   useEffect(() => {
-    if (!available && agentModeEnabled) {
+    if (!available && previousAvailable.current && agentModeEnabled) {
       setAgentModeEnabled(false)
     }
+    previousAvailable.current = available
   }, [available, agentModeEnabled, setAgentModeEnabled])
 
   return {

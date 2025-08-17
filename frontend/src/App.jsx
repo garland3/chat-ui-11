@@ -7,6 +7,7 @@ import Header from './components/Header'
 import Sidebar from './components/Sidebar'
 import ChatArea from './components/ChatArea'
 import ToolsPanel from './components/ToolsPanel'
+import SettingsPanel from './components/SettingsPanel'
 import RagPanel from './components/RagPanel'
 import CanvasPanel from './components/CanvasPanel'
 import MarketplacePanel from './components/MarketplacePanel'
@@ -20,6 +21,7 @@ import FilesPage from './components/FilesPage'
 
 function ChatInterface() {
   const [toolsPanelOpen, setToolsPanelOpen] = useState(false)
+  const [settingsPanelOpen, setSettingsPanelOpen] = useState(false)
   const [ragPanelOpen, setRagPanelOpen] = useState(false)
   const [canvasPanelOpen, setCanvasPanelOpen] = useState(false)
   const [canvasPanelWidth, setCanvasPanelWidth] = useState(0)
@@ -107,6 +109,7 @@ function ChatInterface() {
             }
             setCanvasPanelOpen(!canvasPanelOpen)
           }}
+          onToggleSettings={() => setSettingsPanelOpen(!settingsPanelOpen)}
           onCloseCanvas={() => setCanvasPanelOpen(false)}
         />
 
@@ -131,6 +134,12 @@ function ChatInterface() {
           onClose={() => setToolsPanelOpen(false)} 
         />
       )}
+
+      {/* Settings Panel Overlay */}
+      <SettingsPanel 
+        isOpen={settingsPanelOpen} 
+        onClose={() => setSettingsPanelOpen(false)} 
+      />
 
       {/* Right Side Panels Container */}
       <div className="relative flex-shrink-0">        

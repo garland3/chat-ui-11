@@ -392,8 +392,17 @@ const processToolResult = (result) => {
   if (typeof result === 'object') {
     const processed = { ...result }
     
-    // Handle returned files (multiple files support)
-    if (processed.returned_files && Array.isArray(processed.returned_files)) {
+    // Handle artifacts array (new format)
+    if (processed.artifacts && Array.isArray(processed.artifacts)) {
+      processed.artifacts = processed.artifacts.map(artifact => ({
+        name: artifact.name,
+        mime: artifact.mime,
+        b64: `[File data: ${artifact.b64.length} characters - hidden for display]`
+      }))
+      processed._artifacts_download_available = true
+    }
+    // Handle returned files (multiple files support - legacy format)
+    else if (processed.returned_files && Array.isArray(processed.returned_files)) {
       // Multiple files case
       processed.returned_files = processed.returned_files.map(file => ({
         filename: file.filename,
@@ -488,7 +497,7 @@ const downloadReturnedFile = (filename, base64Data) => {
 }
 
 const Message = ({ message }) => {
-  const { appName } = useChat()
+  const { appName, downloadFile } = useChat()
   
   // State for collapsible sections with localStorage persistence
   const [toolInputCollapsed, setToolInputCollapsed] = useState(() => {
@@ -617,7 +626,15 @@ const renderContent = () => {
                     }
                   }
 
-                  // Check for multiple files first
+                  // Check for meta_data.output_files (tool generated files)
+                  const hasOutputFiles = parsedResult &&
+                    typeof parsedResult === 'object' &&
+                    parsedResult.meta_data &&
+                    parsedResult.meta_data.output_files &&
+                    Array.isArray(parsedResult.meta_data.output_files) &&
+                    parsedResult.meta_data.output_files.length > 0
+
+                  // Check for multiple files (legacy format)
                   const hasMultipleFiles = parsedResult &&
                     typeof parsedResult === 'object' &&
                     parsedResult.returned_files &&
@@ -631,7 +648,30 @@ const renderContent = () => {
                     parsedResult.returned_file_name &&
                     parsedResult.returned_file_base64
 
-                  if (hasMultipleFiles) {
+                  if (hasOutputFiles) {
+                    return (
+                      <div className="mb-3">
+                        <div className="text-sm text-gray-300 mb-2">
+                          {parsedResult.meta_data.output_files.length} file(s) available for download:
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                          {parsedResult.meta_data.output_files.map((filename, index) => (
+                            <button
+                              key={index}
+                              onClick={() => downloadFile(filename)}
+                              className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-sm flex items-center gap-1 transition-colors"
+                              title="Download file"
+                            >
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                              </svg>
+                              {filename}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  } else if (hasMultipleFiles) {
                     return (
                       <div className="mb-3">
                         <div className="text-sm text-gray-300 mb-2">
@@ -642,9 +682,10 @@ const renderContent = () => {
                             <button
                               key={index}
                               onClick={() => downloadReturnedFile(filename, parsedResult.returned_file_contents[index])}
-                              className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors"
+                              className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-sm flex items-center gap-1 transition-colors"
+                              title="Download file"
                             >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                               </svg>
                               {filename}
@@ -658,12 +699,13 @@ const renderContent = () => {
                       <div className="mb-3">
                         <button
                           onClick={() => downloadReturnedFile(parsedResult.returned_file_name, parsedResult.returned_file_base64)}
-                          className="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm flex items-center gap-2 transition-colors"
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-sm flex items-center gap-1 transition-colors"
+                          title="Download file"
                         >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                           </svg>
-                          Download {parsedResult.returned_file_name}
+                          {parsedResult.returned_file_name}
                         </button>
                       </div>
                     )

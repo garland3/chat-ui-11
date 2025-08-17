@@ -225,15 +225,15 @@ class ChatService:
         tool_choice_required: bool = False,
         update_callback: Optional[UpdateCallback] = None,
     ) -> Dict[str, Any]:
-        """Handle tools mode using stateless utilities with streaming updates.
+        """Handle tools mode using utility helpers and stream updates.
 
-        - Retrieves tool schemas
-        - Calls LLM with tools (and optional RAG)
-        - Executes tool calls with UI streaming
-        - Optionally synthesizes final answer
-        - Updates session context with produced artifacts
+        - Fetch tool schemas for selected tools
+        - Call the LLM with tools (optionally with RAG)
+        - If no tool calls, return content
+        - If tool calls, execute them with UI streaming and synthesize final answer
+        - Persist artifacts and update session context
         """
-        # Resolve schema for selected tools
+        # Resolve schemas
         tools_schema = await error_utils.safe_get_tools_schema(self.tool_manager, selected_tools)
 
         # Call LLM with tools (and RAG if provided)
@@ -247,12 +247,11 @@ class ChatService:
             tool_choice=("required" if tool_choice_required else "auto"),
         )
 
-        # If no tool calls, treat as plain response
+        # No tool calls -> treat as plain content
         if not llm_response or not llm_response.has_tool_calls():
             content = llm_response.content if llm_response else ""
             assistant_message = Message(role=MessageRole.ASSISTANT, content=content)
             session.history.add_message(assistant_message)
-            # Emit response to UI
             if self.connection:
                 await notification_utils.notify_chat_response(
                     message=content,
@@ -262,7 +261,7 @@ class ChatService:
                 await notification_utils.notify_response_complete(self.connection.send_json)
             return notification_utils.create_chat_response(content)
 
-        # Execute tool workflow with streaming
+        # Execute tool workflow
         session_context = self._build_session_context(session)
         final_response, tool_results = await tool_utils.execute_tools_workflow(
             llm_response=llm_response,
@@ -275,14 +274,14 @@ class ChatService:
             update_callback=update_callback or (self.connection.send_json if self.connection else None),
         )
 
-        # Ingest artifacts and update session context
+        # Update session with artifacts
         await self._update_session_from_tool_results(
             session,
             tool_results,
             update_callback or (self.connection.send_json if self.connection else None),
         )
 
-        # Add assistant message to history with metadata
+        # Add final assistant message to history
         assistant_message = Message(
             role=MessageRole.ASSISTANT,
             content=final_response,
@@ -293,7 +292,7 @@ class ChatService:
         )
         session.history.add_message(assistant_message)
 
-        # Emit final response
+        # Emit final chat response
         if self.connection:
             await notification_utils.notify_chat_response(
                 message=final_response,
@@ -303,6 +302,96 @@ class ChatService:
             await notification_utils.notify_response_complete(self.connection.send_json)
 
         return notification_utils.create_chat_response(final_response)
+
+    # async def _handle_tools_mode_with_utilities(
+    #     self,
+    #     session: Session,
+    #     model: str,
+    #     messages: List[Dict[str, Any]],
+    #     selected_tools: List[str],
+    #     selected_data_sources: Optional[List[str]] = None,
+    #     user_email: Optional[str] = None,
+    #     tool_choice_required: bool = False,
+    #     update_callback: Optional[UpdateCallback] = None,
+    # ) -> Dict[str, Any]:
+    #     """Handle tools mode using stateless utilities with streaming updates.
+
+    #     - Retrieves tool schemas
+    #     - Calls LLM with tools (and optional RAG)
+    #     - Executes tool calls with UI streaming
+    #     - Optionally synthesizes final answer
+    #     - Updates session context with produced artifacts
+    #     """
+    #     # Resolve schema for selected tools
+    #     tools_schema = await error_utils.safe_get_tools_schema(self.tool_manager, selected_tools)
+
+    #     # Call LLM with tools (and RAG if provided)
+    #     llm_response = await error_utils.safe_call_llm_with_tools(
+    #         llm_caller=self.llm,
+    #         model=model,
+    #         messages=messages,
+    #         tools_schema=tools_schema,
+    #         data_sources=selected_data_sources,
+    #         user_email=user_email,
+    #         tool_choice=("required" if tool_choice_required else "auto"),
+    #     )
+
+    #     # If no tool calls, treat as plain response
+    #     if not llm_response or not llm_response.has_tool_calls():
+    #         content = llm_response.content if llm_response else ""
+    #         assistant_message = Message(role=MessageRole.ASSISTANT, content=content)
+    #         session.history.add_message(assistant_message)
+    #         # Emit response to UI
+    #         if self.connection:
+    #             await notification_utils.notify_chat_response(
+    #                 message=content,
+    #                 has_pending_tools=False,
+    #                 update_callback=self.connection.send_json,
+    #             )
+    #             await notification_utils.notify_response_complete(self.connection.send_json)
+    #         return notification_utils.create_chat_response(content)
+
+    #     # Execute tool workflow with streaming
+    #     session_context = self._build_session_context(session)
+    #     final_response, tool_results = await tool_utils.execute_tools_workflow(
+    #         llm_response=llm_response,
+    #         messages=messages,
+    #         model=model,
+    #         session_context=session_context,
+    #         tool_manager=self.tool_manager,
+    #         llm_caller=self.llm,
+    #         prompt_provider=self.prompt_provider,
+    #         update_callback=update_callback or (self.connection.send_json if self.connection else None),
+    #     )
+
+    #     # Ingest artifacts and update session context
+    #     await self._update_session_from_tool_results(
+    #         session,
+    #         tool_results,
+    #         update_callback or (self.connection.send_json if self.connection else None),
+    #     )
+
+    #     # Add assistant message to history with metadata
+    #     assistant_message = Message(
+    #         role=MessageRole.ASSISTANT,
+    #         content=final_response,
+    #         metadata={
+    #             "tools": selected_tools,
+    #             **({"data_sources": selected_data_sources} if selected_data_sources else {}),
+    #         },
+    #     )
+    #     session.history.add_message(assistant_message)
+
+    #     # Emit final response
+    #     if self.connection:
+    #         await notification_utils.notify_chat_response(
+    #             message=final_response,
+    #             has_pending_tools=False,
+    #             update_callback=self.connection.send_json,
+    #         )
+    #         await notification_utils.notify_response_complete(self.connection.send_json)
+
+    #     return notification_utils.create_chat_response(final_response)
 
     async def _handle_rag_mode(
         self,
@@ -550,26 +639,33 @@ class ChatService:
 
                 if llm_response.has_tool_calls():
                     session_context = self._build_session_context(session)
-                    # Add assistant tool_calls message to transcript
+                    # Enforce single-tool execution per act step
+                    first_call = (llm_response.tool_calls or [None])[0]
+                    if first_call is None:
+                        # Defensive fallback: no callable tool despite has_tool_calls
+                        if llm_response.content:
+                            final_response = llm_response.content
+                            break
+                    # Add assistant tool_calls message to transcript with only the first call
                     messages.append({
                         "role": "assistant",
                         "content": llm_response.content,
-                        "tool_calls": llm_response.tool_calls,
+                        "tool_calls": [first_call],
                     })
-                    for tool_call in llm_response.tool_calls:
-                        result = await tool_utils.execute_single_tool(
-                            tool_call=tool_call,
-                            session_context=session_context,
-                            tool_manager=self.tool_manager,
-                            update_callback=update_callback or (self.connection.send_json if self.connection else None),
-                        )
-                        tool_results.append(result)
-                        # Append tool result message
-                        messages.append({
-                            "role": "tool",
-                            "content": result.content,
-                            "tool_call_id": result.tool_call_id,
-                        })
+                    # Execute only the first tool call
+                    result = await tool_utils.execute_single_tool(
+                        tool_call=first_call,
+                        session_context=session_context,
+                        tool_manager=self.tool_manager,
+                        update_callback=update_callback or (self.connection.send_json if self.connection else None),
+                    )
+                    tool_results.append(result)
+                    # Append tool result message
+                    messages.append({
+                        "role": "tool",
+                        "content": result.content,
+                        "tool_call_id": result.tool_call_id,
+                    })
 
                     # Persist artifacts and emit file/canvas updates
                     await self._update_session_from_tool_results(

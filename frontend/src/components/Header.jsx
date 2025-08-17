@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useChat } from '../contexts/ChatContext'
 import { useWS } from '../contexts/WSContext'
-import { Menu, ChevronDown, Wrench, Bot, Download, Plus, HelpCircle, Shield, FolderOpen, Monitor } from 'lucide-react'
+import { Menu, ChevronDown, Wrench, Bot, Download, Plus, HelpCircle, Shield, FolderOpen, Monitor, Settings } from 'lucide-react'
 
-const Header = ({ onToggleRag, onToggleTools, onToggleFiles, onToggleCanvas, onCloseCanvas }) => {
+const Header = ({ onToggleRag, onToggleTools, onToggleFiles, onToggleCanvas, onCloseCanvas, onToggleSettings }) => {
   const navigate = useNavigate()
   const { 
     user, 
@@ -201,6 +201,15 @@ const Header = ({ onToggleRag, onToggleTools, onToggleFiles, onToggleCanvas, onC
             <Shield className="w-5 h-5" />
           </button>
         )}
+
+        {/* Settings Button */}
+        <button
+          onClick={onToggleSettings}
+          className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
+          title="Settings"
+        >
+          <Settings className="w-5 h-5" />
+        </button>
 
         {/* Help Button */}
         <button
