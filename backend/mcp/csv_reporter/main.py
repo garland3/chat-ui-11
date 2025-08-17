@@ -353,10 +353,14 @@ def plot_time_series(
         if df.empty:
             return {"results": {"error": "CSV is empty."}}
 
-        # Check if specified columns exist
-        missing_cols = [col for col in columns if col not in df.columns]
-        if missing_cols:
-            return {"results": {"error": f"Columns not found in CSV: {missing_cols}"}}
+        # Handle cases where columns is None or empty
+        if columns is None or not columns:
+            columns = df.columns.tolist()
+        else:
+            # Check if specified columns exist
+            missing_cols = [col for col in columns if col not in df.columns]
+            if missing_cols:
+                return {"results": {"error": f"Columns not found in CSV: {missing_cols}"}}
 
         # Select only the specified columns
         plot_df = df[columns]

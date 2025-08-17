@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional, Callable, Awaitable
 from domain.messages.models import ToolCall, ToolResult, Message, MessageRole
 from interfaces.llm import LLMResponse
 from core.capabilities import create_download_url
+from .notification_utils import _sanitize_filename_value  # reuse same filename sanitizer for UI args
 
 logger = logging.getLogger(__name__)
 
@@ -194,26 +195,33 @@ def _filter_args_to_schema(parsed_args: Dict[str, Any], tool_name: str, tool_man
 
 
 def _sanitize_args_for_ui(args: Dict[str, Any]) -> Dict[str, Any]:
-    """Hide sensitive tokens from arguments shown to the UI.
+    """Sanitize arguments before emitting to UI.
 
-    - For filename (str) and file_names (list[str]) that look like URLs,
-      strip the query string (e.g., ?token=...). Keeps path visible.
+    - Reduce any filename(s) to clean basenames (no query/token, no internal prefixes)
+    - Avoid leaking full download URLs or tokens to regular users in the chat UI
     """
-    def _strip_query(v: Any) -> Any:
-        try:
-            if isinstance(v, str) and ("?" in v):
-                return v.split("?", 1)[0]
-            return v
-        except Exception:
-            return v
-
     cleaned = dict(args or {})
+
+    # Single filename
     if isinstance(cleaned.get("filename"), str):
-        cleaned["filename"] = _strip_query(cleaned["filename"])
+        cleaned["filename"] = _sanitize_filename_value(cleaned["filename"])  # basename only
+
+    # Multiple filenames
     if isinstance(cleaned.get("file_names"), list):
         cleaned["file_names"] = [
-            _strip_query(x) if isinstance(x, str) else x for x in cleaned["file_names"]
+            _sanitize_filename_value(x) if isinstance(x, str) else x
+            for x in cleaned["file_names"]
         ]
+
+    # If a tool schema (unexpectedly) exposes file_url(s), sanitize for display too
+    if isinstance(cleaned.get("file_url"), str):
+        cleaned["file_url"] = _sanitize_filename_value(cleaned["file_url"])  # show just name
+    if isinstance(cleaned.get("file_urls"), list):
+        cleaned["file_urls"] = [
+            _sanitize_filename_value(x) if isinstance(x, str) else x
+            for x in cleaned["file_urls"]
+        ]
+
     return cleaned
 
 

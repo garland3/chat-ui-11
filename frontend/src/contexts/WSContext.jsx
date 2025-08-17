@@ -109,11 +109,46 @@ export const WSProvider = ({ children }) => {
     }
   }, [])
 
+  // Separate effect for periodic health check to avoid infinite loops
+  useEffect(() => {
+    const checkBackendAndReconnect = async () => {
+      // Only check if WebSocket is disconnected and not already attempting to connect
+      if (wsRef.current && wsRef.current.readyState !== WebSocket.OPEN && wsRef.current.readyState !== WebSocket.CONNECTING) {
+        try {
+          const response = await fetch('/api/config', { timeout: 5000 })
+          if (response.ok) {
+            console.log('Backend is alive but WebSocket is disconnected, attempting reconnection...')
+            reconnectWebSocket()
+          }
+        } catch (error) {
+          // Backend is down, don't attempt reconnection
+          console.log('Backend health check failed, not attempting WebSocket reconnection')
+        }
+      }
+    }
+
+    // Set up periodic health check every 30 seconds
+    const healthCheckInterval = setInterval(checkBackendAndReconnect, 30000)
+    
+    return () => {
+      clearInterval(healthCheckInterval)
+    }
+  }, [])
+
+  const reconnectWebSocket = () => {
+    console.log('Manually reconnecting WebSocket...')
+    if (wsRef.current) {
+      wsRef.current.close()
+    }
+    connectWebSocket()
+  }
+
   const value = {
     isConnected,
     connectionStatus,
     sendMessage,
-    addMessageHandler
+    addMessageHandler,
+    reconnectWebSocket
   }
 
   return (

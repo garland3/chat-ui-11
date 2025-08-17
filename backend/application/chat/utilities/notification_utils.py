@@ -58,7 +58,10 @@ def _sanitize_filename_value(value: Any) -> Any:
 def _sanitize_result_for_ui(obj: Any) -> Any:
     """Recursively sanitize tool result content for UI display.
 
-    Currently sanitizes any 'filename' fields to remove tokens and paths.
+    Rules:
+    - Any key literally named 'filename' is reduced to a clean basename.
+    - For common structures like {'file': {'filename': ...}}, sanitize nested filename too.
+    - Lists and nested dicts are traversed.
     """
     try:
         if isinstance(obj, dict):
@@ -66,6 +69,12 @@ def _sanitize_result_for_ui(obj: Any) -> Any:
             for k, v in obj.items():
                 if k == "filename":
                     sanitized[k] = _sanitize_filename_value(v)
+                elif k == "file" and isinstance(v, dict):
+                    # Typical shape in artifacts-like objects
+                    inner = dict(v)
+                    if "filename" in inner:
+                        inner["filename"] = _sanitize_filename_value(inner.get("filename"))
+                    sanitized[k] = _sanitize_result_for_ui(inner)
                 else:
                     sanitized[k] = _sanitize_result_for_ui(v)
             return sanitized
