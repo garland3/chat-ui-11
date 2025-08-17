@@ -37,7 +37,6 @@ COPY backend/ ./backend/
 COPY config/ ./config/
 
 # Copy other necessary files
-COPY backend/configfiles/llmconfig.yml ./backend/configfiles/
 COPY docs/ ./docs/
 COPY scripts/ ./scripts/
 COPY test/ ./test/

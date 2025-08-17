@@ -84,11 +84,17 @@ class RAGClient:
         
     async def discover_data_sources(self, user_name: str) -> List[str]:
         """Discover data sources accessible by a user."""
-        logger.info(f"discover_data_sources called - mock_mode: {self.mock_mode}, test_client: {self.test_client is not None}")
-        
-        if self.mock_mode and self.test_client:
+        use_test_client = bool(self.mock_mode and self.test_client)
+        logger.info(
+            "discover_data_sources: user=%s strategy=%s mock_mode=%s test_client=%s",
+            user_name,
+            "TestClient" if use_test_client else "HTTP",
+            self.mock_mode,
+            self.test_client is not None,
+        )
+
+        if use_test_client:
             try:
-                logger.info(f"Using TestClient to discover data sources for {user_name}")
                 response = self.test_client.get(f"/v1/discover/datasources/{user_name}")
                 response.raise_for_status()
                 data = response.json()

@@ -76,5 +76,15 @@
     "author": "Chat UI Team",
     "short_description": "Execute code securely",
     "help_email": "support@chatui.example.com"
+  },
+  "pptx_generator": {
+    "command": ["python", "mcp/pptx_generator/main.py"],
+    "cwd": "backend",
+    "groups": ["users"],
+    "is_exclusive": false,
+    "description": "Converts JSON input containing slide data into a PowerPoint presentation. Input should be a JSON object with a 'slides' array, each containing 'title' and 'content' fields.",
+    "author": "Chat UI Team",
+    "short_description": "JSON to PowerPoint converter",
+    "help_email": "support@chatui.example.com"
   }
 }

@@ -220,6 +220,14 @@ export function createWebSocketHandler(deps) {
             setCurrentAgentStep(0)
             addMessage({ role: 'assistant', content: `${data.message}\n\n*Agent completed in ${data.steps_taken} steps*`, timestamp: new Date().toISOString() })
           break
+        case 'file_download':
+          if (data.filename && data.content_base64) {
+            triggerFileDownload(data.filename, data.content_base64)
+          } else if (data.error) {
+            console.error('File download error:', data.error)
+            // Could show a toast notification here
+          }
+          break
         case 'intermediate_update':
           handleIntermediateUpdate(data)
           break

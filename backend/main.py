@@ -48,20 +48,20 @@ async def websocket_update_callback(websocket: WebSocket, message: dict):
             utype = message.get("update_type") or message.get("data", {}).get("update_type")
             if utype == "canvas_files":
                 files = (message.get("data") or {}).get("files") or []
-                logger.info(
-                    "WS SEND: intermediate_update canvas_files count=%d files=%s display=%s",
-                    len(files),
-                    [f.get("filename") for f in files if isinstance(f, dict)],
-                    (message.get("data") or {}).get("display"),
-                )
+                # logger.info(
+                #     "WS SEND: intermediate_update canvas_files count=%d files=%s display=%s",
+                #     len(files),
+                #     [f.get("filename") for f in files if isinstance(f, dict)],
+                #     (message.get("data") or {}).get("display"),
+                # )
             elif utype == "files_update":
                 files = (message.get("data") or {}).get("files") or []
-                logger.info(
-                    "WS SEND: intermediate_update files_update total=%d",
-                    len(files),
-                )
-            else:
-                logger.info("WS SEND: intermediate_update update_type=%s", utype)
+            #     logger.info(
+            #         "WS SEND: intermediate_update files_update total=%d",
+            #         len(files),
+            #     )
+            # else:
+            #     logger.info("WS SEND: intermediate_update update_type=%s", utype)
         elif mtype == "canvas_content":
             content = message.get("content")
             clen = len(content) if isinstance(content, str) else "obj"

@@ -118,8 +118,8 @@ export const ChatProvider = ({ children }) => {
 
 	const downloadFile = useCallback((filename) => {
 		if (!files.sessionFiles.files.find(f => f.filename === filename)) return
-		sendMessage({ type: 'download_file', filename })
-	}, [files.sessionFiles.files, sendMessage])
+		sendMessage({ type: 'download_file', filename, user: config.user })
+	}, [files.sessionFiles.files, sendMessage, config.user])
 
 	const deleteFile = useCallback((filename) => {
 		if (!confirm(`Delete ${filename}?`)) return
