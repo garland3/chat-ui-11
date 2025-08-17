@@ -55,4 +55,15 @@
     "short_description": "Customer order management",
     "help_email": "support@chatui.example.com"
   }
+  ,
+  "csv_reporter": {
+    "command": ["python", "mcp/csv_reporter/main.py"],
+    "cwd": "backend",
+    "groups": ["users"],
+    "is_exclusive": false,
+    "description": "Generate reports from uploaded CSV files, demonstrating filename URL rewriting and username injection.",
+    "author": "Chat UI Team",
+    "short_description": "CSV reporting tool",
+    "help_email": "support@chatui.example.com"
+  }
 }

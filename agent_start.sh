@@ -63,16 +63,29 @@ fi
 
 # If only backend flag is set, start backend services and exit
 if [ "$ONLY_BACKEND" = true ]; then
+    echo "Killing any running uvicorn processes... and python processes"
+    pkill -f uvicorn
+    # also kill python
+    pkill -f python
+    # wait a few seconds for processes to terminate
+    sleep 2
+    clear
+    echo "Clearing log for fresh start"
+    mkdir -p ./logs
+    echo "NEW LOG" > ./logs/app.jsonl
+    
     # Start S3 mock service if enabled
     if [ "$START_S3_MOCK" = true ]; then
         echo "Starting S3 mock service..."
-        cd ../mocks/s3-mock
+        cd mocks/s3-mock
         python main.py &
         cd ../../backend
         echo "S3 mock service started on http://127.0.0.1:8003"
+    else
+        cd backend
     fi
 
-    uvicorn main:app &
+    uvicorn main:app --host 0.0.0.0 --port 8000 &
     echo "Backend server started. Exiting as requested."
     exit 0
 fi
@@ -80,7 +93,7 @@ fi
 # Start S3 mock service if enabled
 if [ "$START_S3_MOCK" = true ]; then
     echo "Starting S3 mock service..."
-    cd ../mocks/s3-mock
+    cd mocks/s3-mock
     python main.py &
     cd ../../backend
     echo "S3 mock service started on http://127.0.0.1:8003"

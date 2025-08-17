@@ -117,17 +117,23 @@ async def execute_single_tool(
     from . import notification_utils
     
     try:
-        # Prepare arguments with tool schema awareness
+        # Prepare arguments with injections (username, filename URL mapping)
         parsed_args = prepare_tool_arguments(tool_call, session_context, tool_manager)
 
-        # Send tool start notification
-        await notification_utils.notify_tool_start(tool_call, parsed_args, update_callback)
+        # Filter to only schema-declared parameters so MCP tools don't receive extras
+        filtered_args = _filter_args_to_schema(parsed_args, tool_call.function.name, tool_manager)
 
-        # Create tool call object and execute
+        # Sanitize arguments for UI (hide tokens in URLs, etc.)
+        display_args = _sanitize_args_for_ui(dict(filtered_args))
+
+        # Send tool start notification with sanitized args
+        await notification_utils.notify_tool_start(tool_call, display_args, update_callback)
+
+        # Create tool call object and execute with filtered args only
         tool_call_obj = ToolCall(
             id=tool_call.id,
             name=tool_call.function.name,
-            arguments=parsed_args
+            arguments=filtered_args
         )
 
         result = await tool_manager.execute_tool(
@@ -156,6 +162,59 @@ async def execute_single_tool(
             success=False,
             error=str(e)
         )
+
+
+def _filter_args_to_schema(parsed_args: Dict[str, Any], tool_name: str, tool_manager) -> Dict[str, Any]:
+    """Return only arguments that are explicitly declared in the tool schema.
+
+    If schema can't be retrieved, fall back to dropping known injected extras
+    like original_* and file_url(s) to avoid Pydantic validation errors.
+    """
+    try:
+        tools_schema = tool_manager.get_tools_schema([tool_name]) if tool_manager else []
+        allowed: set[str] = set()
+        for tool_schema in tools_schema or []:
+            if tool_schema.get("function", {}).get("name") == tool_name:
+                params = tool_schema.get("function", {}).get("parameters", {})
+                props = params.get("properties", {}) or {}
+                allowed = set(props.keys())
+                break
+
+        if allowed:
+            return {k: v for k, v in (parsed_args or {}).items() if k in allowed}
+    except Exception:
+        # Fall through to conservative filtering
+        pass
+
+    # Conservative fallback: drop common injected extras if schema unavailable
+    drop_prefixes = ("original_",)
+    drop_keys = {"file_url", "file_urls"}
+    return {k: v for k, v in (parsed_args or {}).items()
+            if not any(k.startswith(p) for p in drop_prefixes) and k not in drop_keys}
+
+
+def _sanitize_args_for_ui(args: Dict[str, Any]) -> Dict[str, Any]:
+    """Hide sensitive tokens from arguments shown to the UI.
+
+    - For filename (str) and file_names (list[str]) that look like URLs,
+      strip the query string (e.g., ?token=...). Keeps path visible.
+    """
+    def _strip_query(v: Any) -> Any:
+        try:
+            if isinstance(v, str) and ("?" in v):
+                return v.split("?", 1)[0]
+            return v
+        except Exception:
+            return v
+
+    cleaned = dict(args or {})
+    if isinstance(cleaned.get("filename"), str):
+        cleaned["filename"] = _strip_query(cleaned["filename"])
+    if isinstance(cleaned.get("file_names"), list):
+        cleaned["file_names"] = [
+            _strip_query(x) if isinstance(x, str) else x for x in cleaned["file_names"]
+        ]
+    return cleaned
 
 
 def prepare_tool_arguments(tool_call, session_context: Dict[str, Any], tool_manager=None) -> Dict[str, Any]:

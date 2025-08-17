@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useRef } from 'react'
 import { useChat } from './ChatContext'
 
 const MarketplaceContext = createContext()
@@ -6,24 +6,58 @@ const MarketplaceContext = createContext()
 export const MarketplaceProvider = ({ children }) => {
   const { tools, prompts } = useChat()
   const [selectedServers, setSelectedServers] = useState(new Set())
+  const initializedRef = useRef(false)
+  const knownServersRef = useRef(new Set())
 
-  // Load selected servers from localStorage on mount
+  // Load selected servers from localStorage once on mount
   useEffect(() => {
+    if (initializedRef.current) return
+    initializedRef.current = true
     const stored = localStorage.getItem('mcp-selected-servers')
     if (stored) {
       try {
         const parsed = JSON.parse(stored)
         setSelectedServers(new Set(parsed))
+        return
       } catch (error) {
         console.error('Failed to parse stored selected servers:', error)
       }
+    }
+    // No stored value: start with empty set; we'll merge as tools/prompts load
+    setSelectedServers(new Set())
+    // Initialize known servers store if missing
+    const known = localStorage.getItem('mcp-known-servers')
+    if (known) {
+      try { knownServersRef.current = new Set(JSON.parse(known)) } catch {}
     } else {
-      // Initialize with all available servers by default
-      const toolServers = tools.map(t => t.server)
-      const promptServers = prompts.map(p => p.server)
-      const allServers = [...new Set([...toolServers, ...promptServers])]
-      setSelectedServers(new Set(allServers))
-      localStorage.setItem('mcp-selected-servers', JSON.stringify(allServers))
+      localStorage.setItem('mcp-known-servers', JSON.stringify([]))
+      knownServersRef.current = new Set()
+    }
+  }, [])
+
+  // When tools/prompts change, merge any newly available servers into selection
+  useEffect(() => {
+    // Build the complete set of available servers
+    const toolServers = tools.map(t => t.server)
+    const promptServers = prompts.map(p => p.server)
+    const allServers = new Set([...toolServers, ...promptServers])
+
+    // Determine newly discovered servers (not seen before)
+    const newlyDiscovered = []
+    for (const s of allServers) {
+      if (!knownServersRef.current.has(s)) newlyDiscovered.push(s)
+    }
+
+    if (newlyDiscovered.length > 0) {
+      // Auto-select only the newly discovered servers; preserve user choices
+      setSelectedServers(prev => {
+        const next = new Set(prev)
+        newlyDiscovered.forEach(s => next.add(s))
+        return next
+      })
+      // Update known servers persistence
+      newlyDiscovered.forEach(s => knownServersRef.current.add(s))
+      localStorage.setItem('mcp-known-servers', JSON.stringify(Array.from(knownServersRef.current)))
     }
   }, [tools, prompts])
 

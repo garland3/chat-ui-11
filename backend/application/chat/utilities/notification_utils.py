@@ -3,15 +3,78 @@ Notification utilities - pure functions for handling chat event notifications.
 
 This module provides stateless utility functions for sending various types
 of notifications during chat operations without maintaining any state.
+Also includes minimal sanitization to avoid leaking sensitive tokens/paths
+in filenames returned from tools.
 """
 
 import logging
 from typing import Any, Dict, List, Optional, Callable, Awaitable
+import re
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
 # Type hint for update callback
 UpdateCallback = Callable[[Dict[str, Any]], Awaitable[None]]
+
+
+_S3_KEY_PREFIX_PATTERN = re.compile(r"^(?:\d{9,})_[0-9a-fA-F]{6,}_(.+)$")
+
+
+def _sanitize_filename_value(value: Any) -> Any:
+    """Return a user-safe filename string with no token or internal prefixes.
+
+    - If not a string, return as-is
+    - Strip query string (e.g., ?token=...)
+    - If URL, keep basename of the path
+    - Else if path-like, keep basename
+    - If basename matches ts_hash_original.ext, return original.ext
+    """
+    if not isinstance(value, str) or not value:
+        return value
+
+    # Drop query
+    without_query = value.split("?", 1)[0]
+
+    # Extract path from URL if any
+    path = without_query
+    if without_query.startswith("http://") or without_query.startswith("https://"):
+        try:
+            parsed = urlparse(without_query)
+            path = parsed.path or without_query
+        except Exception:
+            path = without_query
+
+    # Basename only
+    basename = path.rsplit("/", 1)[-1]
+
+    # Strip known storage prefix pattern 1755396436_d71d38d7_original.csv
+    m = _S3_KEY_PREFIX_PATTERN.match(basename)
+    if m:
+        return m.group(1)
+    return basename
+
+
+def _sanitize_result_for_ui(obj: Any) -> Any:
+    """Recursively sanitize tool result content for UI display.
+
+    Currently sanitizes any 'filename' fields to remove tokens and paths.
+    """
+    try:
+        if isinstance(obj, dict):
+            sanitized: Dict[str, Any] = {}
+            for k, v in obj.items():
+                if k == "filename":
+                    sanitized[k] = _sanitize_filename_value(v)
+                else:
+                    sanitized[k] = _sanitize_result_for_ui(v)
+            return sanitized
+        if isinstance(obj, list):
+            return [_sanitize_result_for_ui(x) for x in obj]
+        return obj
+    except Exception:
+        # Fail open on sanitization to avoid breaking UI updates
+        return obj
 
 
 async def safe_notify(callback: UpdateCallback, message: Dict[str, Any]) -> None:
@@ -67,13 +130,15 @@ async def notify_tool_complete(
     if not update_callback:
         return
 
-    # Standard completion notification
+    # Standard completion notification (with sanitized result for UI)
+    result_content = getattr(result, "content", None)
+    sanitized_content = _sanitize_result_for_ui(result_content)
     complete_payload = {
         "type": "tool_complete",
         "tool_call_id": tool_call.id,
         "tool_name": tool_call.function.name,
         "success": result.success,
-        "result": result.content
+        "result": sanitized_content
     }
     
     # Canvas tool special handling

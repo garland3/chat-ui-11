@@ -23,6 +23,7 @@ This v2 spec extends v1 with typed artifacts, a display block for canvas behavio
     - `mode` (string): `replace|append|split` (UI may treat as hint).
     - `viewer_hint` (string): `auto|image|pdf|html|code`.
   - backward-compat arrays:
+    - NOTE: these are being phased out. Do not add to new code.
     - `returned_file_names` (array[str]): legacy names; still recognized.
     - `returned_file_contents` (array[str]): legacy base64; same order as names. Not injected into prompts.
 

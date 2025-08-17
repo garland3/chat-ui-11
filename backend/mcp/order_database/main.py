@@ -9,6 +9,8 @@ from fastmcp import FastMCP
 from dataclasses import dataclass
 from enum import Enum
 import time
+import os
+import base64
 
 # Initialize the MCP server
 mcp = FastMCP("OrderDatabase")
@@ -187,6 +189,65 @@ def list_all_orders() -> Dict[str, Any]:
         meta.update({"is_error": True, "reason": type(e).__name__})
         return {
             "results": {"error": f"Error listing orders: {str(e)}"},
+            "meta_data": _finalize_meta(meta, start)
+        }
+
+@mcp.tool
+def get_signal_data_csv() -> Dict[str, Any]:
+    """
+    Return the signal_data.csv file from the same directory as this MCP.
+    
+    Returns:
+        Dictionary with the CSV file as a base64 encoded artifact
+    """
+    start = time.perf_counter()
+    meta: Dict[str, Any] = {}
+    
+    try:
+        # Get the directory where this script is located
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        csv_path = os.path.join(script_dir, "signal_data.csv")
+        
+        if not os.path.exists(csv_path):
+            meta.update({"is_error": True, "reason": "file_not_found"})
+            return {
+                "results": {"error": "signal_data.csv file not found"},
+                "meta_data": _finalize_meta(meta, start)
+            }
+        
+        # Read the CSV file
+        with open(csv_path, 'rb') as f:
+            csv_content = f.read()
+        
+        # Encode as base64
+        csv_b64 = base64.b64encode(csv_content).decode('utf-8')
+        
+        meta.update({"is_error": False, "file_size_bytes": len(csv_content)})
+        return {
+            "results": {
+                "message": "Signal data CSV file retrieved successfully",
+                "filename": "signal_data.csv",
+                "file_size_bytes": len(csv_content)
+            },
+            "artifacts": [
+                {
+                    "name": "signal_data.csv",
+                    "b64": csv_b64,
+                    "mime": "text/csv",
+                }
+            ],
+            "display": {
+                "open_canvas": True,
+                "primary_file": "signal_data.csv",
+                "mode": "replace",
+                "viewer_hint": "code",
+            },
+            "meta_data": _finalize_meta(meta, start)
+        }
+    except Exception as e:
+        meta.update({"is_error": True, "reason": type(e).__name__})
+        return {
+            "results": {"error": f"Error reading CSV file: {str(e)}"},
             "meta_data": _finalize_meta(meta, start)
         }
 

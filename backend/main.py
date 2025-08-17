@@ -38,6 +38,42 @@ otel_config = setup_opentelemetry("chat-ui-backend", "1.0.0")
 logger = logging.getLogger(__name__)
 
 
+async def websocket_update_callback(websocket: WebSocket, message: dict):
+    """
+    Callback function to handle websocket updates with logging.
+    """
+    try:
+        mtype = message.get("type")
+        if mtype == "intermediate_update":
+            utype = message.get("update_type") or message.get("data", {}).get("update_type")
+            if utype == "canvas_files":
+                files = (message.get("data") or {}).get("files") or []
+                logger.info(
+                    "WS SEND: intermediate_update canvas_files count=%d files=%s display=%s",
+                    len(files),
+                    [f.get("filename") for f in files if isinstance(f, dict)],
+                    (message.get("data") or {}).get("display"),
+                )
+            elif utype == "files_update":
+                files = (message.get("data") or {}).get("files") or []
+                logger.info(
+                    "WS SEND: intermediate_update files_update total=%d",
+                    len(files),
+                )
+            else:
+                logger.info("WS SEND: intermediate_update update_type=%s", utype)
+        elif mtype == "canvas_content":
+            content = message.get("content")
+            clen = len(content) if isinstance(content, str) else "obj"
+            logger.info("WS SEND: canvas_content length=%s", clen)
+        else:
+            logger.info("WS SEND: %s", mtype)
+    except Exception:
+        # Non-fatal logging error; continue to send
+        pass
+    await websocket.send_json(message)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan manager."""
@@ -148,39 +184,6 @@ async def websocket_endpoint(websocket: WebSocket):
             message_type = data.get("type")
             
             if message_type == "chat":
-                # Define the WebSocket update callback
-                async def websocket_update_callback(message: dict):
-                    try:
-                        mtype = message.get("type")
-                        if mtype == "intermediate_update":
-                            utype = message.get("update_type") or message.get("data", {}).get("update_type")
-                            if utype == "canvas_files":
-                                files = (message.get("data") or {}).get("files") or []
-                                logger.info(
-                                    "WS SEND: intermediate_update canvas_files count=%d files=%s display=%s",
-                                    len(files),
-                                    [f.get("filename") for f in files if isinstance(f, dict)],
-                                    (message.get("data") or {}).get("display"),
-                                )
-                            elif utype == "files_update":
-                                files = (message.get("data") or {}).get("files") or []
-                                logger.info(
-                                    "WS SEND: intermediate_update files_update total=%d",
-                                    len(files),
-                                )
-                            else:
-                                logger.info("WS SEND: intermediate_update update_type=%s", utype)
-                        elif mtype == "canvas_content":
-                            content = message.get("content")
-                            clen = len(content) if isinstance(content, str) else "obj"
-                            logger.info("WS SEND: canvas_content length=%s", clen)
-                        else:
-                            logger.info("WS SEND: %s", mtype)
-                    except Exception:
-                        # Non-fatal logging error; continue to send
-                        pass
-                    await websocket.send_json(message)
-                
                 # Handle chat message with streaming updates
                 try:
                     response = await chat_service.handle_chat_message(
@@ -194,7 +197,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         user_email=data.get("user"),
                         agent_mode=data.get("agent_mode", False),
                         agent_max_steps=data.get("agent_max_steps", 10),
-                        update_callback=websocket_update_callback,
+                        update_callback=lambda message: websocket_update_callback(websocket, message),
                         files=data.get("files")
                     )
                     # Final response is already sent via callbacks, but we keep this for backward compatibility
