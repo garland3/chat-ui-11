@@ -145,6 +145,12 @@ class AppSettings(BaseSettings):
     agent_reason_prompt_filename: str = "agent_reason_prompt.md"  # Filename for agent reason phase
     agent_observe_prompt_filename: str = "agent_observe_prompt.md"  # Filename for agent observe phase
     
+    # Config file names (can be overridden via environment variables)
+    mcp_config_file: str = Field(default="mcp.json", validation_alias="MCP_CONFIG_FILE")
+    llm_config_file: str = Field(default="llmconfig.yml", validation_alias="LLM_CONFIG_FILE")
+    help_config_file: str = Field(default="help-config.json", validation_alias="HELP_CONFIG_FILE")
+    messages_config_file: str = Field(default="messages.txt", validation_alias="MESSAGES_CONFIG_FILE")
+    
     model_config = {
         "env_file": "../.env", 
         "env_file_encoding": "utf-8", 
@@ -278,7 +284,9 @@ class ConfigManager:
         """Get LLM configuration (cached)."""
         if self._llm_config is None:
             try:
-                file_paths = self._search_paths("llmconfig.yml")
+                # Use config filename from app settings
+                llm_filename = self.app_settings.llm_config_file
+                file_paths = self._search_paths(llm_filename)
                 data = self._load_file_with_error_handling(file_paths, "YAML")
                 
                 if data:
@@ -299,7 +307,9 @@ class ConfigManager:
         """Get MCP configuration (cached)."""
         if self._mcp_config is None:
             try:
-                file_paths = self._search_paths("mcp.json")
+                # Use config filename from app settings
+                mcp_filename = self.app_settings.mcp_config_file
+                file_paths = self._search_paths(mcp_filename)
                 data = self._load_file_with_error_handling(file_paths, "JSON")
                 
                 if data:

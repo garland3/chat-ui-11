@@ -24,20 +24,20 @@ class FakeLLM(LLMProtocol):
     def __init__(self, plain_responses: Optional[List[str]] = None):
         self._plain = list(plain_responses or [])
 
-    async def call_plain(self, model_name: str, messages: List[Dict[str, str]]) -> str:
+    async def call_plain(self, model_name: str, messages: List[Dict[str, str]], temperature: float = 0.7) -> str:
         if self._plain:
             return self._plain.pop(0)
         return "{\"plan\":\"noop\",\"tools_to_consider\":[],\"finish\":true,\"final_answer\":\"ok\"}"
 
-    async def call_with_tools(self, model_name: str, messages: List[Dict[str, str]], tools_schema: List[Dict], tool_choice: str = "auto"):
+    async def call_with_tools(self, model_name: str, messages: List[Dict[str, str]], tools_schema: List[Dict], tool_choice: str = "auto", temperature: float = 0.7):
         # Minimal stub: never returns tool calls in these tests
         from interfaces.llm import LLMResponse  # type: ignore
         return LLMResponse(content="")
 
-    async def call_with_rag(self, model_name: str, messages: List[Dict[str, str]], data_sources: List[str], user_email: str) -> str:
+    async def call_with_rag(self, model_name: str, messages: List[Dict[str, str]], data_sources: List[str], user_email: str, temperature: float = 0.7) -> str:
         return "not-used"
 
-    async def call_with_rag_and_tools(self, model_name: str, messages: List[Dict[str, str]], data_sources: List[str], tools_schema: List[Dict], user_email: str, tool_choice: str = "auto"):
+    async def call_with_rag_and_tools(self, model_name: str, messages: List[Dict[str, str]], data_sources: List[str], tools_schema: List[Dict], user_email: str, tool_choice: str = "auto", temperature: float = 0.7):
         from interfaces.llm import LLMResponse  # type: ignore
         return LLMResponse(content="")
 

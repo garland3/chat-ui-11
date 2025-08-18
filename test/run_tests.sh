@@ -56,6 +56,9 @@ run_test() {
         export PROJECT_ROOT="$PROJECT_ROOT"
         export ENVIRONMENT="$ENVIRONMENT"
         
+        # Use test-specific MCP config to speed up tests
+        export MCP_CONFIG_FILE="mcp-test.json"
+        
         bash "$script_path"
         echo "$test_name tests: PASSED"
     else

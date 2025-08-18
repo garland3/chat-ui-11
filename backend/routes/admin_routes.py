@@ -82,9 +82,24 @@ def setup_config_overrides() -> None:
 
 
 def get_admin_config_path(filename: str) -> Path:
+    # Get config filename mappings from config manager
+    app_settings = config_manager.app_settings
+    
+    # Map standard filenames to potentially overridden ones
+    if filename == "messages.txt":
+        custom_filename = app_settings.messages_config_file
+    elif filename == "help-config.json":
+        custom_filename = app_settings.help_config_file
+    elif filename == "mcp.json":
+        custom_filename = app_settings.mcp_config_file
+    elif filename == "llmconfig.yml":
+        custom_filename = app_settings.llm_config_file
+    else:
+        custom_filename = filename
+    
     base = Path(os.getenv("APP_CONFIG_OVERRIDES", "config/overrides"))
     base.mkdir(parents=True, exist_ok=True)
-    return base / filename
+    return base / custom_filename
 
 
 def get_file_content(file_path: Path) -> str:

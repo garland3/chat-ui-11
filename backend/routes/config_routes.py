@@ -97,7 +97,7 @@ async def get_config(current_user: str = Depends(get_current_user)):
     # Read help page configuration (supports new config directory layout + legacy paths)
     help_config = {}
     import json
-    help_config_filename = "help-config.json"
+    help_config_filename = config_manager.app_settings.help_config_file
     help_paths = []
     try:
         # Reuse config manager search logic (private but acceptable for now)
