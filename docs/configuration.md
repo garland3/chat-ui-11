@@ -249,6 +249,16 @@ RAG_MOCK_URL=https://your-rag-service.com/api
 
 The RAG service should implement the expected API endpoints for document retrieval and processing.
 
+### RAG over MCP (Discovery Phase)
+
+Enable the MCP-backed RAG discovery aggregator to source data sources from MCP servers implementing `rag_discover_resources`:
+
+```bash
+FEATURE_RAG_MCP_ENABLED=true
+```
+
+When enabled, `/api/config` will return `data_sources` as server-qualified IDs like `serverName:resourceId`. The legacy mock RAG client is used when this flag is off.
+
 ## Banner Configuration
 
 System administrators can display banners to users:

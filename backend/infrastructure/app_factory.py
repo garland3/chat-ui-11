@@ -10,6 +10,8 @@ from modules.file_storage import S3StorageClient, FileManager
 from modules.llm.litellm_caller import LiteLLMCaller
 from modules.mcp_tools import MCPToolManager
 from modules.rag import RAGClient
+from domain.rag_mcp_service import RAGMCPService
+from core.auth import is_user_in_group
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +30,11 @@ class AppFactory:
         )
         self.mcp_tools = MCPToolManager()
         self.rag_client = RAGClient()
+        self.rag_mcp_service = RAGMCPService(
+            mcp_manager=self.mcp_tools,
+            config_manager=self.config_manager,
+            auth_check_func=is_user_in_group,
+        )
 
         # File storage & manager
         self.file_storage = S3StorageClient()
@@ -58,6 +65,9 @@ class AppFactory:
 
     def get_rag_client(self) -> RAGClient:  # noqa: D401
         return self.rag_client
+
+    def get_rag_mcp_service(self) -> RAGMCPService:  # noqa: D401
+        return self.rag_mcp_service
 
     def get_file_storage(self) -> S3StorageClient:  # noqa: D401
         return self.file_storage
