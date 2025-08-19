@@ -86,5 +86,16 @@
     "author": "Chat UI Team",
     "short_description": "JSON to PowerPoint converter",
     "help_email": "support@chatui.example.com"
+  },
+
+  "progress_demo": {
+    "command": ["python", "mcp/progress_demo/main.py"],
+    "cwd": "backend",
+    "groups": ["users"],
+    "is_exclusive": false,
+    "description": "Demo long-running tool that reports progress updates every few seconds.",
+    "author": "Chat UI Team",
+    "short_description": "Progress reporting demo",
+    "help_email": "support@chatui.example.com"
   }
 }

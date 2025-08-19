@@ -503,7 +503,14 @@ class MCPToolManager:
             'mapping': server_tool_mapping
         }
     
-    async def call_tool(self, server_name: str, tool_name: str, arguments: Dict[str, Any]) -> Any:
+    async def call_tool(
+        self,
+        server_name: str,
+        tool_name: str,
+        arguments: Dict[str, Any],
+        *,
+        progress_handler: Optional[Any] = None,
+    ) -> Any:
         """Call a specific tool on an MCP server."""
         if server_name not in self.clients:
             raise ValueError(f"No client available for server: {server_name}")
@@ -511,7 +518,11 @@ class MCPToolManager:
         client = self.clients[server_name]
         try:
             async with client:
-                result = await client.call_tool(tool_name, arguments)
+                # Pass through per-call progress handler if provided (fastmcp >= 2.3.5)
+                kwargs = {}
+                if progress_handler is not None:
+                    kwargs["progress_handler"] = progress_handler
+                result = await client.call_tool(tool_name, arguments, **kwargs)
                 logger.info(f"Successfully called {tool_name} on {server_name}")
                 return result
         except Exception as e:
@@ -809,7 +820,32 @@ class MCPToolManager:
         actual_tool_name = tool_entry['tool'].name if tool_entry['tool'] else tool_call.name
         
         try:
-            raw_result = await self.call_tool(server_name, actual_tool_name, tool_call.arguments)
+            # Build a progress handler that forwards to UI if provided via context
+            async def _progress_handler(progress: float, total: Optional[float], message: Optional[str]) -> None:
+                try:
+                    update_cb = None
+                    if isinstance(context, dict):
+                        update_cb = context.get("update_callback")
+                    if update_cb is not None:
+                        # Deferred import to avoid cycles
+                        from application.chat.utilities.notification_utils import notify_tool_progress
+                        await notify_tool_progress(
+                            tool_call_id=tool_call.id,
+                            tool_name=tool_call.name,
+                            progress=progress,
+                            total=total,
+                            message=message,
+                            update_callback=update_cb,
+                        )
+                except Exception:
+                    logger.debug("Progress handler forwarding failed", exc_info=True)
+
+            raw_result = await self.call_tool(
+                server_name,
+                actual_tool_name,
+                tool_call.arguments,
+                progress_handler=_progress_handler,
+            )
             normalized_content = self._normalize_mcp_tool_result(raw_result)
             content_str = json.dumps(normalized_content, ensure_ascii=False)
             

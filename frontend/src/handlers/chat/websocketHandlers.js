@@ -178,6 +178,18 @@ export function createWebSocketHandler(deps) {
           })
           break
         }
+        case 'tool_progress': {
+          // Update the in-flight tool message with progress
+          const { tool_call_id, progress, total, percentage, message } = data
+          mapMessages(prev => prev.map(msg => msg.tool_call_id === tool_call_id ? {
+            ...msg,
+            status: 'in_progress',
+            progress: typeof percentage === 'number' ? percentage : undefined,
+            progressRaw: { progress, total },
+            progressMessage: message || ''
+          } : msg))
+          break
+        }
         case 'tool_complete': {
           if (data.tool_name === 'canvas_canvas') {
             // No update needed; canvas_content event handles display

@@ -558,15 +558,45 @@ const renderContent = () => {
         <div className="text-gray-200 selectable-markdown">
           <div className="flex items-center gap-2 mb-3">
             <span className={`px-2 py-1 rounded text-xs font-medium ${
-              message.status === 'calling' ? 'bg-blue-600' :
+              message.status === 'calling' || message.status === 'in_progress' ? 'bg-blue-600' :
               message.status === 'completed' ? 'bg-green-600' : 'bg-red-600'
             }`}>
               {message.status === 'calling' ? 'CALLING' :
+               message.status === 'in_progress' ? 'IN PROGRESS' :
                message.status === 'completed' ? 'SUCCESS' : 'FAILED'}
             </span>
             <span className="font-medium">{message.tool_name}</span>
             <span className="text-gray-400 text-sm">({message.server_name})</span>
           </div>
+
+          {/* Progress Section (shows when in progress or progress data available) */}
+          {(
+            message.status === 'in_progress' ||
+            typeof message.progress === 'number' ||
+            (message.progressRaw && (typeof message.progressRaw.progress === 'number' || typeof message.progressRaw.total === 'number'))
+          ) && (
+            <div className="mb-4">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm text-gray-300">Progress</span>
+                {typeof message.progress === 'number' && (
+                  <span className="text-xs text-gray-400">{Math.max(0, Math.min(100, Math.round(message.progress)))}%</span>
+                )}
+              </div>
+              <div className="w-full bg-gray-700 rounded h-2 overflow-hidden">
+                {typeof message.progress === 'number' ? (
+                  <div
+                    className="bg-blue-500 h-2"
+                    style={{ width: `${Math.max(0, Math.min(100, message.progress))}%` }}
+                  />
+                ) : (
+                  <div className="bg-blue-500 h-2 animate-pulse" style={{ width: '33%' }} />
+                )}
+              </div>
+              {message.progressMessage && (
+                <div className="text-xs text-gray-400 mt-1">{message.progressMessage}</div>
+              )}
+            </div>
+          )}
 
           {/* Arguments Section */}
           {message.arguments && Object.keys(message.arguments).length > 0 && (

@@ -179,6 +179,43 @@ async def notify_tool_complete(
     await safe_notify(update_callback, complete_payload)
 
 
+async def notify_tool_progress(
+    tool_call_id: str,
+    tool_name: str,
+    progress: float,
+    total: Optional[float],
+    message: Optional[str],
+    update_callback: Optional[UpdateCallback]
+) -> None:
+    """
+    Send tool progress notification.
+
+    Emits an event shaped for the UI to render progress bars/messages.
+    """
+    if not update_callback:
+        return
+
+    try:
+        pct: Optional[float] = None
+        if total is not None and total != 0:
+            try:
+                pct = (float(progress) / float(total)) * 100.0
+            except Exception:
+                pct = None
+        payload = {
+            "type": "tool_progress",
+            "tool_call_id": tool_call_id,
+            "tool_name": tool_name,
+            "progress": progress,
+            "total": total,
+            "percentage": pct,
+            "message": message or "",
+        }
+        await safe_notify(update_callback, payload)
+    except Exception as e:
+        logger.warning(f"Failed to emit tool_progress: {e}")
+
+
 async def notify_canvas_content(
     parsed_args: Dict[str, Any],
     update_callback: UpdateCallback

@@ -141,7 +141,9 @@ async def execute_single_tool(
             tool_call_obj,
             context={
                 "session_id": session_context.get("session_id"),
-                "user_email": session_context.get("user_email")
+                "user_email": session_context.get("user_email"),
+                # pass update callback so MCP client can emit progress
+                "update_callback": update_callback,
             }
         )
 
