@@ -8,6 +8,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 
 from core.auth import get_user_from_header
+from infrastructure.app_factory import app_factory
 
 logger = logging.getLogger(__name__)
 
@@ -30,9 +31,14 @@ class AuthMiddleware(BaseHTTPMiddleware):
         # Check authentication
         user_email = None
         if self.debug_mode:
-            # In debug mode, honor X-User-Email header if provided, otherwise use default
+            # In debug mode, honor X-User-Email header if provided, otherwise use config test user
             x_email_header = request.headers.get('X-User-Email')
-            user_email = get_user_from_header(x_email_header) if x_email_header else "test@test.com"
+            if x_email_header:
+                user_email = get_user_from_header(x_email_header)
+            else:
+                # Get test user from config
+                config_manager = app_factory.get_config_manager()
+                user_email = config_manager.app_settings.test_user
             # logger.info(f"Debug mode: using user {user_email}")
         else:
             x_email_header = request.headers.get('X-User-Email')
