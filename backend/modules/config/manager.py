@@ -105,6 +105,11 @@ class AppSettings(BaseSettings):
         validation_alias=AliasChoices("FEATURE_AGENT_MODE_AVAILABLE", "AGENT_MODE_AVAILABLE")
     )  # Accept both old and new env var names
     agent_max_steps: int = 10
+    agent_loop_strategy: str = Field(
+        default="react",
+        description="Agent loop strategy selector (react, think-act)",
+        validation_alias=AliasChoices("AGENT_LOOP_STRATEGY"),
+    )
     # Backward compatibility: support old AGENT_MODE_AVAILABLE env if present
     @property
     def agent_mode_available(self) -> bool:

@@ -24,6 +24,8 @@ from interfaces.transport import ChatConnectionProtocol
 
 # Import utilities
 from .utilities import tool_utils, file_utils, notification_utils, error_utils
+from .agent import AgentLoopProtocol, ReActAgentLoop, ThinkActAgentLoop
+from .agent.protocols import AgentContext, AgentEvent
 
 logger = logging.getLogger(__name__)
 
@@ -44,6 +46,7 @@ class ChatService:
         connection: Optional[ChatConnectionProtocol] = None,
         config_manager: Optional[ConfigManager] = None,
         file_manager: Optional[Any] = None,
+    agent_loop: Optional[AgentLoopProtocol] = None,
     ):
         """
         Initialize chat service with dependencies.
@@ -64,6 +67,31 @@ class ChatService:
             PromptProvider(self.config_manager) if self.config_manager else None
         )
         self.file_manager = file_manager
+        # Agent loop DI (default to ReActAgentLoop). Allow override via config/env.
+        if agent_loop is not None:
+            self.agent_loop = agent_loop
+        else:
+            strategy = None
+            try:
+                if self.config_manager:
+                    strategy = self.config_manager.app_settings.agent_loop_strategy
+            except Exception:
+                strategy = None
+            strategy = (strategy or "react").lower()
+            if strategy in ("think-act", "think_act", "thinkact"):
+                self.agent_loop = ThinkActAgentLoop(
+                    llm=self.llm,
+                    tool_manager=self.tool_manager,
+                    prompt_provider=self.prompt_provider,
+                    connection=self.connection,
+                )
+            else:
+                self.agent_loop = ReActAgentLoop(
+                    llm=self.llm,
+                    tool_manager=self.tool_manager,
+                    prompt_provider=self.prompt_provider,
+                    connection=self.connection,
+                )
 
     async def create_session(
         self,
@@ -142,14 +170,15 @@ class ChatService:
             
             # Route to appropriate execution mode
             if agent_mode:
-                response = await self._handle_agent_mode(
-                    session,
-                    model,
-                    messages,
-                    selected_tools,
-                    selected_data_sources,
-                    kwargs.get("agent_max_steps", 30),
-                    update_callback,
+                # Delegate to agent loop manager
+                response = await self._handle_agent_mode_via_loop(
+                    session=session,
+                    model=model,
+                    messages=messages,
+                    selected_tools=selected_tools,
+                    selected_data_sources=selected_data_sources,
+                    max_steps=kwargs.get("agent_max_steps", 30),
+                    update_callback=update_callback,
                     temperature=temperature,
                 )
             elif selected_tools and not only_rag:
@@ -433,6 +462,103 @@ class ChatService:
         update_callback: Optional[UpdateCallback] = None,
         temperature: float = 0.7,
     ) -> Dict[str, Any]:
+        """Deprecated: legacy inline implementation preserved for reference. Use _handle_agent_mode_via_loop."""
+        # Forward to new loop to maintain single code path; keep signature for compatibility
+        return await self._handle_agent_mode_via_loop(
+            session=session,
+            model=model,
+            messages=messages,
+            selected_tools=selected_tools,
+            selected_data_sources=data_sources,
+            max_steps=max_steps,
+            update_callback=update_callback,
+            temperature=temperature,
+        )
+
+    async def _handle_agent_mode_via_loop(
+        self,
+        session: Session,
+        model: str,
+        messages: List[Dict[str, Any]],
+        selected_tools: Optional[List[str]],
+        selected_data_sources: Optional[List[str]],
+        max_steps: int,
+        update_callback: Optional[UpdateCallback] = None,
+        temperature: float = 0.7,
+    ) -> Dict[str, Any]:
+        """Handle agent mode using the injected AgentLoopProtocol with event streaming.
+
+        Translates AgentEvents to UI notifications and persists artifacts; appends final
+        assistant message to history and returns a chat response.
+        """
+        # Build agent context
+        agent_context = AgentContext(
+            session_id=session.id,
+            user_email=session.user_email,
+            files=session.context.get("files", {}),
+            history=session.history,
+        )
+
+        # Event handler: map AgentEvents to existing notification_utils APIs
+        async def handle_event(evt: AgentEvent) -> None:
+            et = evt.type
+            p = evt.payload or {}
+            # UI notifications (guard on connection)
+            if et == "agent_start" and self.connection:
+                await notification_utils.notify_agent_update(update_type="agent_start", connection=self.connection, max_steps=p.get("max_steps"))
+            elif et == "agent_turn_start" and self.connection:
+                await notification_utils.notify_agent_update(update_type="agent_turn_start", connection=self.connection, step=p.get("step"))
+            elif et == "agent_reason" and self.connection:
+                await notification_utils.notify_agent_update(update_type="agent_reason", connection=self.connection, message=p.get("message"), step=p.get("step"))
+            elif et == "agent_request_input" and self.connection:
+                await notification_utils.notify_agent_update(update_type="agent_request_input", connection=self.connection, question=p.get("question"), step=p.get("step"))
+            elif et == "agent_tool_start" and self.connection:
+                await notification_utils.notify_agent_update(update_type="tool_start", connection=self.connection, tool=p.get("tool"))
+            elif et == "agent_tool_complete" and self.connection:
+                await notification_utils.notify_agent_update(update_type="tool_complete", connection=self.connection, tool=p.get("tool"), result=p.get("result"))
+
+            # Artifact ingestion should run regardless of connection
+            if et == "agent_tool_results":
+                # Ingest artifacts produced by tools and emit file/canvas updates
+                results = p.get("results") or []
+                if results:
+                    await self._update_session_from_tool_results(
+                        session,
+                        results,
+                        (self.connection.send_json if self.connection else None),
+                    )
+            elif et == "agent_observe" and self.connection:
+                await notification_utils.notify_agent_update(update_type="agent_observe", connection=self.connection, message=p.get("message"), step=p.get("step"))
+            elif et == "agent_completion" and self.connection:
+                await notification_utils.notify_agent_update(update_type="agent_completion", connection=self.connection, steps=p.get("steps"))
+            elif et == "agent_error" and self.connection:
+                await notification_utils.notify_agent_update(update_type="agent_error", connection=self.connection, message=p.get("message"))
+
+        # Run the loop
+        result = await self.agent_loop.run(
+            model=model,
+            messages=messages,
+            context=agent_context,
+            selected_tools=selected_tools,
+            data_sources=selected_data_sources,
+            max_steps=max_steps,
+            temperature=temperature,
+            event_handler=handle_event,
+        )
+
+        # Append final message
+        assistant_message = Message(
+            role=MessageRole.ASSISTANT,
+            content=result.final_answer,
+            metadata={"agent_mode": True, "steps": result.steps},
+        )
+        session.history.add_message(assistant_message)
+
+        # Completion update
+        if self.connection:
+            await notification_utils.notify_agent_update(update_type="agent_completion", connection=self.connection, steps=result.steps)
+
+        return notification_utils.create_chat_response(result.final_answer)
         """Handle agent mode with strict Reason–Act–Observe loop and UI streaming.
 
         - Reason: plan next action with a dedicated prompt; emit agent_reason.

@@ -357,6 +357,48 @@ async def update_banner_config(
 #         raise HTTPException(status_code=500, detail=str(e))
 
 
+# --- Config Viewer ---
+
+@admin_router.get("/config/view")
+async def get_all_configs(admin_user: str = Depends(require_admin)):
+    """Get all configuration values for admin viewing."""
+    try:
+        # Get all configs from config manager
+        app_settings = config_manager.app_settings
+        llm_config = config_manager.llm_config
+        mcp_config = config_manager.mcp_config
+        
+        # Convert app_settings to dict, excluding sensitive fields
+        app_settings_dict = app_settings.model_dump()
+        
+        # Mask sensitive fields
+        sensitive_fields = ['api_key', 'secret', 'password', 'token']
+        for key, value in app_settings_dict.items():
+            if any(sensitive in key.lower() for sensitive in sensitive_fields):
+                if isinstance(value, str) and value:
+                    app_settings_dict[key] = "***MASKED***"
+        
+        # Convert LLM config, masking API keys
+        llm_config_dict = llm_config.model_dump()
+        if 'models' in llm_config_dict:
+            for model_name, model_config in llm_config_dict['models'].items():
+                if 'api_key' in model_config and model_config['api_key']:
+                    model_config['api_key'] = "***MASKED***"
+        
+        # Convert MCP config
+        mcp_config_dict = mcp_config.model_dump()
+        
+        return {
+            "app_settings": app_settings_dict,
+            "llm_config": llm_config_dict, 
+            "mcp_config": mcp_config_dict,
+            "config_validation": config_manager.validate_config()
+        }
+    except Exception as e:
+        logger.error(f"Error getting config view: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # --- Log Management ---
 
 @admin_router.get("/logs/viewer")
