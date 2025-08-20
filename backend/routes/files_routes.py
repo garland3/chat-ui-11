@@ -74,6 +74,21 @@ async def upload_file(
         raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 
+# Place health endpoint before dynamic /files/{file_key} routes to avoid capture
+@router.get("/files/healthz")
+async def files_health_check():
+    """Health check for files service."""
+    s3_client = app_factory.get_file_storage()
+    return {
+        "status": "healthy",
+        "service": "files-api",
+        "s3_config": {
+            "endpoint": s3_client.base_url if hasattr(s3_client, 'base_url') else "unknown",
+            "use_mock": s3_client.use_mock if hasattr(s3_client, 'use_mock') else False
+        }
+    }
+
+
 @router.get("/files/{file_key}", response_model=FileContentResponse)
 async def get_file(
     file_key: str,
@@ -164,13 +179,13 @@ async def get_user_file_stats(
         raise HTTPException(status_code=500, detail=f"Failed to get stats: {str(e)}")
 
 
-@router.get("/files/health")
+@router.get("/files/healthz")
 async def files_health_check():
     """Health check for files service."""
     s3_client = app_factory.get_file_storage()
     return {
         "status": "healthy",
-        "service": "files-api",
+    "service": "files-api",
         "s3_config": {
             "endpoint": s3_client.base_url if hasattr(s3_client, 'base_url') else "unknown",
             "use_mock": s3_client.use_mock if hasattr(s3_client, 'use_mock') else False
