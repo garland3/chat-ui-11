@@ -1,5 +1,7 @@
 # Chat UI
 
+[![CI/CD Pipeline](https://github.com/garland3/chat-ui-11/actions/workflows/ci.yml/badge.svg)](https://github.com/garland3/chat-ui-11/actions/workflows/ci.yml)
+
 A modern LLM chat interface with MCP (Model Context Protocol) integration.
 
 ## Features
