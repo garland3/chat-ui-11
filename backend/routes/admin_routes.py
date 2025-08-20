@@ -97,7 +97,15 @@ def get_admin_config_path(filename: str) -> Path:
     else:
         custom_filename = filename
     
-    base = Path(os.getenv("APP_CONFIG_OVERRIDES", "config/overrides"))
+    # Use same logic as config manager to resolve relative paths from project root
+    overrides_env = os.getenv("APP_CONFIG_OVERRIDES", "config/overrides")
+    base = Path(overrides_env)
+    
+    # If relative path, resolve from project root (parent of backend directory)
+    if not base.is_absolute():
+        project_root = Path(__file__).parent.parent.parent  # Go up from routes/ to backend/ to project root
+        base = project_root / base
+    
     base.mkdir(parents=True, exist_ok=True)
     return base / custom_filename
 

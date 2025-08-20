@@ -263,19 +263,21 @@ def json_to_pptx(
                                    left=Inches(0.5), top=Inches(3.5), 
                                    width=Inches(4), height=Inches(3))
             
-        # Save presentation
-        pptx_output_path = os.path.join(os.getcwd(), "output_presentation.pptx")
-        prs.save(pptx_output_path)
-        if VERBOSE:
-            logger.info(f"Saved PowerPoint presentation to {pptx_output_path}")
-        
-        # Create HTML file instead of PDF
-        html_output_path = os.path.join(os.getcwd(), "output_presentation.html")
-        if VERBOSE:
-            logger.info(f"Starting HTML creation to {html_output_path}")
-        
-        # Create HTML representation of the presentation
-        html_content = """<!DOCTYPE html>
+        # Write outputs to a temporary directory and clean up after encoding
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Save presentation
+            pptx_output_path = os.path.join(tmpdir, "output_presentation.pptx")
+            prs.save(pptx_output_path)
+            if VERBOSE:
+                logger.info(f"Saved PowerPoint presentation to {pptx_output_path}")
+
+            # Create HTML file instead of PDF
+            html_output_path = os.path.join(tmpdir, "output_presentation.html")
+            if VERBOSE:
+                logger.info(f"Starting HTML creation to {html_output_path}")
+
+            # Create HTML representation of the presentation
+            html_content = """<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -294,125 +296,125 @@ def json_to_pptx(
 </head>
 <body>"""
         
-        for i, slide in enumerate(slides):
-            title = slide.get('title', 'Untitled Slide')
-            content = slide.get('content', '')
-            
-            html_content += f"""
+            for i, slide in enumerate(slides):
+                title = slide.get('title', 'Untitled Slide')
+                content = slide.get('content', '')
+
+                html_content += f"""
     <div class="slide">
         <div class="slide-number">Slide {i+1}</div>
         <div class="slide-title">{title}</div>
         <div class="slide-content">"""
-            
-            # Add image to first slide if provided
-            if i == 0 and image_bytes:
-                try:
-                    img = Image.open(io.BytesIO(image_bytes))
-                    mime_type = Image.MIME.get(img.format)
-                    if mime_type:
-                        img_b64 = base64.b64encode(image_bytes).decode('utf-8')
-                        html_content += f'<img src="data:{mime_type};base64,{img_b64}" class="slide-image" />'
-                except Exception as e:
-                    if VERBOSE:
-                        logger.warning(f"Could not process image for HTML conversion: {e}")
-            
-            if content.strip() and content.strip().startswith('-'):
-                items = [item.strip() for item in content.split('\n') if item.strip()]
-                html_content += "<ul>"
-                for item in items:
-                    if item.startswith('-'):
-                        item_text = item[1:].strip()
-                        html_content += f"<li>{item_text}</li>"
-                html_content += "</ul>"
-            else:
-                html_content += f"<p>{content}</p>"
-            
-            html_content += """
+                
+                # Add image to first slide if provided
+                if i == 0 and image_bytes:
+                    try:
+                        img = Image.open(io.BytesIO(image_bytes))
+                        mime_type = Image.MIME.get(img.format)
+                        if mime_type:
+                            img_b64 = base64.b64encode(image_bytes).decode('utf-8')
+                            html_content += f'<img src="data:{mime_type};base64,{img_b64}" class="slide-image" />'
+                    except Exception as e:
+                        if VERBOSE:
+                            logger.warning(f"Could not process image for HTML conversion: {e}")
+
+                if content.strip() and content.strip().startswith('-'):
+                    items = [item.strip() for item in content.split('\n') if item.strip()]
+                    html_content += "<ul>"
+                    for item in items:
+                        if item.startswith('-'):
+                            item_text = item[1:].strip()
+                            html_content += f"<li>{item_text}</li>"
+                    html_content += "</ul>"
+                else:
+                    html_content += f"<p>{content}</p>"
+
+                html_content += """
         </div>
     </div>"""
-        
-        html_content += """
+
+            html_content += """
 </body>
 </html>"""
-        
-        # Save HTML file
-        try:
-            if VERBOSE:
-                logger.info("Saving HTML file...")
-            with open(html_output_path, "w", encoding="utf-8") as f:
-                f.write(html_content)
-            if VERBOSE:
-                logger.info(f"HTML successfully created at {html_output_path}")
-        except Exception as e:
-            # If HTML save fails, continue with just PPTX
-            if VERBOSE:
-                logger.warning(f"HTML creation failed: {str(e)}")
-            # Remove the HTML file if it exists
-            if os.path.exists(html_output_path):
-                os.remove(html_output_path)
-            if VERBOSE:
-                logger.info("HTML file removed due to creation error")
-        
-        # Read PPTX file as bytes
-        with open(pptx_output_path, "rb") as f:
-            pptx_bytes = f.read()
             
-        # Encode PPTX as base64
-        pptx_b64 = base64.b64encode(pptx_bytes).decode('utf-8')
-        if VERBOSE:
-            logger.info("PPTX file successfully encoded to base64")
-        
-        # Read HTML file as bytes if it exists
-        html_b64 = None
-        if os.path.exists(html_output_path):
-            with open(html_output_path, "r", encoding="utf-8") as f:
-                html_content_file = f.read()
-            html_b64 = base64.b64encode(html_content_file.encode('utf-8')).decode('utf-8')
+            # Save HTML file
+            try:
+                if VERBOSE:
+                    logger.info("Saving HTML file...")
+                with open(html_output_path, "w", encoding="utf-8") as f:
+                    f.write(html_content)
+                if VERBOSE:
+                    logger.info(f"HTML successfully created at {html_output_path}")
+            except Exception as e:
+                # If HTML save fails, continue with just PPTX
+                if VERBOSE:
+                    logger.warning(f"HTML creation failed: {str(e)}")
+                # Remove the HTML file if it exists
+                if os.path.exists(html_output_path):
+                    os.remove(html_output_path)
+                if VERBOSE:
+                    logger.info("HTML file removed due to creation error")
+
+            # Read PPTX file as bytes
+            with open(pptx_output_path, "rb") as f:
+                pptx_bytes = f.read()
+
+            # Encode PPTX as base64
+            pptx_b64 = base64.b64encode(pptx_bytes).decode('utf-8')
             if VERBOSE:
-                logger.info("HTML file successfully encoded to base64")
-        
-        # Prepare artifacts
-        artifacts = [
-            {
-                "name": "presentation.pptx",
-                "b64": pptx_b64,
-                "mime": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                logger.info("PPTX file successfully encoded to base64")
+
+            # Read HTML file as bytes if it exists
+            html_b64 = None
+            if os.path.exists(html_output_path):
+                with open(html_output_path, "r", encoding="utf-8") as f:
+                    html_content_file = f.read()
+                html_b64 = base64.b64encode(html_content_file.encode('utf-8')).decode('utf-8')
+                if VERBOSE:
+                    logger.info("HTML file successfully encoded to base64")
+
+            # Prepare artifacts
+            artifacts = [
+                {
+                    "name": "presentation.pptx",
+                    "b64": pptx_b64,
+                    "mime": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                }
+            ]
+
+            # Add HTML if creation was successful
+            if html_b64:
+                artifacts.append({
+                    "name": "presentation.html",
+                    "b64": html_b64,
+                    "mime": "text/html",
+                })
+                if VERBOSE:
+                    logger.info(f"Added {len(artifacts)} artifacts to response")
+            else:
+                if VERBOSE:
+                    logger.info("No HTML artifact added due to creation failure")
+
+            return {
+                "results": {
+                    "operation": "json_to_pptx",
+                    "message": "PowerPoint presentation and HTML file generated successfully.",
+                    "html_generated": html_b64 is not None,
+                    "image_included": image_bytes is not None,
+                },
+                "artifacts": artifacts,
+                "display": {
+                    "open_canvas": True,
+                    "primary_file": "presentation.pptx",
+                    "mode": "replace",
+                    "viewer_hint": "powerpoint",
+                },
+                "meta_data": {
+                    "generated_slides": len(slides),
+                    "output_files": [f"presentation.pptx", "presentation.html"] if html_b64 else ["presentation.pptx"],
+                    "output_file_paths": ["temp:output_presentation.pptx", "temp:output_presentation.html"] if html_b64 else ["temp:output_presentation.pptx"],
+                },
             }
-        ]
-        
-        # Add HTML if creation was successful
-        if html_b64:
-            artifacts.append({
-                "name": "presentation.html",
-                "b64": html_b64,
-                "mime": "text/html",
-            })
-            if VERBOSE:
-                logger.info(f"Added {len(artifacts)} artifacts to response")
-        else:
-            if VERBOSE:
-                logger.info("No HTML artifact added due to creation failure")
-        
-        return {
-            "results": {
-                "operation": "json_to_pptx",
-                "message": "PowerPoint presentation and HTML file generated successfully.",
-                "html_generated": html_b64 is not None,
-                "image_included": image_bytes is not None,
-            },
-            "artifacts": artifacts,
-            "display": {
-                "open_canvas": True,
-                "primary_file": "presentation.pptx",
-                "mode": "replace",
-                "viewer_hint": "powerpoint",
-            },
-            "meta_data": {
-                "generated_slides": len(slides),
-                "output_files": [f"presentation.pptx", "presentation.html"] if html_b64 else ["presentation.pptx"],
-                "output_file_paths": [pptx_output_path, html_output_path] if html_b64 else [pptx_output_path],
-            },
-        }
     except Exception as e:
         if VERBOSE:
             logger.info(f"Error in json_to_pptx: {str(e)}")
@@ -519,19 +521,21 @@ def markdown_to_pptx(
                                    left=Inches(0.5), top=Inches(3.5), 
                                    width=Inches(4), height=Inches(3))
         
-        # Save presentation
-        pptx_output_path = os.path.join(os.getcwd(), "output_presentation.pptx")
-        prs.save(pptx_output_path)
-        if VERBOSE:
-            logger.info(f"Saved PowerPoint presentation to {pptx_output_path}")
-        
-        # Create HTML file instead of PDF
-        html_output_path = os.path.join(os.getcwd(), "output_presentation.html")
-        if VERBOSE:
-            logger.info(f"Starting HTML creation to {html_output_path}")
-        
-        # Create HTML representation of the presentation
-        html_content = """<!DOCTYPE html>
+        # Write outputs to a temporary directory and clean up after encoding
+        with tempfile.TemporaryDirectory() as tmpdir:
+            # Save presentation
+            pptx_output_path = os.path.join(tmpdir, "output_presentation.pptx")
+            prs.save(pptx_output_path)
+            if VERBOSE:
+                logger.info(f"Saved PowerPoint presentation to {pptx_output_path}")
+
+            # Create HTML file instead of PDF
+            html_output_path = os.path.join(tmpdir, "output_presentation.html")
+            if VERBOSE:
+                logger.info(f"Starting HTML creation to {html_output_path}")
+
+            # Create HTML representation of the presentation
+            html_content = """<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -550,138 +554,138 @@ def markdown_to_pptx(
 </head>
 <body>"""
         
-        for i, slide_data in enumerate(slides):
-            title = slide_data.get('title', 'Untitled Slide')
-            content = slide_data.get('content', '')
-            
-            html_content += f"""
+            for i, slide_data in enumerate(slides):
+                title = slide_data.get('title', 'Untitled Slide')
+                content = slide_data.get('content', '')
+
+                html_content += f"""
     <div class="slide">
         <div class="slide-number">Slide {i+1}</div>
         <div class="slide-title">{title}</div>
         <div class="slide-content">"""
-            
-            # Add image to first slide if provided
-            if i == 0 and image_bytes:
-                try:
-                    img = Image.open(io.BytesIO(image_bytes))
-                    mime_type = Image.MIME.get(img.format)
-                    if mime_type:
-                        img_b64 = base64.b64encode(image_bytes).decode('utf-8')
-                        html_content += f'<img src="data:{mime_type};base64,{img_b64}" class="slide-image" />'
-                except Exception as e:
-                    if VERBOSE:
-                        logger.warning(f"Could not process image for HTML conversion: {e}")
-            
-            if content.strip():
-                lines = content.split('\n')
-                bullet_lines = []
-                regular_lines = []
                 
-                for line in lines:
-                    line = line.strip()
-                    if line.startswith(('- ', '* ')):
-                        bullet_lines.append(line[2:].strip())
-                    elif line.startswith(('  - ', '  * ', '\t- ', '\t* ')):
-                        bullet_lines.append(f"&nbsp;&nbsp;&bull; {line.strip()[2:].strip()}")
-                    elif line:
-                        regular_lines.append(line)
-                
-                if bullet_lines:
-                    html_content += "<ul>"
-                    for item in bullet_lines:
-                        html_content += f"<li>{item}</li>"
-                    html_content += "</ul>"
-                
-                if regular_lines:
-                    for line in regular_lines:
-                        html_content += f"<p>{line}</p>"
-            
-            html_content += """
+                # Add image to first slide if provided
+                if i == 0 and image_bytes:
+                    try:
+                        img = Image.open(io.BytesIO(image_bytes))
+                        mime_type = Image.MIME.get(img.format)
+                        if mime_type:
+                            img_b64 = base64.b64encode(image_bytes).decode('utf-8')
+                            html_content += f'<img src="data:{mime_type};base64,{img_b64}" class="slide-image" />'
+                    except Exception as e:
+                        if VERBOSE:
+                            logger.warning(f"Could not process image for HTML conversion: {e}")
+
+                if content.strip():
+                    lines = content.split('\n')
+                    bullet_lines = []
+                    regular_lines = []
+
+                    for line in lines:
+                        line = line.strip()
+                        if line.startswith(('- ', '* ')):
+                            bullet_lines.append(line[2:].strip())
+                        elif line.startswith(('  - ', '  * ', '\t- ', '\t* ')):
+                            bullet_lines.append(f"&nbsp;&nbsp;&bull; {line.strip()[2:].strip()}")
+                        elif line:
+                            regular_lines.append(line)
+
+                    if bullet_lines:
+                        html_content += "<ul>"
+                        for item in bullet_lines:
+                            html_content += f"<li>{item}</li>"
+                        html_content += "</ul>"
+
+                    if regular_lines:
+                        for line in regular_lines:
+                            html_content += f"<p>{line}</p>"
+
+                html_content += """
         </div>
     </div>"""
-        
-        html_content += """
+
+            html_content += """
 </body>
 </html>"""
-        
-        # Save HTML file
-        try:
-            if VERBOSE:
-                logger.info("Saving HTML file...")
-            with open(html_output_path, "w", encoding="utf-8") as f:
-                f.write(html_content)
-            if VERBOSE:
-                logger.info(f"HTML successfully created at {html_output_path}")
-        except Exception as e:
-            # If HTML save fails, continue with just PPTX
-            if VERBOSE:
-                logger.warning(f"HTML creation failed: {str(e)}")
-            # Remove the HTML file if it exists
-            if os.path.exists(html_output_path):
-                os.remove(html_output_path)
-            if VERBOSE:
-                logger.info("HTML file removed due to creation error")
-        
-        # Read PPTX file as bytes
-        with open(pptx_output_path, "rb") as f:
-            pptx_bytes = f.read()
             
-        # Encode PPTX as base64
-        pptx_b64 = base64.b64encode(pptx_bytes).decode('utf-8')
-        if VERBOSE:
-            logger.info("PPTX file successfully encoded to base64")
-        
-        # Read HTML file as bytes if it exists
-        html_b64 = None
-        if os.path.exists(html_output_path):
-            with open(html_output_path, "r", encoding="utf-8") as f:
-                html_content_file = f.read()
-            html_b64 = base64.b64encode(html_content_file.encode('utf-8')).decode('utf-8')
+            # Save HTML file
+            try:
+                if VERBOSE:
+                    logger.info("Saving HTML file...")
+                with open(html_output_path, "w", encoding="utf-8") as f:
+                    f.write(html_content)
+                if VERBOSE:
+                    logger.info(f"HTML successfully created at {html_output_path}")
+            except Exception as e:
+                # If HTML save fails, continue with just PPTX
+                if VERBOSE:
+                    logger.warning(f"HTML creation failed: {str(e)}")
+                # Remove the HTML file if it exists
+                if os.path.exists(html_output_path):
+                    os.remove(html_output_path)
+                if VERBOSE:
+                    logger.info("HTML file removed due to creation error")
+
+            # Read PPTX file as bytes
+            with open(pptx_output_path, "rb") as f:
+                pptx_bytes = f.read()
+
+            # Encode PPTX as base64
+            pptx_b64 = base64.b64encode(pptx_bytes).decode('utf-8')
             if VERBOSE:
-                logger.info("HTML file successfully encoded to base64")
-        
-        # Prepare artifacts
-        artifacts = [
-            {
-                "name": "presentation.pptx",
-                "b64": pptx_b64,
-                "mime": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                logger.info("PPTX file successfully encoded to base64")
+
+            # Read HTML file as bytes if it exists
+            html_b64 = None
+            if os.path.exists(html_output_path):
+                with open(html_output_path, "r", encoding="utf-8") as f:
+                    html_content_file = f.read()
+                html_b64 = base64.b64encode(html_content_file.encode('utf-8')).decode('utf-8')
+                if VERBOSE:
+                    logger.info("HTML file successfully encoded to base64")
+
+            # Prepare artifacts
+            artifacts = [
+                {
+                    "name": "presentation.pptx",
+                    "b64": pptx_b64,
+                    "mime": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                }
+            ]
+
+            # Add HTML if creation was successful
+            if html_b64:
+                artifacts.append({
+                    "name": "presentation.html",
+                    "b64": html_b64,
+                    "mime": "text/html",
+                })
+                if VERBOSE:
+                    logger.info(f"Added {len(artifacts)} artifacts to response")
+            else:
+                if VERBOSE:
+                    logger.info("No HTML artifact added due to creation failure")
+
+            return {
+                "results": {
+                    "operation": "markdown_to_pptx",
+                    "message": "PowerPoint presentation and HTML file generated successfully from markdown.",
+                    "html_generated": html_b64 is not None,
+                    "image_included": image_bytes is not None,
+                },
+                "artifacts": artifacts,
+                "display": {
+                    "open_canvas": True,
+                    "primary_file": "presentation.pptx",
+                    "mode": "replace",
+                    "viewer_hint": "powerpoint",
+                },
+                "meta_data": {
+                    "generated_slides": len(slides),
+                    "output_files": [f"presentation.pptx", "presentation.html"] if html_b64 else ["presentation.pptx"],
+                    "output_file_paths": ["temp:output_presentation.pptx", "temp:output_presentation.html"] if html_b64 else ["temp:output_presentation.pptx"],
+                },
             }
-        ]
-        
-        # Add HTML if creation was successful
-        if html_b64:
-            artifacts.append({
-                "name": "presentation.html",
-                "b64": html_b64,
-                "mime": "text/html",
-            })
-            if VERBOSE:
-                logger.info(f"Added {len(artifacts)} artifacts to response")
-        else:
-            if VERBOSE:
-                logger.info("No HTML artifact added due to creation failure")
-        
-        return {
-            "results": {
-                "operation": "markdown_to_pptx",
-                "message": "PowerPoint presentation and HTML file generated successfully from markdown.",
-                "html_generated": html_b64 is not None,
-                "image_included": image_bytes is not None,
-            },
-            "artifacts": artifacts,
-            "display": {
-                "open_canvas": True,
-                "primary_file": "presentation.pptx",
-                "mode": "replace",
-                "viewer_hint": "powerpoint",
-            },
-            "meta_data": {
-                "generated_slides": len(slides),
-                "output_files": [f"presentation.pptx", "presentation.html"] if html_b64 else ["presentation.pptx"],
-                "output_file_paths": [pptx_output_path, html_output_path] if html_b64 else [pptx_output_path],
-            },
-        }
     except Exception as e:
         print(f"Error in markdown_to_pptx: {str(e)}")
         return {"results": {"error": f"Error creating PowerPoint from markdown: {str(e)}"}}

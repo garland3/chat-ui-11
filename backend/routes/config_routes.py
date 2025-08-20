@@ -16,8 +16,40 @@ router = APIRouter(prefix="/api", tags=["config"])
 
 @router.get("/banners")
 async def get_banners(current_user: str = Depends(get_current_user)):
-    """Get banners for the user. For basic chat, return empty list."""
-    return []
+    """Get banners for the user."""
+    config_manager = app_factory.get_config_manager()
+    app_settings = config_manager.app_settings
+    
+    # Check if banners are enabled
+    if not app_settings.banner_enabled:
+        return {"messages": []}
+    
+    # Read messages from messages.txt file
+    try:
+        from pathlib import Path
+        import os
+        
+        # Use same logic as admin routes to find messages file
+        overrides_env = os.getenv("APP_CONFIG_OVERRIDES", "config/overrides")
+        base = Path(overrides_env)
+        
+        # If relative path, resolve from project root
+        if not base.is_absolute():
+            project_root = Path(__file__).parent.parent.parent
+            base = project_root / base
+        
+        messages_file = base / app_settings.messages_config_file
+        
+        if messages_file.exists():
+            with open(messages_file, "r", encoding="utf-8") as f:
+                content = f.read()
+            messages = [line.strip() for line in content.splitlines() if line.strip()]
+            return {"messages": messages}
+        else:
+            return {"messages": []}
+    except Exception as e:
+        logger.error(f"Error reading banner messages: {e}")
+        return {"messages": []}
 
 
 @router.get("/config")
