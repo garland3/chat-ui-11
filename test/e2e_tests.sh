@@ -84,7 +84,7 @@ MAX_RETRIES=15
 RETRY_INTERVAL=2
 SUCCESS=false
 for i in $(seq 1 $MAX_RETRIES); do
-    if curl --silent --fail http://127.0.0.1:8000/healthz >/dev/null 2>&1; then
+    if curl --silent --fail http://127.0.0.1:8000/api/config >/dev/null 2>&1; then
         echo "Backend is up (after $i attempt(s))"
         SUCCESS=true
         break

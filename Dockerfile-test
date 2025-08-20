@@ -1,5 +1,5 @@
 # Test-specific Dockerfile with simple E2E testing dependencies
-FROM ubuntu:24.04
+FROM fedora:latest
 
 # Set working directory
 WORKDIR /app
@@ -7,21 +7,19 @@ WORKDIR /app
 # Create non-root user
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 
-# Install system dependencies excluding Node.js (we'll install newer version)
-RUN apt-get update && apt-get install -y \
+# Install system dependencies including Node.js
+RUN dnf update -y && dnf install -y \
     python3 \
     python3-pip \
-    python3-venv \
+    python3-virtualenv \
+    nodejs \
+    npm \
     curl \
     hostname \
     wget \
     ca-certificates \
     dos2unix \
-    && apt-get clean && rm -rf /var/lib/apt/lists/*
-
-# Install Node.js 20.x from NodeSource repository
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
-    apt-get install -y nodejs
+    && dnf clean all
 
 # Install uv for better Python dependency management
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
@@ -60,8 +58,8 @@ COPY test_e2e/ ./test_e2e/
 RUN find /app -type f \( -name "*.js" -o -name "*.json" -o -name "*.sh" -o -name "*.md" -o -name "*.txt" -o -name "*.py" \) -exec dos2unix {} \;
 RUN find /app -type f -name "*.sh" -exec chmod +x {} \;
 
-# Install requests for simple E2E testing using apt
-RUN apt-get update && apt-get install -y python3-requests && apt-get clean && rm -rf /var/lib/apt/lists/*
+# Install requests for simple E2E testing using dnf
+RUN dnf install -y python3-requests && dnf clean all
 
 # Switch back to app directory and create required directories
 WORKDIR /app

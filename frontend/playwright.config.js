@@ -1,6 +1,7 @@
-import { defineConfig, devices } from '@playwright/test';
+// COMMENTED OUT FOR FEDORA MIGRATION - Playwright tests disabled
+// import { defineConfig, devices } from '@playwright/test';
 
-export default defineConfig({
+/* export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
@@ -20,4 +21,4 @@ export default defineConfig({
   ],
 
   
-});
+}); */

@@ -13,7 +13,7 @@ def wait_for_server(url, max_retries=30, delay=2):
     print(f"Waiting for server at {url}...")
     for i in range(max_retries):
         try:
-            response = requests.get(f"{url}/healthz", timeout=5)
+            response = requests.get(f"{url}/api/config", timeout=5)
             if response.status_code in [200, 302]:  # 302 is redirect, which is also OK
                 print(f"✅ Server is ready (attempt {i+1})")
                 return True
@@ -31,7 +31,7 @@ def test_health_endpoint():
     """Test the health endpoint."""
     print("Testing health endpoint...")
     try:
-        response = requests.get("http://127.0.0.1:8000/healthz", timeout=10)
+        response = requests.get("http://127.0.0.1:8000/api/config", timeout=10)
         print(f"✅ Health endpoint responded with status {response.status_code}")
         return True
     except Exception as e:

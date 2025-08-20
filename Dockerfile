@@ -1,5 +1,5 @@
-# Use Ubuntu as base image (better Playwright support)
-FROM ubuntu:24.04
+# Use Fedora as base image
+FROM fedora:latest
 
 # Set working directory
 WORKDIR /app
@@ -8,7 +8,7 @@ WORKDIR /app
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 
 # Install system dependencies including Python and Node.js
-RUN apt-get update && apt-get install -y     python3     python3-pip     python3-venv     nodejs     npm     curl     hostname     sudo     && apt-get clean && rm -rf /var/lib/apt/lists/*
+RUN dnf update -y && dnf install -y     python3     python3-pip     python3-virtualenv     nodejs     npm     curl     hostname     sudo     && dnf clean all
 
 # Install uv for better Python dependency management
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
