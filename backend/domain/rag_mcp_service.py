@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional
 
 
 logger = logging.getLogger(__name__)
+from core.prompt_risk import calculate_prompt_injection_risk, log_high_risk_event
 
 
 class RAGMCPService:
@@ -261,6 +262,31 @@ class RAGMCPService:
 
         all_hits.sort(key=score_of, reverse=True)
         merged = all_hits[: top_k or len(all_hits)]
+
+        # Prompt-injection risk check on retrieved snippets (observe + log)
+        try:
+            for h in merged:
+                if not isinstance(h, dict):
+                    continue
+                text = h.get("snippet") or h.get("chunk") or h.get("text") or ""
+                if not isinstance(text, str) or not text.strip():
+                    continue
+                pi = calculate_prompt_injection_risk(text, mode="general")
+                if pi.get("risk_level") in ("medium", "high"):
+                    log_high_risk_event(
+                        source="rag_chunk",
+                        user=username,
+                        content=text,
+                        score=int(pi.get("score", 0)),
+                        risk_level=str(pi.get("risk_level")),
+                        triggers=list(pi.get("triggers", [])),
+                        extra={
+                            "server": h.get("server"),
+                            "resourceId": h.get("resourceId"),
+                        },
+                    )
+        except Exception:
+            logger.debug("Prompt risk check failed (RAG results)", exc_info=True)
 
         return {
             "results": {

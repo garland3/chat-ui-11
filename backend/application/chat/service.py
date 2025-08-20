@@ -26,6 +26,8 @@ from interfaces.transport import ChatConnectionProtocol
 from .utilities import tool_utils, file_utils, notification_utils, error_utils
 from .agent import AgentLoopProtocol, ReActAgentLoop, ThinkActAgentLoop
 from .agent.protocols import AgentContext, AgentEvent
+from core.prompt_risk import calculate_prompt_injection_risk, log_high_risk_event
+from core.auth_utils import create_authorization_manager
 
 logger = logging.getLogger(__name__)
 
@@ -152,6 +154,22 @@ class ChatService:
         )
         session.history.add_message(user_message)
         session.update_timestamp()
+
+        # Prompt-injection risk check on user input (observe + log medium/high)
+        try:
+            pi = calculate_prompt_injection_risk(content or "", mode="general")
+            if pi.get("risk_level") in ("medium", "high"):
+                log_high_risk_event(
+                    source="user_input",
+                    user=user_email,
+                    content=content or "",
+                    score=int(pi.get("score", 0)),
+                    risk_level=str(pi.get("risk_level")),
+                    triggers=list(pi.get("triggers", [])),
+                    extra={"session_id": str(session_id)},
+                )
+        except Exception:
+            logger.debug("Prompt risk check failed (user input)", exc_info=True)
         
         # Handle user file ingestion using utilities
         session.context = await file_utils.handle_session_files(
@@ -229,6 +247,34 @@ class ChatService:
                     temperature=temperature,
                 )
             elif selected_tools and not only_rag:
+                # Enforce MCP tool ACLs: filter tools to authorized servers only
+                if self.tool_manager:
+                    try:
+                        user = user_email or ""
+                        # Prefer tool_manager's own authorization method if available
+                        if hasattr(self.tool_manager, "get_authorized_servers"):
+                            authorized_servers = self.tool_manager.get_authorized_servers(user, None)  # type: ignore[attr-defined]
+                        else:
+                            auth_mgr = create_authorization_manager()
+                            servers_config = getattr(self.tool_manager, "servers_config", {})
+                            authorized_servers = auth_mgr.filter_authorized_servers(
+                                user,
+                                servers_config,
+                                getattr(self.tool_manager, "get_server_groups", lambda s: []),
+                            )
+                        # Filter tools by server prefix
+                        filtered_tools: List[str] = []
+                        for t in selected_tools or []:
+                            if t == "canvas_canvas":
+                                filtered_tools.append(t)
+                                continue
+                            if isinstance(t, str) and "_" in t:
+                                server = t.split("_", 1)[0]
+                                if server in authorized_servers:
+                                    filtered_tools.append(t)
+                        selected_tools = filtered_tools
+                    except Exception:
+                        logger.debug("Tool ACL filtering failed; proceeding with original selection", exc_info=True)
                 response = await self._handle_tools_mode_with_utilities(
                     session, model, messages, selected_tools, selected_data_sources,
                     user_email, tool_choice_required, update_callback, temperature=temperature
