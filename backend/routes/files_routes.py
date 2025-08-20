@@ -7,6 +7,7 @@ list, delete, and user statistics. Integrates with S3 storage backend.
 
 import logging
 from typing import List, Dict, Any, Optional
+import re
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi import Query
 import base64
@@ -223,10 +224,30 @@ async def download_file(
         except Exception:
             raise HTTPException(status_code=500, detail="Corrupted file content")
 
+        # Sanitize filename for header safety
+        fn = result.get('filename', 'download') or 'download'
+        # Remove control characters and dangerous bytes
+        fn = re.sub(r"[\r\n\t\x00-\x1f\x7f]", "_", fn)
+        # Keep it reasonably short
+        if len(fn) > 150:
+            fn = fn[:150]
+
+        content_type = result.get("content_type", "application/octet-stream") or "application/octet-stream"
+
+        # Default to attachment to reduce XSS risk; allow inline only for a small allowlist
+        inline_allow = (
+            content_type.startswith("image/")
+            or content_type.startswith("text/plain")
+            or content_type in ("application/pdf",)
+        )
+        disposition = "inline" if inline_allow else "attachment"
+
         headers = {
-            "Content-Disposition": f"inline; filename=\"{result.get('filename', 'download')}\""
+            "Content-Disposition": f"{disposition}; filename=\"{fn}\"",
+            "X-Content-Type-Options": "nosniff",
         }
-        return Response(content=raw, media_type=result.get("content_type", "application/octet-stream"), headers=headers)
+
+        return Response(content=raw, media_type=content_type, headers=headers)
     except HTTPException:
         raise
     except Exception as e:

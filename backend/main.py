@@ -18,6 +18,8 @@ from domain.errors import ValidationError
 
 # Import from core (only essential middleware and config)
 from core.middleware import AuthMiddleware
+from core.rate_limit_middleware import RateLimitMiddleware
+from core.security_headers_middleware import SecurityHeadersMiddleware
 from core.otel_config import setup_opentelemetry
 
 # Import from infrastructure
@@ -126,7 +128,11 @@ app = FastAPI(
 # Get config for middleware
 config = app_factory.get_config_manager()
 
-# Add middleware
+"""Security: enforce rate limiting and auth middleware.
+RateLimit first to cheaply throttle abusive traffic before heavier logic.
+"""
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RateLimitMiddleware)
 app.add_middleware(AuthMiddleware, debug_mode=config.app_settings.debug_mode)
 
 # Include essential routes (add files API)

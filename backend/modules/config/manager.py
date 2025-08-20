@@ -149,6 +149,23 @@ class AppSettings(BaseSettings):
     capability_token_secret: str = ""
     capability_token_ttl_seconds: int = 3600
 
+    # Rate limiting (global middleware)
+    rate_limit_rpm: int = Field(default=600, validation_alias="RATE_LIMIT_RPM")
+    rate_limit_window_seconds: int = Field(default=60, validation_alias="RATE_LIMIT_WINDOW_SECONDS")
+    rate_limit_per_path: bool = Field(default=False, validation_alias="RATE_LIMIT_PER_PATH")
+
+    # Security headers toggles (HSTS intentionally omitted)
+    security_csp_enabled: bool = Field(default=True, validation_alias="SECURITY_CSP_ENABLED")
+    security_csp_value: str | None = Field(
+        default="default-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'self'",
+        validation_alias="SECURITY_CSP_VALUE",
+    )
+    security_xfo_enabled: bool = Field(default=True, validation_alias="SECURITY_XFO_ENABLED")
+    security_xfo_value: str = Field(default="SAMEORIGIN", validation_alias="SECURITY_XFO_VALUE")
+    security_nosniff_enabled: bool = Field(default=True, validation_alias="SECURITY_NOSNIFF_ENABLED")
+    security_referrer_policy_enabled: bool = Field(default=True, validation_alias="SECURITY_REFERRER_POLICY_ENABLED")
+    security_referrer_policy_value: str = Field(default="no-referrer", validation_alias="SECURITY_REFERRER_POLICY_VALUE")
+
     # Prompt / template settings
     prompt_base_path: str = "prompts"  # Relative or absolute path to directory containing prompt templates
     tool_synthesis_prompt_filename: str = "tool_synthesis_prompt.md"  # Filename for tool synthesis prompt template
