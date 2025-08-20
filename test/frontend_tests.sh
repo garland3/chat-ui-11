@@ -34,6 +34,9 @@ fi
 # Add node_modules/.bin to PATH to ensure vitest is found
 export PATH="$PWD/node_modules/.bin:$PATH"
 
+# Set VITE_APP_NAME for build (required for index.html template replacement)
+export VITE_APP_NAME="Chat UI"
+
 # Run tests with proper configuration
 timeout 300 npm test -- --run
 

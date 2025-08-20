@@ -49,11 +49,15 @@ if [ "$ONLY_BACKEND" = false ]; then
         echo "Using new frontend in frontend"
         cd frontend
         npm install
+        # Set VITE_APP_NAME for build (required for index.html template replacement)
+        export VITE_APP_NAME="Chat UI"
         npm run build
         cd ../backend
     else
         echo "Using old frontend in frontend"
         cd frontend
+        # Set VITE_APP_NAME for build (required for index.html template replacement)
+        export VITE_APP_NAME="Chat UI"
         npm run build
         cd ../backend
     fi

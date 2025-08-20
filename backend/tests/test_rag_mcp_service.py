@@ -54,7 +54,7 @@ class FakeMCP:
                 hits.append({
                     "id": f"{server_name}-{s}-{i}",
                     "score": 1.0 - i * 0.01,
-                    "resourceId": s,
+                    "resourceId": f"{server_name}:{s}",
                     "title": f"{q} in {s}",
                 })
             return types.SimpleNamespace(structured_content={"results": {"hits": hits}})

@@ -48,6 +48,8 @@ else
     fi
 
     echo "Building frontend..."
+    # Set VITE_APP_NAME for build (required for index.html template replacement)
+    export VITE_APP_NAME="Chat UI"
     npx vite build
 fi
 

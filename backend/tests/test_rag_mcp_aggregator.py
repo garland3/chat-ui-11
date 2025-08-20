@@ -1,11 +1,15 @@
 import types
 import pytest
+import os
+import sys
 
+# Ensure backend root is on path (same approach used in other tests)
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 # Patch fastmcp Client usage by MCPToolManager with a fake client/manager
 @pytest.fixture(autouse=True)
 def patch_mcp(monkeypatch):
-    from backend.modules.mcp_tools.client import MCPToolManager
+    from modules.mcp_tools.client import MCPToolManager
 
     class FakeTool:
         def __init__(self, name, description="", inputSchema=None):
@@ -92,7 +96,7 @@ def patch_mcp(monkeypatch):
         return ["docsRag", "notionRag"] if user_email.endswith("@company.com") else ["docsRag"]
 
     async def fake_call_tool(self, server_name, tool_name, arguments, **kwargs):
-        return await MCPToolManager.clients[server_name].call_tool(tool_name, arguments)
+        return await self.clients[server_name].call_tool(tool_name, arguments)
 
     monkeypatch.setattr(MCPToolManager, "initialize_clients", fake_initialize_clients, raising=False)
     monkeypatch.setattr(MCPToolManager, "discover_tools", fake_discover_tools, raising=False)
@@ -103,15 +107,15 @@ def patch_mcp(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_discovery_across_multiple_servers():
-    from backend.infrastructure.app_factory import app_factory
+    from infrastructure.app_factory import app_factory
     # Initialize MCP
     mcp = app_factory.get_mcp_manager()
     await mcp.initialize_clients()
     await mcp.discover_tools()
     await mcp.discover_prompts()
 
-    from backend.domain.rag_mcp_service import RAGMCPService
-    from backend.core.auth import is_user_in_group
+    from domain.rag_mcp_service import RAGMCPService
+    from core.auth import is_user_in_group
 
     svc = RAGMCPService(mcp, app_factory.get_config_manager(), is_user_in_group)
     # user with @company.com gets both servers
@@ -127,9 +131,9 @@ async def test_discovery_across_multiple_servers():
 
 @pytest.mark.asyncio
 async def test_acl_filtering():
-    from backend.infrastructure.app_factory import app_factory
-    from backend.domain.rag_mcp_service import RAGMCPService
-    from backend.core.auth import is_user_in_group
+    from infrastructure.app_factory import app_factory
+    from domain.rag_mcp_service import RAGMCPService
+    from core.auth import is_user_in_group
 
     mcp = app_factory.get_mcp_manager()
     await mcp.initialize_clients()
@@ -144,9 +148,9 @@ async def test_acl_filtering():
 
 @pytest.mark.asyncio
 async def test_search_and_synthesize_merge():
-    from backend.infrastructure.app_factory import app_factory
-    from backend.domain.rag_mcp_service import RAGMCPService
-    from backend.core.auth import is_user_in_group
+    from infrastructure.app_factory import app_factory
+    from domain.rag_mcp_service import RAGMCPService
+    from core.auth import is_user_in_group
 
     mcp = app_factory.get_mcp_manager()
     await mcp.initialize_clients()
