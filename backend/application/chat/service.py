@@ -110,6 +110,7 @@ class ChatService:
         content: str,
         model: str,
         selected_tools: Optional[List[str]] = None,
+    selected_prompts: Optional[List[str]] = None,
         selected_data_sources: Optional[List[str]] = None,
         only_rag: bool = False,
         tool_choice_required: bool = False,
@@ -132,7 +133,7 @@ class ChatService:
         logger.info(
             f"handle_chat_message called - session_id: {session_id}, "
             f"content: '{content_preview}', model: {model}, "
-            f"selected_tools: {selected_tools}, selected_data_sources: {selected_data_sources}, "
+            f"selected_tools: {selected_tools}, selected_prompts: {selected_prompts}, selected_data_sources: {selected_data_sources}, "
             f"only_rag: {only_rag}, tool_choice_required: {tool_choice_required}, "
             f"user_email: {user_email}, agent_mode: {agent_mode}, "
             f"kwargs: {sanitized_kwargs}"
@@ -164,6 +165,52 @@ class ChatService:
         try:
             # Get conversation history and add files manifest
             messages = session.history.get_messages_for_llm()
+
+            # Inject MCP-provided system prompt override if any selected prompt is present.
+            # We only apply the first valid prompt found in the provided list and prepend it
+            # as the first message with role "system".
+            try:
+                if selected_prompts and self.tool_manager:
+                    # Iterate in order; when found, fetch prompt content and inject
+                    for key in selected_prompts:
+                        if not isinstance(key, str) or "_" not in key:
+                            continue
+                        server, prompt_name = key.split("_", 1)
+                        # Retrieve prompt from MCP
+                        try:
+                            prompt_obj = await self.tool_manager.get_prompt(server, prompt_name)
+                            # Attempt to extract text content from FastMCP PromptMessage
+                            prompt_text = None
+                            if isinstance(prompt_obj, str):
+                                prompt_text = prompt_obj
+                            else:
+                                # FastMCP PromptMessage-like: may have 'content' list with text entries
+                                # Try common shapes safely.
+                                if hasattr(prompt_obj, "content"):
+                                    content_field = getattr(prompt_obj, "content")
+                                    # content could be list of objects with 'text'
+                                    if isinstance(content_field, list) and content_field:
+                                        first = content_field[0]
+                                        if hasattr(first, "text") and isinstance(first.text, str):
+                                            prompt_text = first.text
+                                # Fallback: string dump
+                            if not prompt_text:
+                                prompt_text = str(prompt_obj)
+
+                            if prompt_text:
+                                # Prepend as system message override
+                                messages = [{"role": "system", "content": prompt_text}] + messages
+                                logger.info(
+                                    "Applied MCP system prompt override from %s:%s (len=%d)",
+                                    server,
+                                    prompt_name,
+                                    len(prompt_text),
+                                )
+                                break  # apply only one
+                        except Exception:
+                            logger.debug("Failed retrieving MCP prompt %s", key, exc_info=True)
+            except Exception:
+                logger.debug("Prompt override injection skipped due to non-fatal error", exc_info=True)
             files_manifest = file_utils.build_files_manifest(session.context)
             if files_manifest:
                 messages.append(files_manifest)

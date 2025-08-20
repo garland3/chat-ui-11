@@ -197,6 +197,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         content=data.get("content", ""),
                         model=data.get("model", ""),
                         selected_tools=data.get("selected_tools"),
+                        selected_prompts=data.get("selected_prompts"),
                         selected_data_sources=data.get("selected_data_sources"),
                         only_rag=data.get("only_rag", False),
                         tool_choice_required=data.get("tool_choice_required", False),
