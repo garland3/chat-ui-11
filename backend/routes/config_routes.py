@@ -61,9 +61,19 @@ async def get_config(current_user: str = Depends(get_current_user)):
     llm_config = config_manager.llm_config
     app_settings = config_manager.app_settings
     
-    # Get RAG data sources for the user
-    rag_client = app_factory.get_rag_client()
-    rag_data_sources = await rag_client.discover_data_sources(current_user)
+    # Get RAG data sources for the user (feature-gated MCP-backed discovery)
+    rag_data_sources = []
+    rag_servers = []
+    try:
+        if app_settings.feature_rag_mcp_enabled:
+            rag_mcp = app_factory.get_rag_mcp_service()
+            rag_data_sources = await rag_mcp.discover_data_sources(current_user)
+            rag_servers = await rag_mcp.discover_servers(current_user)
+        else:
+            rag_client = app_factory.get_rag_client()
+            rag_data_sources = await rag_client.discover_data_sources(current_user)
+    except Exception as e:
+        logger.warning(f"Error resolving RAG data sources: {e}")
     
     # Check if tools are enabled
     tools_info = []
@@ -180,10 +190,12 @@ async def get_config(current_user: str = Depends(get_current_user)):
         "tools": tools_info,  # Only authorized servers are included
         "prompts": prompts_info,  # Available prompts from authorized servers
         "data_sources": rag_data_sources,  # RAG data sources for the user
+    "rag_servers": rag_servers,  # Optional richer structure for RAG UI
         "user": current_user,
     "is_in_admin_group": is_user_in_group(current_user, app_settings.admin_group),
         "active_sessions": 0,  # TODO: Implement session counting in ChatService
         "authorized_servers": authorized_servers,  # Optional: expose for debugging
+            "rag_servers": rag_servers,  # Optional richer structure for RAG UI
         "agent_mode_available": app_settings.agent_mode_available,  # Whether agent mode UI should be shown
         "banner_enabled": app_settings.banner_enabled,  # Whether banner system is enabled
         "help_config": help_config,  # Help page configuration from help-config.json

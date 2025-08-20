@@ -138,6 +138,12 @@ class AppSettings(BaseSettings):
     feature_marketplace_enabled: bool = False
     feature_files_panel_enabled: bool = False
     feature_chat_history_enabled: bool = False
+    # RAG over MCP feature gate (Phase 1: Discovery)
+    feature_rag_mcp_enabled: bool = Field(
+        False,
+        description="Enable RAG via MCP aggregator (discovery phase)",
+        validation_alias=AliasChoices("FEATURE_RAG_MCP_ENABLED", "RAG_MCP_ENABLED"),
+    )
 
     # Capability tokens (for headless access to downloads/iframes)
     capability_token_secret: str = ""
@@ -152,6 +158,7 @@ class AppSettings(BaseSettings):
     
     # Config file names (can be overridden via environment variables)
     mcp_config_file: str = Field(default="mcp.json", validation_alias="MCP_CONFIG_FILE")
+    rag_mcp_config_file: str = Field(default="mcp-rag.json", validation_alias="MCP_RAG_CONFIG_FILE")
     llm_config_file: str = Field(default="llmconfig.yml", validation_alias="LLM_CONFIG_FILE")
     help_config_file: str = Field(default="help-config.json", validation_alias="HELP_CONFIG_FILE")
     messages_config_file: str = Field(default="messages.txt", validation_alias="MESSAGES_CONFIG_FILE")
@@ -172,6 +179,7 @@ class ConfigManager:
         self._app_settings: Optional[AppSettings] = None
         self._llm_config: Optional[LLMConfig] = None
         self._mcp_config: Optional[MCPConfig] = None
+        self._rag_mcp_config: Optional[MCPConfig] = None
     
     def _search_paths(self, file_name: str) -> List[Path]:
         """Generate common search paths for a configuration file.
@@ -331,12 +339,37 @@ class ConfigManager:
                 self._mcp_config = MCPConfig()
         
         return self._mcp_config
+
+    @property
+    def rag_mcp_config(self) -> MCPConfig:
+        """Get RAG MCP configuration (cached) from mcp-rag.json."""
+        if self._rag_mcp_config is None:
+            try:
+                rag_filename = self.app_settings.rag_mcp_config_file
+                file_paths = self._search_paths(rag_filename)
+                data = self._load_file_with_error_handling(file_paths, "JSON")
+
+                if data:
+                    servers_data = {"servers": data}
+                    self._rag_mcp_config = MCPConfig(**servers_data)
+                    logger.info(
+                        f"Loaded RAG MCP config with {len(self._rag_mcp_config.servers)} servers: {list(self._rag_mcp_config.servers.keys())}"
+                    )
+                else:
+                    self._rag_mcp_config = MCPConfig()
+                    logger.info("Created empty RAG MCP config (no configuration file found)")
+            except Exception as e:
+                logger.error(f"Failed to parse RAG MCP configuration: {e}", exc_info=True)
+                self._rag_mcp_config = MCPConfig()
+
+        return self._rag_mcp_config
     
     def reload_configs(self) -> None:
         """Reload all configurations from files."""
         self._app_settings = None
         self._llm_config = None
         self._mcp_config = None
+        self._rag_mcp_config = None
         logger.info("Configuration cache cleared, will reload on next access")
     
     def validate_config(self) -> Dict[str, bool]:

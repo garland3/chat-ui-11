@@ -3,7 +3,11 @@
 # Usage: ./scripts/curl_api_config_shortcut.sh
 # Env overrides: HOST, PORT, USER_EMAIL, URL, CURL_OPTS, JQ_OPTS
 
-set -euo pipefail
+set -eu
+# Enable pipefail if supported (bash-specific)
+if [ -n "${BASH_VERSION:-}" ]; then
+  set -o pipefail
+fi
 
 if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
   cat <<'USAGE'

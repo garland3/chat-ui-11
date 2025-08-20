@@ -19,6 +19,7 @@ from core.auth import is_user_in_group
 from core.utils import get_current_user
 from modules.config import config_manager
 from core.otel_config import get_otel_config  # noqa: F401 (may be used later)
+from infrastructure.app_factory import app_factory
 
 logger = logging.getLogger(__name__)
 
@@ -234,6 +235,27 @@ async def update_banner_config(
         }
     except Exception as e:  # noqa: BLE001
         logger.error(f"Error updating banner config: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@admin_router.post("/mcp/reload")
+async def reload_mcp_servers(admin_user: str = Depends(require_admin)):
+    """Reload MCP servers (clients, tools, prompts)."""
+    try:
+        mcp = app_factory.get_mcp_manager()
+        # Re-initialize clients and rediscover
+        await mcp.initialize_clients()
+        await mcp.discover_tools()
+        await mcp.discover_prompts()
+        return {
+            "message": "MCP servers reloaded",
+            "servers": list(mcp.clients.keys()),
+            "tool_counts": {k: len(v.get("tools", [])) for k, v in mcp.available_tools.items()},
+            "prompt_counts": {k: len(v.get("prompts", [])) for k, v in mcp.available_prompts.items()},
+            "reloaded_by": admin_user,
+        }
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"Error reloading MCP servers: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 

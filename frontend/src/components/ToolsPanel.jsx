@@ -241,15 +241,25 @@ const ToolsPanel = ({ isOpen, onClose }) => {
         </div>
 
         {/* Controls Section */}
-        <div className="p-6 border-b border-gray-700 flex-shrink-0 space-y-6">
-          {/* Add from Marketplace Button */}
-          <button
-            onClick={navigateToMarketplace}
-            className="w-full px-6 py-4 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors flex items-center justify-center gap-3"
-          >
-            <Plus className="w-5 h-5" />
-            Add from Marketplace
-          </button>
+        <div className="p-6 border-b border-gray-700 flex-shrink-0 space-y-4">
+          {/* Top Row: Add from Marketplace and Clear All */}
+          <div className="flex gap-4">
+            <button
+              onClick={navigateToMarketplace}
+              className="flex-1 px-6 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors flex items-center justify-center gap-3"
+            >
+              <Plus className="w-5 h-5" />
+              Add from Marketplace
+            </button>
+            <button
+              onClick={clearToolsAndPrompts}
+              className="px-4 py-3 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium transition-colors flex items-center gap-2"
+              title="Clear all tool and prompt selections"
+            >
+              <Trash2 className="w-4 h-4" />
+              Clear All
+            </button>
+          </div>
           
           {/* Required Tool Usage Toggle */}
           <div className="flex items-center justify-between p-4 bg-gray-700 rounded-lg">
@@ -324,64 +334,69 @@ const ToolsPanel = ({ isOpen, onClose }) => {
                     return (
                       <div key={server.server} className="bg-gray-700 rounded-lg overflow-hidden">
                         {/* Main Server Row */}
-                        <div className="p-4 flex items-center gap-4">
+                        <div className="p-3 flex items-start gap-3">
                           {/* Server Icon */}
-                          <div className="bg-gray-600 rounded-lg p-3 flex-shrink-0">
-                            <Wrench className="w-6 h-6 text-gray-300" />
+                          <div className="bg-gray-600 rounded p-2 flex-shrink-0">
+                            <Wrench className="w-4 h-4 text-gray-300" />
                           </div>
                           
                           {/* Server Content */}
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-1">
-                              <h3 className="text-white font-semibold text-lg capitalize truncate">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className="text-white font-medium text-base capitalize truncate">
                                 {server.server}
                               </h3>
-                              <div className="flex items-center gap-2 flex-shrink-0">
-                                {server.is_exclusive && (
-                                  <span className="px-2 py-1 bg-orange-600 text-xs rounded text-white">
-                                    Exclusive
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <p className="text-sm text-gray-400 truncate">{server.description}</p>
-                            
-                            {/* Tools and Prompts Count */}
-                            <div className="flex items-center gap-4 mt-2">
-                              {server.tool_count > 0 && (
-                                <span className="text-xs text-gray-300">
-                                  {server.tool_count} tool{server.tool_count !== 1 ? 's' : ''}
+                              {server.is_exclusive && (
+                                <span className="px-1.5 py-0.5 bg-orange-600 text-xs rounded text-white flex-shrink-0">
+                                  Exclusive
                                 </span>
                               )}
+                            </div>
+                            <p className="text-xs text-gray-400 mb-2 line-clamp-1">{server.description}</p>
+                            
+                            {/* Tools Display */}
+                            {server.tools.length > 0 && (
+                              <div className="mb-1">
+                                <div className="flex flex-wrap gap-1">
+                                  {server.tools.map(tool => (
+                                    <span key={tool} className="px-2 py-0.5 bg-blue-600 text-xs rounded text-white">
+                                      {tool}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Prompts Display */}
+                            {server.prompts.length > 0 && (
+                              <div className="mb-1">
+                                <div className="flex flex-wrap gap-1">
+                                  {server.prompts.map(prompt => (
+                                    <span key={prompt.name} className="px-2 py-0.5 bg-purple-600 text-xs rounded text-white" title={prompt.description}>
+                                      {prompt.name}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {/* Counts Summary */}
+                            <div className="flex items-center gap-3 text-xs text-gray-400">
+                              {server.tool_count > 0 && (
+                                <span>{server.tool_count} tool{server.tool_count !== 1 ? 's' : ''}</span>
+                              )}
                               {server.prompt_count > 0 && (
-                                <span className="text-xs text-purple-300">
-                                  {server.prompt_count} prompt{server.prompt_count !== 1 ? 's' : ''}
-                                </span>
+                                <span>{server.prompt_count} prompt{server.prompt_count !== 1 ? 's' : ''}</span>
                               )}
                             </div>
                           </div>
                           
                           {/* Action Buttons */}
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            {/* Expand Button */}
-                            {hasIndividualItems && (
-                              <button
-                                onClick={() => toggleServerExpansion(server.server)}
-                                className="p-2 rounded-lg bg-gray-600 hover:bg-gray-500 text-gray-300 transition-colors"
-                                title="Show individual tools"
-                              >
-                                {isExpanded ? (
-                                  <ChevronUp className="w-4 h-4" />
-                                ) : (
-                                  <ChevronDown className="w-4 h-4" />
-                                )}
-                              </button>
-                            )}
-                            
+                          <div className="flex flex-col items-end gap-1 flex-shrink-0">
                             {/* Toggle All Button */}
                             <button
                               onClick={() => toggleServerItems(server.server)}
-                              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                              className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
                                 isServerSelected(server.server)
                                   ? 'bg-blue-600 hover:bg-blue-700 text-white'
                                   : 'bg-gray-600 hover:bg-gray-500 text-gray-200'
@@ -389,6 +404,21 @@ const ToolsPanel = ({ isOpen, onClose }) => {
                             >
                               {isServerSelected(server.server) ? 'Enabled' : 'Enable'}
                             </button>
+                            
+                            {/* Expand Button */}
+                            {hasIndividualItems && (
+                              <button
+                                onClick={() => toggleServerExpansion(server.server)}
+                                className="p-1 rounded bg-gray-600 hover:bg-gray-500 text-gray-300 transition-colors"
+                                title="Manage individual tools"
+                              >
+                                {isExpanded ? (
+                                  <ChevronUp className="w-3 h-3" />
+                                ) : (
+                                  <ChevronDown className="w-3 h-3" />
+                                )}
+                              </button>
+                            )}
                           </div>
                         </div>
                         
@@ -472,19 +502,6 @@ const ToolsPanel = ({ isOpen, onClose }) => {
                 </div>
               )}
               
-              {/* Clear All Button - Made smaller and less prominent */}
-              <div className="px-6 pb-6">
-                <div className="pt-4 border-t border-gray-600 flex justify-center">
-                  <button
-                    onClick={clearToolsAndPrompts}
-                    className="px-3 py-1.5 text-xs rounded bg-gray-600 hover:bg-red-600 text-gray-300 hover:text-white transition-colors flex items-center gap-1.5"
-                    title="Clear all tool and prompt selections"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                    Clear All
-                  </button>
-                </div>
-              </div>
             </>
           )}
         </div>
