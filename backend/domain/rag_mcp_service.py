@@ -174,7 +174,10 @@ class RAGMCPService:
                     ui_sources.append({
                         "id": rid,
                         "name": r.get("name") or rid,
-                        "authRequired": bool(r.get("authRequired", False)),
+                        # New contract: authRequired expected true; pass-through in case of legacy servers
+                        "authRequired": bool(r.get("authRequired", True)),
+                        # New: include per-resource groups when provided
+                        "groups": list(r.get("groups", [])) if isinstance(r.get("groups"), list) else None,
                         "selected": bool(r.get("defaultSelected", False)),
                     })
 

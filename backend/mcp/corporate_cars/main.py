@@ -127,26 +127,31 @@ RESOURCES: Dict[str, Dict[str, Any]] = {
     "west_region": {
         "name": "West Region Fleet",
         "defaultSelected": False,
+    "groups": ["users"],
         "predicate": lambda c: c.region == "West",
     },
     "east_region": {
         "name": "East Region Fleet",
         "defaultSelected": False,
+    "groups": ["users"],
         "predicate": lambda c: c.region == "East",
     },
     "central_region": {
         "name": "Central Region Fleet",
         "defaultSelected": False,
+    "groups": ["users"],
         "predicate": lambda c: c.region == "Central",
     },
     "executive_fleet": {
         "name": "Executive Fleet",
         "defaultSelected": False,
+    "groups": ["executive"],
         "predicate": lambda c: "executive" in (c.tags or []),
     },
     "pool_cars": {
         "name": "Pool Cars",
         "defaultSelected": False,
+    "groups": ["users"],
         "predicate": lambda c: c.assigned_to is None,
     },
 }
@@ -271,11 +276,13 @@ def rag_discover_resources(username: str) -> Dict[str, Any]:
     try:
         default_sid = _user_default_resource(username)
         resources_ui: List[Dict[str, Any]] = []
-        for rid, info in RESOURCES.items():
+    for rid, info in RESOURCES.items():
             resources_ui.append({
                 "id": rid,
                 "name": info.get("name") or rid,
-                "authRequired": False,
+        # New contract: authRequired is always true, include per-resource groups
+        "authRequired": True,
+        "groups": list(info.get("groups", [])),
                 "defaultSelected": (rid == default_sid) or bool(info.get("defaultSelected", False)),
             })
         return {

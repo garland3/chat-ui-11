@@ -32,15 +32,21 @@ def patch_mcp(monkeypatch):
                         structured_content={
                             "results": {
                                 "resources": [
-                                    {"id": "handbook", "name": "Employee Handbook", "authRequired": False, "defaultSelected": True},
-                                    {"id": "legal", "name": "Legal Docs", "authRequired": True},
+                                    {"id": "handbook", "name": "Employee Handbook", "authRequired": True, "groups": ["hr"], "defaultSelected": True},
+                                    {"id": "legal", "name": "Legal Docs", "authRequired": True, "groups": ["legal"]},
                                 ]
                             }
                         }
                     )
                 elif self.server_name == "notionRag":
                     return types.SimpleNamespace(
-                        structured_content={"resources": [{"id": "notion-space", "name": "Notion Space"}]}
+                        structured_content={
+                            "results": {
+                                "resources": [
+                                    {"id": "notion-space", "name": "Notion Space", "authRequired": True, "groups": ["notion"]}
+                                ]
+                            }
+                        }
                     )
             if tool_name == "rag_get_raw_results":
                 # Return hits with scores

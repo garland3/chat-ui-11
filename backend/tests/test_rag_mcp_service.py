@@ -36,14 +36,14 @@ class FakeMCP:
             if server_name == "docsRag":
                 return types.SimpleNamespace(structured_content={
                     "results": {"resources": [
-                        {"id": "handbook", "name": "Employee Handbook", "authRequired": False, "defaultSelected": True},
-                        {"id": "legal", "name": "Legal Docs", "authRequired": True},
+                        {"id": "handbook", "name": "Employee Handbook", "authRequired": True, "groups": ["hr"], "defaultSelected": True},
+                        {"id": "legal", "name": "Legal Docs", "authRequired": True, "groups": ["legal"]},
                     ]}
                 })
             if server_name == "searchRag":
                 return types.SimpleNamespace(structured_content={
                     "results": {"resources": [
-                        {"id": "kb", "name": "KB", "authRequired": False}
+                        {"id": "kb", "name": "KB", "authRequired": True, "groups": ["kb"]}
                     ]}
                 })
         if tool_name == "rag_get_raw_results":
