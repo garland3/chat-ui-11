@@ -17,9 +17,9 @@
     "cwd": "backend",
     "groups": ["users"],
     "is_exclusive": false,
-    "description": "Basic mathematical calculations",
+    "description": "Evaluate mathematical expressions, perform calculations with basic arithmetic, trigonometry, and logarithms",
     "author": "Chat UI Team",
-    "short_description": "Perform basic math operations",
+    "short_description": "Mathematical calculator",
     "help_email": "support@chatui.example.com"
   },
 
@@ -72,9 +72,9 @@
     "cwd": "backend",
     "groups": ["users"],
     "is_exclusive": false,
-    "description": "Secure code execution environment",
+    "description": "Execute Python, JavaScript, and other code snippets in a secure sandboxed environment with safety validation",
     "author": "Chat UI Team",
-    "short_description": "Execute code securely",
+    "short_description": "Secure code execution sandbox",
     "help_email": "support@chatui.example.com"
   },
   "pptx_generator": {
