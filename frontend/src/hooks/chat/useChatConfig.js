@@ -17,7 +17,14 @@ export function useChatConfig() {
   const [prompts, setPrompts] = useState([])
   const [dataSources, setDataSources] = useState([])
   const [features, setFeatures] = useState(DEFAULT_FEATURES)
-  const [currentModel, setCurrentModel] = useState('')
+  // Load saved model from localStorage
+  const [currentModel, setCurrentModel] = useState(() => {
+    try {
+      return localStorage.getItem('chatui-current-model') || ''
+    } catch {
+      return ''
+    }
+  })
   const [onlyRag, setOnlyRag] = useState(false)
   const [agentModeAvailable, setAgentModeAvailable] = useState(false)
   const [isInAdminGroup, setIsInAdminGroup] = useState(false)
@@ -43,7 +50,18 @@ export function useChatConfig() {
   setAgentModeAvailable(!!cfg.agent_mode_available)
         // Admin group membership flag from backend
         setIsInAdminGroup(!!cfg.is_in_admin_group)
-        if (!currentModel && cfg.models?.length) setCurrentModel(cfg.models[0])
+        // Set default model if none saved and models available
+        if (!currentModel && cfg.models?.length) {
+          const defaultModel = cfg.models[0]
+          setCurrentModel(defaultModel)
+          localStorage.setItem('chatui-current-model', defaultModel)
+        }
+        // Validate saved model is still available
+        else if (currentModel && cfg.models?.length && !cfg.models.includes(currentModel)) {
+          const defaultModel = cfg.models[0]
+          setCurrentModel(defaultModel)
+          localStorage.setItem('chatui-current-model', defaultModel)
+        }
       } catch (e) {
         // Fallback demo data
         setAppName('Chat UI (Demo)')
@@ -51,7 +69,11 @@ export function useChatConfig() {
         setTools([{ server: 'canvas', tools: ['canvas'], description: 'Create and display visual content', tool_count: 1, is_exclusive: false }])
         setDataSources(['demo_documents'])
         setUser('Demo User')
-        setCurrentModel('gpt-4o')
+        // Set demo model if no saved model
+        if (!currentModel) {
+          setCurrentModel('gpt-4o')
+          localStorage.setItem('chatui-current-model', 'gpt-4o')
+        }
   setAgentModeAvailable(true)
       }
     })()
@@ -67,7 +89,14 @@ export function useChatConfig() {
     features,
     setFeatures,
     currentModel,
-    setCurrentModel,
+    setCurrentModel: (model) => {
+      setCurrentModel(model)
+      try {
+        localStorage.setItem('chatui-current-model', model)
+      } catch (e) {
+        console.warn('Failed to save current model to localStorage:', e)
+      }
+    },
     onlyRag,
   setOnlyRag,
   agentModeAvailable,

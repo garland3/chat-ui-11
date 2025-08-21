@@ -334,10 +334,10 @@ const ToolsPanel = ({ isOpen, onClose }) => {
                     return (
                       <div key={server.server} className="bg-gray-700 rounded-lg overflow-hidden">
                         {/* Main Server Row */}
-                        <div className="p-3 flex items-start gap-3">
+                        <div className="p-2 flex items-start gap-2">
                           {/* Server Icon */}
-                          <div className="bg-gray-600 rounded p-2 flex-shrink-0">
-                            <Wrench className="w-4 h-4 text-gray-300" />
+                          <div className="bg-gray-600 rounded p-1.5 flex-shrink-0">
+                            <Wrench className="w-3 h-3 text-gray-300" />
                           </div>
                           
                           {/* Server Content */}
@@ -358,11 +358,30 @@ const ToolsPanel = ({ isOpen, onClose }) => {
                             {server.tools.length > 0 && (
                               <div className="mb-1">
                                 <div className="flex flex-wrap gap-1">
-                                  {server.tools.map(tool => (
-                                    <span key={tool} className="px-2 py-0.5 bg-blue-600 text-xs rounded text-white">
-                                      {tool}
-                                    </span>
-                                  ))}
+                                  {server.tools.map(tool => {
+                                    const toolKey = `${server.server}_${tool}`
+                                    const isSelected = selectedTools.has(toolKey)
+                                    return (
+                                      <button
+                                        key={tool}
+                                        onClick={() => {
+                                          if (!isSelected) {
+                                            // If tool not selected, enable both server and this tool
+                                            toggleServerItems(server.server)
+                                          } else {
+                                            // If already selected, just toggle this specific tool
+                                            toggleTool(toolKey)
+                                          }
+                                        }}
+                                        className={`px-2 py-0.5 text-xs rounded text-white transition-colors hover:opacity-80 ${
+                                          isSelected ? 'bg-blue-600' : 'bg-gray-600 hover:bg-blue-600'
+                                        }`}
+                                        title={`Click to ${isSelected ? 'disable' : 'enable'} ${tool}`}
+                                      >
+                                        {tool}
+                                      </button>
+                                    )
+                                  })}
                                 </div>
                               </div>
                             )}
@@ -371,24 +390,33 @@ const ToolsPanel = ({ isOpen, onClose }) => {
                             {server.prompts.length > 0 && (
                               <div className="mb-1">
                                 <div className="flex flex-wrap gap-1">
-                                  {server.prompts.map(prompt => (
-                                    <span key={prompt.name} className="px-2 py-0.5 bg-purple-600 text-xs rounded text-white" title={prompt.description}>
-                                      {prompt.name}
-                                    </span>
-                                  ))}
+                                  {server.prompts.map(prompt => {
+                                    const promptKey = `${server.server}_${prompt.name}`
+                                    const isSelected = selectedPrompts.has(promptKey)
+                                    return (
+                                      <button
+                                        key={prompt.name}
+                                        onClick={() => {
+                                          if (!isSelected) {
+                                            // If prompt not selected, enable server and set this as single prompt
+                                            toggleServerItems(server.server)
+                                          } else {
+                                            // If already selected, toggle this specific prompt
+                                            togglePrompt(promptKey)
+                                          }
+                                        }}
+                                        className={`px-2 py-0.5 text-xs rounded text-white transition-colors hover:opacity-80 ${
+                                          isSelected ? 'bg-purple-600' : 'bg-gray-600 hover:bg-purple-600'
+                                        }`}
+                                        title={`${prompt.description}\n\nClick to ${isSelected ? 'disable' : 'enable'} ${prompt.name}`}
+                                      >
+                                        {prompt.name}
+                                      </button>
+                                    )
+                                  })}
                                 </div>
                               </div>
                             )}
-                            
-                            {/* Counts Summary */}
-                            <div className="flex items-center gap-3 text-xs text-gray-400">
-                              {server.tool_count > 0 && (
-                                <span>{server.tool_count} tool{server.tool_count !== 1 ? 's' : ''}</span>
-                              )}
-                              {server.prompt_count > 0 && (
-                                <span>{server.prompt_count} prompt{server.prompt_count !== 1 ? 's' : ''}</span>
-                              )}
-                            </div>
                           </div>
                           
                           {/* Action Buttons */}

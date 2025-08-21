@@ -632,15 +632,21 @@ const renderContent = () => {
           {/* Result Section */}
           {message.result && (
             <div className="mb-2">
-              <div className="border-l-4 border-green-500 pl-4">
+              <div className={`border-l-4 pl-4 ${
+                message.status === 'failed' ? 'border-red-500' : 'border-green-500'
+              }`}>
                 <button
                   onClick={() => setToolOutputCollapsed(!toolOutputCollapsed)}
-                  className="w-full text-left text-sm font-semibold text-green-400 mb-2 flex items-center gap-2 hover:text-green-300 transition-colors"
+                  className={`w-full text-left text-sm font-semibold mb-2 flex items-center gap-2 transition-colors ${
+                    message.status === 'failed' 
+                      ? 'text-red-400 hover:text-red-300' 
+                      : 'text-green-400 hover:text-green-300'
+                  }`}
                 >
                   <span className={`transform transition-transform duration-200 ${toolOutputCollapsed ? 'rotate-0' : 'rotate-90'}`}>
                     ▶
                   </span>
-                  Output Result {toolOutputCollapsed ? '(click to expand)' : ''}
+                  {message.status === 'failed' ? 'Error Details' : 'Output Result'} {toolOutputCollapsed ? '(click to expand)' : ''}
                 </button>
 
                 {!toolOutputCollapsed && (
