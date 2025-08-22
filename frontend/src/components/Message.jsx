@@ -780,17 +780,29 @@ const renderContent = () => {
       const sanitizedHtml = DOMPurify.sanitize(markdownHtml)
 
       return (
-        <div
-          className="prose prose-invert max-w-none selectable-markdown"
-          dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
-        />
+        <div className="relative">
+          <div
+            className="prose prose-invert max-w-none selectable-markdown"
+            dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
+          />
+          {/* Show typing cursor for streaming messages */}
+          {message.isStreaming && (
+            <span className="inline-block w-2 h-4 bg-green-400 animate-pulse ml-1" 
+                  style={{animation: 'blink 1s infinite'}} />
+          )}
+        </div>
       )
     } catch (error) {
       console.error('Error parsing markdown content:', error)
       // Fallback to plain text if markdown parsing fails
       return (
-        <div className="text-gray-200">
+        <div className="text-gray-200 relative">
           <pre className="whitespace-pre-wrap">{content}</pre>
+          {/* Show typing cursor for streaming messages */}
+          {message.isStreaming && (
+            <span className="inline-block w-2 h-4 bg-green-400 animate-pulse ml-1" 
+                  style={{animation: 'blink 1s infinite'}} />
+          )}
         </div>
       )
     }

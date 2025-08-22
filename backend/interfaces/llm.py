@@ -1,6 +1,6 @@
 """LLM interface protocols."""
 
-from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
+from typing import Any, Dict, List, Optional, Protocol, runtime_checkable, Callable, Awaitable
 
 from domain.messages.models import ToolCall
 
@@ -33,6 +33,16 @@ class LLMProtocol(Protocol):
         temperature: float = 0.7,
     ) -> str:
         """Plain LLM call without tools or RAG."""
+        ...
+
+    async def call_plain_streaming(
+        self,
+        model_name: str,
+        messages: List[Dict[str, str]],
+        stream_callback: Optional[Callable[[str], Awaitable[None]]] = None,
+        temperature: float = 0.7,
+    ) -> str:
+        """Plain LLM call with streaming support."""
         ...
     
     async def call_with_tools(
