@@ -23,7 +23,6 @@ def create_safe_execution_script(code: str, exec_dir: Path) -> Path:
     Args:
         code: User's Python code
         exec_dir: Execution directory
-        
     Returns:
         Path to the created script
     """
@@ -134,6 +133,29 @@ try:
     # User code starts here (matplotlib/seaborn should now work with plotting)
 {indented_code}
     # User code ends here
+    
+    # Auto-save any open matplotlib figures so they surface in UI even if user didn't call plt.savefig()
+    try:
+        # Only run if matplotlib/pyplot is available
+        if 'matplotlib' in sys.modules:
+            import matplotlib.pyplot as plt  # type: ignore
+            fig_nums = list(plt.get_fignums())
+            if fig_nums:
+                for _fig_num in fig_nums:
+                    try:
+                        fig = plt.figure(_fig_num)
+                        out_name = "plot_" + str(_fig_num) + ".png"
+                        fig.savefig(out_name)
+                    except Exception:
+                        # Don't fail user code on save issues
+                        pass
+                try:
+                    plt.close('all')
+                except Exception:
+                    pass
+    except Exception:
+        # Silent best-effort; plotting is optional
+        pass
     
 except Exception as e:
     execution_error = e

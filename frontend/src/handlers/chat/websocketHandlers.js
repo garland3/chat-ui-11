@@ -117,7 +117,13 @@ export function createWebSocketHandler(deps) {
         case 'canvas_files':
           if (updateData && Array.isArray(updateData.files)) {
             setCanvasFiles(updateData.files)
-            setCurrentCanvasFileIndex(0)
+            // If backend provided display hints, respect them (e.g., primary_file)
+            if (updateData.display && updateData.display.primary_file) {
+              const idx = updateData.files.findIndex(f => f.filename === updateData.display.primary_file)
+              setCurrentCanvasFileIndex(idx >= 0 ? idx : 0)
+            } else {
+              setCurrentCanvasFileIndex(0)
+            }
             setCanvasContent('')
             setCustomUIContent(null)
           }

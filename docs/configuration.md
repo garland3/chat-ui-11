@@ -44,8 +44,6 @@ GOOGLE_API_KEY=your_key     # Google API key
 
 # Banner Settings (optional)
 BANNER_ENABLED=false        # Enable system banners
-BANNER_URL=http://localhost:8002  # Banner service URL
-BANNER_API_KEY=your_banner_key    # Banner API key
 ```
 
 ### 2. LLM Configuration (llmconfig.yml)
@@ -265,8 +263,6 @@ System administrators can display banners to users:
 
 ```bash
 BANNER_ENABLED=true
-BANNER_URL=http://your-admin-service.com
-BANNER_API_KEY=your_secret_key
 ```
 
 The banner service should return JSON with banner messages:

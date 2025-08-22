@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { X, Filter, ChevronDown, ChevronUp, ToggleLeft, ToggleRight } from 'lucide-react';
 
 const DEFAULT_POLL_INTERVAL = 60000; // 60s refresh
 
@@ -12,6 +13,11 @@ export default function LogViewer() {
   const [moduleFilter, setModuleFilter] = useState('');
   const [hideViewerRequests, setHideViewerRequests] = useState(true);
   const [hideMiddleware, setHideMiddleware] = useState(false); // State for hiding middleware logs
+  const [hideConfigRoutes, setHideConfigRoutes] = useState(false); // State for hiding config_routes get_config calls
+  const [hideWebsocketEndpoint, setHideWebsocketEndpoint] = useState(false); // State for hiding websocket_endpoint calls
+  const [hideHttpClientCalls, setHideHttpClientCalls] = useState(false); // State for hiding _send_single_request calls
+  const [hideDiscoverDataSources, setHideDiscoverDataSources] = useState(false); // State for hiding discover_data_sources calls
+  const [quickFiltersCollapsed, setQuickFiltersCollapsed] = useState(false); // State for collapsing Quick Filters
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(true); // State for auto-scroll
   const [pollIntervalInput, setPollIntervalInput] = useState(String(DEFAULT_POLL_INTERVAL / 1000)); // Input for poll interval in seconds
   const [pollInterval, setPollInterval] = useState(DEFAULT_POLL_INTERVAL); // Actual poll interval in ms
@@ -46,7 +52,7 @@ export default function LogViewer() {
       })
       .catch(err => setError(err))
       .finally(() => setLoading(false));
-  }, [levelFilter, moduleFilter, autoScrollEnabled]); // Added autoScrollEnabled to dependencies
+  }, [levelFilter, moduleFilter, autoScrollEnabled]); // Dependencies for fetchLogs
 
   // Function to clear all logs
   const clearLogs = useCallback(() => {
@@ -110,16 +116,60 @@ export default function LogViewer() {
     }
   };
 
+  // Toggle all filters on/off
+  const handleToggleAll = () => {
+    const anyFilterActive = hideViewerRequests || hideMiddleware || hideConfigRoutes || hideWebsocketEndpoint || hideHttpClientCalls || hideDiscoverDataSources;
+    const newState = !anyFilterActive;
+    
+    setPage(0);
+    setHideViewerRequests(newState);
+    setHideMiddleware(newState);
+    setHideConfigRoutes(newState);
+    setHideWebsocketEndpoint(newState);
+    setHideHttpClientCalls(newState);
+    setHideDiscoverDataSources(newState);
+  };
+
   const levels = Array.from(new Set(entries.map(e => e.level))).sort();
   const modules = Array.from(new Set(entries.map(e => e.module))).sort();
 
-  // Optionally hide the self-referential fetch request log lines to reduce noise
-  const filtered = (hideViewerRequests
-    ? entries.filter(e => !(
-        (e.message && e.message.includes('GET /admin/logs/viewer')) ||
-        (e.path && e.path.includes('/admin/logs/viewer'))
-      ))
-    : entries).filter(e => !(hideMiddleware && e.module === 'middleware'));
+  // Apply all filtering logic
+  const filtered = entries.filter(e => {
+    // Hide log viewer requests
+    if (hideViewerRequests && (
+      (e.message && e.message.includes('GET /admin/logs/viewer')) ||
+      (e.path && e.path.includes('/admin/logs/viewer'))
+    )) {
+      return false;
+    }
+    
+    // Hide middleware calls
+    if (hideMiddleware && e.module === 'middleware') {
+      return false;
+    }
+    
+    // Hide config routes get_config calls
+    if (hideConfigRoutes && e.module === 'config_routes' && e.function === 'get_config') {
+      return false;
+    }
+    
+    // Hide websocket endpoint calls
+    if (hideWebsocketEndpoint && e.module === 'main' && e.function === 'websocket_endpoint') {
+      return false;
+    }
+    
+    // Hide HTTP client _send_single_request calls
+    if (hideHttpClientCalls && e.module === '_client' && e.function === '_send_single_request') {
+      return false;
+    }
+    
+    // Hide discover_data_sources calls
+    if (hideDiscoverDataSources && e.module === 'client' && e.function === 'discover_data_sources') {
+      return false;
+    }
+    
+    return true;
+  });
 
   const paginated = filtered.slice().reverse().slice(page * pageSize, (page + 1) * pageSize);
   const totalPages = Math.ceil(filtered.length / pageSize) || 1;
@@ -152,25 +202,127 @@ export default function LogViewer() {
         {loading && <span className="text-sm text-gray-500">Loading...</span>}
         {error && <span className="text-sm text-red-500">{error.message}</span>}
       </div>
-      
-      {/* Second row: Toggles and Settings */}
-      <div className="flex flex-wrap items-center gap-4">
-        <div className="flex items-center gap-2">
-          <label className="flex items-center gap-2 text-xs font-medium select-none cursor-pointer">
-            <input type="checkbox" className="accent-cyan-600" checked={hideViewerRequests} onChange={e => { setPage(0); setHideViewerRequests(e.target.checked); }} />
-            Hide GET /admin/logs/viewer
-          </label>
+
+      {/* Quick Filters Section */}
+      <div className="bg-gray-100 dark:bg-gray-800 rounded-lg">
+        {/* Header with collapse and toggle all */}
+        <div className="flex items-center justify-between p-4 pb-3">
+          <button 
+            onClick={() => setQuickFiltersCollapsed(!quickFiltersCollapsed)}
+            className="flex items-center gap-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg px-2 py-1 transition-colors"
+          >
+            <Filter className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+            <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Quick Filters</h3>
+            {quickFiltersCollapsed ? (
+              <ChevronDown className="w-4 h-4 text-gray-500" />
+            ) : (
+              <ChevronUp className="w-4 h-4 text-gray-500" />
+            )}
+          </button>
+          
+          <button
+            onClick={handleToggleAll}
+            className="flex items-center gap-2 px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-medium transition-colors"
+            title={`${hideViewerRequests || hideMiddleware || hideConfigRoutes || hideWebsocketEndpoint || hideHttpClientCalls || hideDiscoverDataSources ? 'Disable' : 'Enable'} all filters`}
+          >
+            {hideViewerRequests || hideMiddleware || hideConfigRoutes || hideWebsocketEndpoint || hideHttpClientCalls || hideDiscoverDataSources ? (
+              <ToggleRight className="w-4 h-4" />
+            ) : (
+              <ToggleLeft className="w-4 h-4" />
+            )}
+            Toggle All
+          </button>
         </div>
+        
+        {/* Collapsible content */}
+        {!quickFiltersCollapsed && (
+        <div className="px-4 pb-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* HTTP/API Noise */}
+          <div className="space-y-2">
+            <h4 className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">🚫 HTTP/API Noise</h4>
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-2 text-xs font-medium select-none cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  className="accent-cyan-600" 
+                  checked={hideConfigRoutes} 
+                  onChange={e => { setPage(0); setHideConfigRoutes(e.target.checked); }} 
+                />
+                Config routes (get_config)
+              </label>
+              <label className="flex items-center gap-2 text-xs font-medium select-none cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  className="accent-cyan-600" 
+                  checked={hideWebsocketEndpoint} 
+                  onChange={e => { setPage(0); setHideWebsocketEndpoint(e.target.checked); }} 
+                />
+                WebSocket connections
+              </label>
+            </div>
+          </div>
+
+          {/* Network Requests */}
+          <div className="space-y-2">
+            <h4 className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">🌐 Network Requests</h4>
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-2 text-xs font-medium select-none cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  className="accent-cyan-600" 
+                  checked={hideHttpClientCalls} 
+                  onChange={e => { setPage(0); setHideHttpClientCalls(e.target.checked); }} 
+                />
+                HTTP client calls
+              </label>
+              <label className="flex items-center gap-2 text-xs font-medium select-none cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  className="accent-cyan-600" 
+                  checked={hideDiscoverDataSources} 
+                  onChange={e => { setPage(0); setHideDiscoverDataSources(e.target.checked); }} 
+                />
+                RAG data source discovery
+              </label>
+            </div>
+          </div>
+
+          {/* Admin Interface */}
+          <div className="space-y-2">
+            <h4 className="text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">🔧 Admin Interface</h4>
+            <div className="space-y-1.5">
+              <label className="flex items-center gap-2 text-xs font-medium select-none cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  className="accent-cyan-600" 
+                  checked={hideViewerRequests} 
+                  onChange={e => { setPage(0); setHideViewerRequests(e.target.checked); }} 
+                />
+                Log viewer requests
+              </label>
+              <label className="flex items-center gap-2 text-xs font-medium select-none cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  className="accent-cyan-600" 
+                  checked={hideMiddleware} 
+                  onChange={e => { setPage(0); setHideMiddleware(e.target.checked); }} 
+                />
+                Middleware calls
+              </label>
+            </div>
+          </div>
+        </div>
+        </div>
+        )}
+      </div>
+      
+      {/* Settings and Auto-scroll */}
+      <div className="flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-2">
           <label className="flex items-center gap-2 text-xs font-medium select-none cursor-pointer">
             <input type="checkbox" className="accent-cyan-600" checked={autoScrollEnabled} onChange={e => setAutoScrollEnabled(e.target.checked)} />
             Auto-scroll
-          </label>
-        </div>
-        <div className="flex items-center gap-2">
-          <label className="flex items-center gap-2 text-xs font-medium select-none cursor-pointer">
-            <input type="checkbox" className="accent-cyan-600" checked={hideMiddleware} onChange={e => { setPage(0); setHideMiddleware(e.target.checked); }} />
-            Hide Middleware Calls
           </label>
         </div>
         <div className="flex items-center gap-2">
@@ -196,7 +348,7 @@ export default function LogViewer() {
             {[50,100,250,500].map(s => <option key={s}>{s}</option>)}
           </select>
         </div>
-  <span className="text-gray-500">Total entries: {entries.length}{hideViewerRequests && filtered.length !== entries.length && ` (showing ${filtered.length})`}</span>
+  <span className="text-gray-500">Total entries: {entries.length}{filtered.length !== entries.length && ` (showing ${filtered.length})`}</span>
       </div>
       <div ref={tableContainerRef} className="flex-1 overflow-auto border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100" onScroll={handleScroll}> {/* Added onScroll handler */}
         <table className="w-full text-sm">

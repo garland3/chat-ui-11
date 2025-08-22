@@ -290,92 +290,82 @@ const ToolsPanel = ({ isOpen, onClose }) => {
       onClick={onClose}
     >
       <div 
-        className="bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[80vh] mx-4 flex flex-col"
+        className="bg-gray-800 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] mx-4 flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-6 border-b border-gray-700 flex-shrink-0">
-          <h2 className="text-xl font-semibold text-gray-100">Tools & Integrations</h2>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700 flex-shrink-0">
+          <h2 className="text-lg font-semibold text-gray-100">Tools & Integrations</h2>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
+            className="p-1.5 rounded-lg bg-gray-700 hover:bg-gray-600 transition-colors"
           >
-            <X className="w-6 h-6" />
+            <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Controls Section */}
-        <div className="p-6 border-b border-gray-700 flex-shrink-0 space-y-4">
+        <div className="px-4 py-3 border-b border-gray-700 flex-shrink-0 space-y-3">
           {/* Top Row: Add from Marketplace and Clear All */}
-          <div className="flex gap-4">
+          <div className="flex gap-3">
             <button
               onClick={navigateToMarketplace}
-              className="flex-1 px-6 py-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition-colors flex items-center justify-center gap-3"
+              className="flex-1 px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition-colors flex items-center justify-center gap-2"
             >
-              <Plus className="w-5 h-5" />
+              <Plus className="w-4 h-4" />
               Add from Marketplace
             </button>
             <button
               onClick={clearToolsAndPrompts}
-              className="px-4 py-3 rounded-lg bg-red-600 hover:bg-red-700 text-white font-medium transition-colors flex items-center gap-2"
+              className="px-3 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white text-sm font-medium transition-colors flex items-center gap-2"
               title="Clear all tool and prompt selections"
             >
-              <Trash2 className="w-4 h-4" />
+              <Trash2 className="w-3 h-3" />
               Clear All
             </button>
           </div>
           
           {/* Required Tool Usage Toggle */}
-          <div className="flex items-center justify-between p-4 bg-gray-700 rounded-lg">
+          <div className="flex items-center justify-between px-4 py-2 bg-gray-700 rounded-lg">
             <div>
-              <h3 className="text-white font-medium">Required Tool Usage</h3>
-              <p className="text-sm text-gray-400 mt-1">
-                When enabled, the model must use one of your selected tools to respond.
-              </p>
+              <h3 className="text-white text-sm font-medium">Required Tool Usage</h3>
+              <p className="text-xs text-gray-400">Model must use selected tools to respond</p>
             </div>
             <button
               onClick={() => setToolChoiceRequired(!toolChoiceRequired)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-800 ${
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 focus:ring-offset-gray-800 ${
                 toolChoiceRequired ? 'bg-blue-600' : 'bg-gray-600'
               }`}
             >
               <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  toolChoiceRequired ? 'translate-x-6' : 'translate-x-1'
+                className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${
+                  toolChoiceRequired ? 'translate-x-5' : 'translate-x-1'
                 }`}
               />
             </button>
           </div>
 
           {/* Selected Prompt Summary */}
-          <div className="p-4 bg-gray-700 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-white font-medium">Selected Prompt</h3>
-                {selectedPromptInfo ? (
-                  <p className="text-sm text-gray-300 mt-1">
-                    <span className="font-semibold text-purple-300">{selectedPromptInfo.name}</span>
-                    <span className="text-gray-400"> from </span>
-                    <span className="font-medium">{selectedPromptInfo.server}</span>
-                  </p>
-                ) : (
-                  <p className="text-sm text-gray-400 mt-1">None selected</p>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                {selectedPromptInfo && (
-                  <button
-                    onClick={() => setSinglePrompt(null)}
-                    className="px-3 py-1.5 rounded text-xs font-medium bg-gray-600 hover:bg-gray-500 text-gray-100 transition-colors"
-                    title="Clear selected prompt"
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
+          <div className="flex items-center justify-between px-4 py-2 bg-gray-700 rounded-lg">
+            <div className="flex-1 min-w-0">
+              <h3 className="text-white text-sm font-medium">Selected Prompt</h3>
+              {selectedPromptInfo ? (
+                <p className="text-xs text-gray-300 truncate">
+                  <span className="font-semibold text-purple-300">{selectedPromptInfo.name}</span>
+                  <span className="text-gray-400"> from {selectedPromptInfo.server}</span>
+                </p>
+              ) : (
+                <p className="text-xs text-gray-400">None selected</p>
+              )}
             </div>
-            {selectedPromptInfo?.description && (
-              <p className="text-xs text-gray-400 mt-2 line-clamp-2">{selectedPromptInfo.description}</p>
+            {selectedPromptInfo && (
+              <button
+                onClick={() => setSinglePrompt(null)}
+                className="px-2 py-1 rounded text-xs font-medium bg-gray-600 hover:bg-gray-500 text-gray-100 transition-colors flex-shrink-0 ml-2"
+                title="Clear selected prompt"
+              >
+                Clear
+              </button>
             )}
           </div>
         </div>
@@ -396,14 +386,14 @@ const ToolsPanel = ({ isOpen, onClose }) => {
           ) : (
             <>
               {/* Section Header */}
-              <div className="px-6 py-4 border-b border-gray-700">
-                <h3 className="text-lg font-semibold text-white">
+              <div className="px-4 py-2 border-b border-gray-700">
+                <h3 className="text-sm font-semibold text-white">
                   Your Installed Tools ({serverList.reduce((total, server) => total + server.tool_count + server.prompt_count, 0)})
                 </h3>
               </div>
               
               {/* Search Bar */}
-              <div className="px-6 py-4">
+              <div className="px-4 py-2">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
                   <input
@@ -411,7 +401,7 @@ const ToolsPanel = ({ isOpen, onClose }) => {
                     placeholder="Search installed tools..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full pl-10 pr-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-200 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
                   />
                 </div>
               </div>
@@ -422,7 +412,7 @@ const ToolsPanel = ({ isOpen, onClose }) => {
                   <p className="text-gray-500">Try adjusting your search terms</p>
                 </div>
               ) : (
-                <div className="px-6 pb-6 space-y-4">
+                <div className="px-4 pb-4 space-y-3">
                   {filteredServers.map(server => {
                     const isExpanded = expandedServers.has(server.server)
                     const hasIndividualItems = server.tools.length > 0 || server.prompts.length > 0

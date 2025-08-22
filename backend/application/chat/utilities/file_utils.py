@@ -343,6 +343,11 @@ async def ingest_v2_artifacts(
         # Emit files update if successful uploads
         if uploaded_refs and update_callback:
             organized = file_manager.organize_files_metadata(uploaded_refs)
+            logger.info(
+                "Emitting files_update for v2 artifacts: total=%d, names=%s",
+                len(organized.get('files', [])),
+                list(uploaded_refs.keys()),
+            )
             await update_callback({
                 "type": "intermediate_update",
                 "update_type": "files_update",

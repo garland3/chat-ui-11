@@ -190,8 +190,6 @@ System administrators can display informational banners to users for announcemen
 ### Configuration
 ```bash
 BANNER_ENABLED=true
-BANNER_URL=http://your-admin-service.com
-BANNER_API_KEY=your_secret_key
 ```
 
 ### Banner Service API

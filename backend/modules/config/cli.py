@@ -103,7 +103,7 @@ def inspect_settings(args) -> None:
         "Application": ["app_name", "port", "debug_mode", "log_level"],
         "Features": [attr for attr in dir(settings) if attr.startswith("feature_")],
         "RAG": ["mock_rag", "rag_mock_url"],
-        "Banner": ["banner_enabled", "mock_banner", "banner_mock_url", "banner_api_key"],
+        "Banner": ["banner_enabled"],
         "Agent": ["feature_agent_mode_available", "agent_max_steps"],
         "Health": ["llm_health_check_interval", "mcp_health_check_interval"],
         "S3": ["s3_endpoint", "s3_use_mock", "s3_timeout"],

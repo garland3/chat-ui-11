@@ -93,9 +93,6 @@ class AppSettings(BaseSettings):
     
     # Banner settings
     banner_enabled: bool = False
-    mock_banner: bool = False
-    banner_mock_url: str = "http://localhost:8002"
-    banner_api_key: str = ""
     
     # Agent settings
     # Renamed to feature_agent_mode_available to align with other FEATURE_* flags.
