@@ -393,11 +393,9 @@ async def synthesize_tool_results(
 
     final_response = await llm_caller.call_plain(model, synthesis_messages)
 
-    if final_response and final_response.strip() and update_callback:
-        await update_callback({
-            "type": "tool_synthesis",
-            "message": final_response
-        })
+    # Do not emit a separate 'tool_synthesis' assistant-visible event here.
+    # The chat service will emit a single 'chat_response' for the final answer
+    # to avoid duplicate assistant messages in the UI.
 
     return final_response
 

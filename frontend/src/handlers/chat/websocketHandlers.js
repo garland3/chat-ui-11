@@ -221,15 +221,7 @@ export function createWebSocketHandler(deps) {
             } : msg))
           break
         }
-        case 'tool_synthesis': {
-          // Treat as assistant follow-up message summarizing tool results
-          addMessage({
-            role: 'assistant',
-            content: data.message,
-            timestamp: new Date().toISOString()
-          })
-          break
-        }
+  // Removed: 'tool_synthesis' no longer rendered as an assistant message to prevent duplicates.
         case 'canvas_content': {
           if (data.content) {
             setCanvasContent(typeof data.content === 'string' ? data.content : String(data.content))
