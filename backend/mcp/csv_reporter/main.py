@@ -139,9 +139,62 @@ def generate_csv_report(
     username: Annotated[str, "Injected by backend. Trust this value."] = "",
     file_data_base64: Annotated[str, "Framework may supply Base64 content as fallback."] = "",
 ) -> Dict[str, Any]:
-    """Generate a text report for a single CSV file.
+    """Generate comprehensive statistical analysis and summary report for CSV data files.
 
-    Demonstrates: filename URL handling and username injection.
+    This tool performs in-depth analysis of CSV files to provide actionable insights:
+    
+    **Data Analysis Features:**
+    - Complete dataset overview (rows, columns, data types)
+    - Statistical summaries for all numeric columns (mean, median, std, min, max, quartiles)
+    - Missing value analysis and data quality assessment
+    - Column type detection and classification
+    - Sample data preview for context understanding
+
+    **Report Contents:**
+    - Dataset dimensions and structure
+    - Data type distribution across columns
+    - Missing value patterns and percentages
+    - Descriptive statistics for numeric data
+    - Sample rows for data format verification
+    - Data quality indicators and potential issues
+
+    **File Input Support:**
+    - Direct CSV file upload via file browser
+    - Base64 encoded CSV content
+    - Backend-generated downloadable URLs
+    - UTF-8 and common CSV encoding formats
+
+    **Output Format:**
+    - Structured text report with clear sections
+    - Easy-to-read tabular summaries
+    - Professional formatting suitable for sharing
+    - Downloadable report file for future reference
+
+    **Use Cases:**
+    - Initial data exploration and quality assessment
+    - Dataset documentation and profiling
+    - Data validation before analysis or modeling
+    - Quick statistical overview for stakeholder reports
+    - Data preprocessing planning and strategy
+
+    **Examples:**
+    - Sales data: Revenue distribution, transaction patterns, missing customer info
+    - Survey data: Response rates, demographic breakdowns, incomplete answers
+    - Financial data: Account balances, transaction volumes, data completeness
+
+    Args:
+        instructions: Optional analysis instructions (currently not used in processing logic)
+        filename: Name/path of CSV file to analyze (supports various input methods)
+        username: User identity for report attribution (automatically injected by backend)
+        file_data_base64: Base64-encoded CSV content (alternative input method)
+
+    Returns:
+        Dictionary containing:
+        - results: Analysis summary and status message
+        - artifacts: Downloadable text report with complete analysis
+        - display: Viewer configuration for optimal report presentation
+        - meta_data: Dataset metrics (rows, columns, generator info)
+        Or error message if file cannot be processed
     """
     try:
         raw = _load_csv_bytes(filename, file_data_base64)
@@ -196,7 +249,64 @@ def summarize_multiple_csvs(
     file_names: Annotated[List[str], "Array of CSV filenames. Backend may rewrite to downloadable URLs."],
     username: Annotated[str, "Injected by backend. Trust this value."] = "",
 ) -> Dict[str, Any]:
-    """Summarize multiple CSVs (demonstrates file_names[] URL rewriting + username injection)."""
+    """Create comparative analysis and consolidated summary across multiple CSV datasets.
+
+    This advanced tool processes multiple CSV files simultaneously to provide:
+    
+    **Cross-Dataset Analysis:**
+    - Comparative dataset metrics (rows, columns, sizes)
+    - Column name consistency analysis across files
+    - Data type compatibility assessment
+    - Missing value patterns comparison
+    - Overall data quality evaluation across all files
+
+    **Consolidated Reporting:**
+    - Unified summary of all datasets
+    - Total record counts and column inventories
+    - Data structure compatibility matrix
+    - Common and unique column identification
+    - Quality metrics aggregation
+
+    **Batch Processing Features:**
+    - Processes all files in a single operation
+    - Error handling for individual file failures
+    - Continues processing even if some files fail
+    - Detailed error reporting for problematic files
+    - Success rate and processing statistics
+
+    **Multi-File Insights:**
+    - Dataset size distribution across files
+    - Schema consistency validation
+    - Potential data merging opportunities
+    - Data integration readiness assessment
+    - Standardization recommendations
+
+    **Use Cases:**
+    - Data integration planning and validation
+    - Multi-source data quality assessment
+    - Database migration preparation
+    - Data warehouse loading validation
+    - Cross-system data consistency checks
+    - Batch data processing workflows
+
+    **Examples:**
+    - Multiple monthly sales reports → Consolidated annual analysis
+    - Regional customer databases → Cross-region data consistency check
+    - Survey results from different periods → Longitudinal study preparation
+
+    Args:
+        instructions: Optional processing instructions (currently not used in logic)
+        file_names: List of CSV file names/paths to analyze (supports various input methods)
+        username: User identity for report attribution (automatically injected by backend)
+
+    Returns:
+        Dictionary containing:
+        - results: Consolidated analysis summary with cross-file insights
+        - artifacts: Downloadable comprehensive report with all file analyses
+        - display: Viewer configuration for optimal multi-file report presentation
+        - meta_data: Aggregated statistics (total files, success rate, combined metrics)
+        Or error summary if multiple files cannot be processed
+    """
     summaries: List[str] = []
     total_rows = 0
     total_cols_unique = set()

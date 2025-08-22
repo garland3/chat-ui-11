@@ -31,13 +31,58 @@ def to_int(value: Union[str, int, float]) -> int:
 
 @mcp.tool
 def evaluate(expression: str) -> Dict[str, Any]:
-    """Safely evaluate a mathematical expression.
+    """Safely evaluate a wide range of mathematical expressions with comprehensive mathematical functions.
 
-    Returns MCP contract shape:
-    {
-      "results": { ... },
-      "meta_data": { ... }
-    }
+    This calculator tool provides secure mathematical computation capabilities including:
+    
+    **Basic Operations:**
+    - Arithmetic: +, -, *, /, //, %, **
+    - Built-in functions: abs(), round(), min(), max(), sum(), pow(), divmod()
+    
+    **Mathematical Constants:**
+    - pi, e, tau, inf, nan
+    
+    **Trigonometric Functions:**
+    - sin(), cos(), tan(), asin(), acos(), atan(), atan2()
+    - degrees(), radians(), hypot()
+    
+    **Hyperbolic Functions:**
+    - sinh(), cosh(), tanh(), asinh(), acosh(), atanh()
+    
+    **Exponential & Logarithmic:**
+    - exp(), sqrt(), log(), log10(), log2()
+    
+    **Rounding & Numeric Operations:**
+    - ceil(), floor(), trunc(), modf(), copysign(), fabs(), fmod()
+    
+    **Combinatorics & Number Theory:**
+    - factorial(), comb(), perm(), gcd(), lcm()
+    
+    **Float Validation:**
+    - isfinite(), isinf(), isnan()
+
+    **Security Features:**
+    - Expression length limited to 200 characters
+    - Only safe mathematical functions are allowed
+    - No access to file system, network, or dangerous operations
+    - Sandboxed evaluation environment
+
+    **Examples:**
+    - Basic: "2 + 3 * 4" → 14
+    - Trigonometry: "sin(pi/2)" → 1.0
+    - Logarithms: "log10(100)" → 2.0
+    - Combinatorics: "factorial(5)" → 120
+    - Complex: "sqrt(pow(3, 2) + pow(4, 2))" → 5.0
+
+    Args:
+        expression: Mathematical expression to evaluate (string, max 200 chars)
+
+    Returns:
+        MCP contract shape with results and timing metadata:
+        {
+          "results": {"operation": "evaluate", "expression": str, "result": float},
+          "meta_data": {"is_error": bool, "elapsed_ms": float, "reason": str}
+        }
     """
     start = time.perf_counter()
     expression_str = str(expression)

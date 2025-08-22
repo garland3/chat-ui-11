@@ -63,14 +63,54 @@ def get_page_content(url: str) -> str:
 @mcp.tool
 def search_and_fetch(query: str, max_results: Union[str, int] = 3) -> Dict[str, Any]:
     """
-    Searches DuckDuckGo for a query, tries to fetch content from multiple results until successful.
+    Search the web using DuckDuckGo and intelligently fetch full content from the most relevant results.
+
+    This powerful web search tool combines search and content retrieval:
+    - Uses DuckDuckGo search engine for privacy-focused web searching
+    - Automatically attempts to fetch and parse content from multiple results
+    - Returns the first successfully retrieved page content along with metadata
+    - Handles various content types and website structures intelligently
+
+    **Search Capabilities:**
+    - Natural language queries and specific search terms
+    - Multiple search result evaluation for best content retrieval
+    - Fallback strategy: tries multiple URLs if the first fails
+    - Respects website robots.txt and rate limiting
+
+    **Content Extraction:**
+    - Removes navigation, ads, and formatting for clean text
+    - Extracts main article/content body from web pages
+    - Handles dynamic content and various website layouts
+    - Provides webpage title and URL for reference
+
+    **Privacy & Ethics:**
+    - Uses DuckDuckGo for privacy-conscious searching
+    - Includes proper user agent and headers
+    - Respects website terms and handles errors gracefully
+
+    **Use Cases:**
+    - Research on current events, technical topics, or general information
+    - Fact-checking and information verification
+    - Content analysis and summarization preparation
+    - Market research and competitive analysis
+    - Academic research and reference gathering
+
+    **Examples:**
+    - "latest developments in AI" → Recent news and articles
+    - "Python pandas tutorial" → Educational content and documentation
+    - "climate change statistics 2024" → Current data and reports
 
     Args:
-        query: The search term.
-        max_results: Maximum number of search results to try fetching (default 3). Can be string or integer.
+        query: Search query (string). Use natural language or specific keywords.
+        max_results: Maximum number of search results to attempt content fetch from (1-10, default 3)
 
     Returns:
-        A dictionary containing the search result's title, URL, and parsed content.
+        Dictionary containing:
+        - title: Title of the successfully fetched webpage
+        - url: URL of the source page
+        - content: Cleaned text content from the webpage
+        - query: Original search query used
+        Or error message if no content could be retrieved from any results
     """
     try:
         # convert to int. max = 10, min = 1

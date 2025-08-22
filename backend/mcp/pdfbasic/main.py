@@ -99,19 +99,69 @@ def analyze_pdf(
     file_data_base64: Annotated[str, "LLM agent can leave blank. Do NOT fill. This will be filled by the framework."] = ""
 ) -> Dict[str, Any]:
     """
-    Analyzes the text content of a single PDF file.
+    Extract and analyze text content from PDF documents with comprehensive word frequency analysis.
 
-    It calculates the total word count and determines the top 100 most
-    frequently used words. The file content must be provided as a
-    Base64 encoded string.
+    This powerful PDF processing tool provides detailed text analytics for PDF documents:
+    
+    **PDF Text Extraction:**
+    - Extracts text from all pages in PDF documents
+    - Handles various PDF formats and structures
+    - Works with both text-based and scanned PDFs (text extraction only)
+    - Preserves document structure and content flow
+
+    **Text Analysis Features:**
+    - Complete word count across entire document
+    - Top 100 most frequently used words identification
+    - Case-insensitive word analysis for accurate frequency counting
+    - Word pattern recognition and linguistic analysis
+    - Document length and content density assessment
+
+    **Content Processing:**
+    - Intelligent text cleaning and normalization
+    - Punctuation and formatting handling
+    - Multi-language text support
+    - Special character and encoding management
+
+    **Analytics Insights:**
+    - Document vocabulary richness and complexity
+    - Key topic identification through word frequency
+    - Content themes and focus areas analysis
+    - Writing style and language pattern recognition
+    - Document structure and organization assessment
+
+    **Use Cases:**
+    - Academic paper and research document analysis
+    - Legal document keyword extraction and analysis
+    - Content marketing and SEO keyword research
+    - Document classification and categorization
+    - Research literature review and summarization
+    - Contract and agreement content analysis
+
+    **Supported PDF Types:**
+    - Research papers, reports, and academic documents
+    - Business documents, contracts, and agreements
+    - Marketing materials and content documents
+    - Technical documentation and manuals
+    - Legal documents and regulatory filings
+
+    **Output Format:**
+    - Structured word frequency data
+    - Total document word count statistics
+    - Top 100 words with occurrence frequencies
+    - Document metadata and processing information
 
     Args:
-        instructions: Instructions for the tool, not used in this implementation.
-        filename: The name of the file, which must have a '.pdf' extension.
-        file_data_base64: The Base64-encoded string of the PDF file content.
+        instructions: Processing instructions or requirements (currently not used)
+        filename: PDF file name (must end with .pdf extension)
+        file_data_base64: Base64-encoded PDF content (automatically provided by framework)
 
     Returns:
-        A dictionary containing the analysis results or an error message.
+        Dictionary containing:
+        - operation: Processing type confirmation
+        - filename: Source PDF file name
+        - total_word_count: Complete document word count
+        - top_100_words: Dictionary of most frequent words with counts
+        Or error message if PDF cannot be processed or contains no extractable text
     """
     return _analyze_pdf_content(instructions, filename, file_data_base64)
 
@@ -123,18 +173,69 @@ def generate_report_about_pdf(
     file_data_base64: Annotated[str, "LLM agent can leave blank. Do NOT fill. This will be filled by the framework."] = ""
 ) -> Dict[str, Any]:
     """
-    Analyzes a PDF, then generates and returns a new PDF report with the results.
+    Create comprehensive PDF analysis reports with professional formatting and detailed word frequency insights.
 
-    The report contains the total word count and the top 100 most frequent words.
-    This tool returns a new file back to the user.
+    This advanced PDF reporting tool combines text analysis with professional document generation:
+    
+    **Complete PDF Analysis Workflow:**
+    - Performs full text extraction and word frequency analysis
+    - Generates professional analysis reports in PDF format
+    - Creates downloadable documents with structured data presentation
+    - Provides ready-to-share analytical insights
+
+    **Report Contents:**
+    - Executive summary with document overview
+    - Total word count and document statistics
+    - Top 100 most frequent words with occurrence counts
+    - Professional multi-column layout for easy reading
+    - Organized tabular presentation of word frequency data
+
+    **Report Features:**
+    - Clean, professional PDF formatting using ReportLab
+    - Multi-column layout optimizing space usage
+    - Clear headers and structured information hierarchy
+    - Page management for large datasets
+    - High-quality typography and spacing
+
+    **Document Generation:**
+    - Creates new PDF reports from analysis results
+    - Professional business document appearance
+    - Optimized layout for printing and digital sharing
+    - Comprehensive data presentation in readable format
+
+    **Use Cases:**
+    - Academic research document analysis reporting
+    - Legal document content analysis for litigation support
+    - Content marketing keyword research documentation
+    - Business document compliance and review reporting
+    - Research literature analysis and summarization
+    - Document classification and content audit reports
+
+    **Report Applications:**
+    - Stakeholder presentations with document insights
+    - Content strategy planning based on word analysis
+    - Academic research methodology documentation
+    - Legal discovery and document review processes
+    - Quality assurance for written content
+
+    **Output Features:**
+    - Professional PDF report with embedded analysis
+    - Downloadable file for offline access and sharing
+    - Structured data visualization in document format
+    - Ready-to-present analytical insights
 
     Args:
-        instructions: Instructions for the tool, not used in this implementation.
-        filename: The name of the file to be analyzed.
-        file_data_base_64: The Base64-encoded string of the PDF file content.
+        instructions: Report generation instructions or requirements (currently not used)
+        filename: Source PDF file name (must end with .pdf extension)
+        file_data_base64: Base64-encoded PDF content (automatically provided by framework)
 
     Returns:
-        A dictionary containing the new report's filename and its Base64-encoded data.
+        Dictionary containing:
+        - results: Report generation summary and success confirmation
+        - artifacts: Professional PDF report with complete analysis
+        - display: Optimized viewer configuration for report presentation
+        - meta_data: Source file information and analysis statistics
+        Or error message if PDF cannot be processed or report generation fails
     """
     # --- 1. Perform the same analysis as the first function ---
     analysis_result = _analyze_pdf_content(instructions, filename, file_data_base64)

@@ -22,15 +22,66 @@ def analyze_spreadsheet(
     file_data_base64: Annotated[str, "LLM agent can leave blank. Do NOT fill. Framework will fill this."] = ""
 ) -> Dict[str, Any]:
     """
-    Analyzes a spreadsheet (CSV or XLSX), detects numerical columns, and generates a plot.
+    Perform comprehensive spreadsheet analysis with automatic data visualization for CSV and Excel files.
+
+    This intelligent data analysis tool provides instant insights into spreadsheet data:
+    
+    **File Format Support:**
+    - CSV files (.csv) with various delimiters and encodings
+    - Excel files (.xlsx) including multiple sheets and complex formatting
+    - Automatic format detection and appropriate parsing
+    - Robust handling of different data structures and layouts
+
+    **Data Analysis Capabilities:**
+    - Automatic numerical column detection and classification
+    - Statistical distribution analysis for all numeric data
+    - Data quality assessment and completeness evaluation
+    - Column type identification and validation
+
+    **Visualization Features:**
+    - Auto-generated histograms for all numerical columns
+    - Multi-panel plots showing data distribution patterns
+    - Professional formatting with grid layout optimization
+    - High-resolution PNG output suitable for reports and presentations
+
+    **Data Insights Provided:**
+    - Column count and data type summary
+    - Numerical data distribution patterns
+    - Data range and statistical characteristics
+    - Missing value identification
+    - Outlier detection through visual inspection
+
+    **Smart Processing:**
+    - Handles large datasets efficiently
+    - Automatic plot layout optimization based on column count
+    - Error handling for corrupted or invalid data
+    - Graceful degradation for edge cases
+
+    **Use Cases:**
+    - Initial data exploration and profiling
+    - Data quality assessment before analysis
+    - Quick statistical overview for stakeholder presentations
+    - Dataset validation and structure verification
+    - Automated reporting and data documentation
+
+    **Examples:**
+    - Sales data → Revenue and quantity distribution histograms
+    - Survey responses → Response pattern and demographic distributions
+    - Financial records → Transaction amount and balance distributions
+    - Scientific measurements → Variable distribution and range analysis
 
     Args:
-        instructions: Instructions for the tool (not used).
-        filename: File name (must end in .csv or .xlsx).
-        file_data_base64: Base64-encoded spreadsheet content.
+        instructions: Analysis instructions or requirements (currently not used in processing)
+        filename: Name of the spreadsheet file (.csv or .xlsx extensions required)
+        file_data_base64: Base64-encoded file content (automatically provided by framework)
 
     Returns:
-        A dictionary with the operation result and a Base64-encoded PNG plot.
+        Dictionary containing:
+        - results: Analysis summary with column and data information
+        - artifacts: High-quality histogram visualization as downloadable PNG
+        - display: Optimized viewer configuration for data visualization
+        - meta_data: Processing statistics and file information
+        Or error message if file cannot be processed or contains no numerical data
     """
     try:
         # Validate file extension

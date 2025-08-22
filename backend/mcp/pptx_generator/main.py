@@ -170,21 +170,85 @@ def json_to_pptx(
     image_data_base64: Annotated[str, "Framework may supply Base64 image content as fallback"] = ""
 ) -> Dict[str, Any]:
     """
-    Converts JSON input to PowerPoint presentation with support for bullet point lists and optional image integration
+    Create professional PowerPoint presentations from structured JSON data with advanced formatting and multimedia support.
+
+    This comprehensive presentation generation tool transforms structured data into polished PowerPoint presentations:
     
+    **Presentation Creation Features:**
+    - Professional PowerPoint template and layout generation
+    - Dynamic slide creation from JSON data structures
+    - Automatic bullet point formatting and list management
+    - Custom slide titles and content organization
+    - Professional typography and spacing optimization
+
+    **Content Formatting Capabilities:**
+    - Intelligent bullet point recognition and formatting
+    - Multi-level list support with proper indentation
+    - Text formatting with consistent styling
+    - Professional color schemes and layout templates
+    - Automatic content overflow handling
+
+    **Multimedia Integration:**
+    - Image embedding with automatic sizing and positioning
+    - Support for multiple image formats (PNG, JPG, GIF)
+    - Base64 image data processing
+    - Local file and URL-based image integration
+    - Responsive image placement and scaling
+
+    **JSON Data Structure:**
+    - Flexible slide definition with title and content pairs
+    - Nested content support for complex information
+    - Array-based slide sequences for easy management
+    - Extensible schema for future enhancements
+
+    **Professional Output:**
+    - High-quality PPTX file generation compatible with Microsoft PowerPoint
+    - Professional business presentation templates
+    - Consistent formatting and branding across slides
+    - Optimized file size and compatibility
+
+    **Use Cases:**
+    - Business presentation automation from data
+    - Educational content and training material generation
+    - Marketing presentation creation from campaign data
+    - Report summaries and executive briefings
+    - Project status and milestone presentations
+    - Product demonstrations and feature showcases
+
+    **Advanced Features:**
+    - Automatic slide layout optimization
+    - Content-aware formatting decisions
+    - Image aspect ratio preservation
+    - Professional design pattern application
+
+    **JSON Format Example:**
+    ```json
+    {
+      "slides": [
+        {
+          "title": "Project Overview",
+          "content": "- Project goals and objectives\\n- Timeline and milestones\\n- Key deliverables"
+        },
+        {
+          "title": "Budget Analysis", 
+          "content": "- Current spend: $50,000\\n- Remaining budget: $25,000\\n- Cost projections"
+        }
+      ]
+    }
+    ```
+
     Args:
-        input_data: JSON string containing slide data in this format:
-            {"slides": [
-                {"title": "Slide 1", "content": "- Item 1\n- Item 2\n- Item 3"},
-                {"title": "Slide 2", "content": "- Item A\n- Item B"}
-            ]}
-        image_filename: Optional image filename to integrate into the presentation
-        image_data_base64: Framework may supply Base64 image content as fallback
-    
+        input_data: JSON string with slide definitions (title and content pairs with bullet points)
+        image_filename: Optional image file to embed in presentation (supports various formats)
+        image_data_base64: Alternative Base64-encoded image content (automatically provided by framework)
+
     Returns:
-        Dictionary with 'results' and 'artifacts' keys:
-        - 'results': Success message or error message
-        - 'artifacts': List of artifact dictionaries with 'name', 'b64', and 'mime' keys
+        Dictionary containing:
+        - results: Presentation generation summary and success confirmation
+        - artifacts: Professional PPTX file as downloadable content
+        - display: Optimized viewer configuration for presentation review
+        - meta_data: Generation statistics and file information
+        Or error message if JSON parsing or presentation generation fails
     """
     print("Starting json_to_pptx execution...")
     try:
