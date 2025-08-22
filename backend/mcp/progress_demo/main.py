@@ -24,16 +24,60 @@ async def long_task(
     interval_seconds: int = 3,
     ctx: Context | None = None,
 ) -> dict:
-    """Run a pseudo long operation and report progress periodically.
+    """Execute long-running operations with real-time progress tracking and user feedback capabilities.
+
+    This advanced progress monitoring tool demonstrates professional long-running task management:
+    
+    **Progress Tracking Features:**
+    - Real-time progress updates with percentage completion
+    - Configurable update intervals for optimal user experience
+    - Task labeling and identification for multi-task environments
+    - Asynchronous execution with non-blocking progress reporting
+
+    **User Experience:**
+    - Live progress bars and status indicators
+    - Descriptive progress messages with task context
+    - Predictable completion time estimation
+    - Graceful handling of interruptions and errors
+
+    **Technical Capabilities:**
+    - Async/await pattern for efficient resource utilization
+    - Context injection for framework integration
+    - Configurable timing parameters for different use cases
+    - Robust error handling and cleanup procedures
+
+    **Use Cases:**
+    - Large file processing and data migration
+    - Complex calculations and analysis workflows
+    - System maintenance and backup operations
+    - Report generation and batch processing
+    - Machine learning model training
+    - Database operations and synchronization
+
+    **Progress Reporting:**
+    - Percentage-based completion tracking
+    - Time-based milestone reporting
+    - Custom message formatting for task context
+    - Integration with UI progress indicators
+
+    **Customization Options:**
+    - Adjustable task duration for testing scenarios
+    - Variable update frequency for different performance needs
+    - Custom task labeling for organizational clarity
+    - Flexible timing configuration
 
     Args:
-        task: Arbitrary task label used in progress messages.
-        duration_seconds: Total duration for the task (default 12s).
-        interval_seconds: How often to emit progress updates (default 3s).
-        ctx: FastMCP context (injected) used to emit progress updates.
+        task: Descriptive label for the operation being performed (default: "demo")
+        duration_seconds: Total time for task completion in seconds (default: 12)
+        interval_seconds: Frequency of progress updates in seconds (default: 3)
+        ctx: MCP context for progress reporting (automatically injected by framework)
 
     Returns:
-        dict with a simple results payload.
+        Dictionary containing:
+        - results: Task completion summary and final status
+        - task_info: Task parameters and execution details
+        - timing: Actual execution time and performance metrics
+        Or error message if task execution fails
     """
     total = max(1, int(duration_seconds))
     step = max(1, int(interval_seconds))

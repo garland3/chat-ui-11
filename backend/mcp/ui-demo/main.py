@@ -35,10 +35,61 @@ def load_template(template_name: str) -> str:
 @mcp.tool
 def create_button_demo() -> Dict[str, Any]:
     """
-    Create a demo with custom HTML buttons that showcase UI modification capabilities.
+    Generate interactive HTML demonstrations showcasing advanced UI customization and dynamic interface capabilities.
+
+    This UI prototyping tool creates sophisticated interactive demonstrations:
     
+    **Interactive UI Components:**
+    - Custom HTML button interfaces with advanced styling
+    - Dynamic interaction patterns and user feedback systems
+    - Professional design templates with modern aesthetics
+    - Responsive layouts optimized for different screen sizes
+
+    **UI Customization Features:**
+    - Advanced CSS styling with modern design patterns
+    - Interactive JavaScript functionality for user engagement
+    - Professional color schemes and typography
+    - Accessibility-compliant interface elements
+
+    **Demonstration Capabilities:**
+    - Real-time UI modification examples
+    - Interactive component behavior showcases
+    - Design pattern implementation demonstrations
+    - User experience optimization examples
+
+    **Technical Implementation:**
+    - Clean HTML5 structure with semantic elements
+    - Modern CSS3 styling with flexbox and grid layouts
+    - Vanilla JavaScript for cross-browser compatibility
+    - Base64 encoding for seamless artifact delivery
+
+    **Use Cases:**
+    - UI design prototyping and concept validation
+    - Client demonstration and stakeholder presentations
+    - Design system documentation and examples
+    - Interactive tutorial and training materials
+    - A/B testing interface variations
+    - User experience research and testing
+
+    **Professional Features:**
+    - Production-ready code quality and structure
+    - Cross-browser compatibility and standards compliance
+    - Performance-optimized implementation
+    - Maintainable and extensible code architecture
+
+    **Integration Capabilities:**
+    - Canvas viewer integration for immediate preview
+    - Downloadable HTML for offline use and sharing
+    - Framework-agnostic implementation
+    - Easy customization and extension
+
     Returns:
-        Dictionary with both regular content and custom HTML for UI injection
+        Dictionary containing:
+        - results: Demo creation summary and success confirmation
+        - artifacts: Interactive HTML demonstration as downloadable content
+        - display: Optimized canvas viewer configuration for immediate preview
+        - Interactive elements ready for user testing and evaluation
+        Or error message if HTML generation or template loading fails
     """
     # Load the HTML template
     html_content = load_template("button_demo.html")

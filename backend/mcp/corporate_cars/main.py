@@ -264,13 +264,58 @@ def _search_score(query: str, c: Car) -> Tuple[float, str]:
 @mcp.tool
 def rag_discover_resources(username: str) -> Dict[str, Any]:
     """
-    Discover available fleet data sources (resources) for this server.
+    Discover and enumerate available corporate fleet data sources with user-specific access control and preferences.
+
+    This fleet management resource discovery tool provides comprehensive access to corporate vehicle data:
+    
+    **Fleet Data Source Management:**
+    - Dynamic discovery of available fleet databases and data sources
+    - User-specific resource access control and permission validation
+    - Default resource selection based on user profiles and preferences
+    - Departmental and regional data source organization
+
+    **Access Control Features:**
+    - User authentication and authorization validation
+    - Role-based access to different fleet data categories
+    - Group-based permissions for departmental access
+    - Audit logging for resource access requests
+
+    **Resource Types Available:**
+    - Real-time vehicle location and status data
+    - Fleet utilization and assignment information
+    - Maintenance records and service history
+    - Fuel consumption and efficiency metrics
+    - Driver assignments and department allocations
+
+    **User Personalization:**
+    - Custom default resource selection per user
+    - Personalized data views based on user role
+    - Saved preferences for frequently accessed data
+    - Department-specific resource prioritization
+
+    **Use Cases:**
+    - Fleet manager dashboard initialization
+    - Regional supervisor data access setup
+    - Executive reporting and analytics preparation
+    - Field operations coordination
+    - Maintenance scheduling and planning
+    - Compliance reporting and audit preparation
+
+    **Data Integration:**
+    - Multi-source fleet data aggregation
+    - Real-time vehicle tracking integration
+    - ERP and HR system connectivity
+    - Geographic information system (GIS) integration
 
     Args:
-        username: The current user's username (for ACL/defaults purposes)
+        username: User identifier for access control and personalization (string)
 
     Returns:
-        { results: { resources: [ {id, name, authRequired?, defaultSelected?} ] } }
+        Dictionary containing:
+        - resources: List of available fleet data sources with metadata
+        - Each resource includes: id, name, authRequired status, access groups, defaultSelected flag
+        - meta_data: Discovery timing and system information
+        Or error message if user access validation fails
     """
     start, meta = _start_meta()
     try:

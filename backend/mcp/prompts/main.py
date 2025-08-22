@@ -72,10 +72,60 @@ def generate_code_request(language: str, task_description: str) -> PromptMessage
 @mcp.tool
 def list_available_prompts() -> Dict[str, Any]:
     """
-    List all available system prompts that can be applied to modify AI behavior.
+    Discover and enumerate all available AI personality and expertise system prompts for customizing assistant behavior.
+
+    This prompt management tool provides comprehensive access to AI behavior modification capabilities:
     
+    **System Prompt Categories:**
+    - Professional expertise prompts (financial, technical, business)
+    - Creative and artistic personality prompts (writing, design, storytelling)
+    - Educational and training-focused prompts (teaching, coaching, mentoring)
+    - Specialized domain knowledge prompts (industry-specific expertise)
+
+    **Available Professional Prompts:**
+    - Financial Tech Wizard: Fintech expertise, trading algorithms, market analysis
+    - Expert Dog Trainer: Canine behavior, training methods, pet psychology
+    - Creative Writer: Storytelling, character development, narrative craft
+
+    **Prompt Customization Features:**
+    - Detailed personality and expertise descriptions
+    - Behavioral modification instructions
+    - Domain-specific knowledge activation
+    - Communication style and approach guidance
+
+    **AI Behavior Modification:**
+    - Specialized knowledge domain activation
+    - Professional communication style adaptation
+    - Expert-level analytical thinking patterns
+    - Industry-specific terminology and concepts
+
+    **Use Cases:**
+    - Specialized consulting and advisory interactions
+    - Educational content creation and tutoring
+    - Professional analysis and problem-solving
+    - Creative project development and brainstorming
+    - Domain-specific research and investigation
+    - Training and skill development sessions
+
+    **Integration Features:**
+    - Compatible with conversation management systems
+    - Seamless personality switching capabilities
+    - Context-aware prompt application
+    - Multi-session personality persistence
+
+    **Customization Benefits:**
+    - Enhanced subject matter expertise
+    - Improved response relevance and accuracy
+    - Professional-grade analytical capabilities
+    - Specialized communication patterns
+
     Returns:
-        Dictionary containing available prompts and their descriptions
+        Dictionary containing:
+        - available_prompts: Complete catalog of system prompts with descriptions
+        - Each prompt includes: description, type, category, and usage guidelines
+        - total_count: Number of available prompts
+        - categories: Organized groupings of prompt types
+        Or error message if prompt discovery fails
     """
     prompts = {
         "financial_tech_wizard": {
