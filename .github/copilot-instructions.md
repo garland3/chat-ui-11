@@ -159,12 +159,14 @@ After making changes, ALWAYS validate by running through these scenarios:
 ### Container Development
 The project supports containerized development:
 ```bash
-# Build test container
+# Build test container (may take 5-10 minutes first time)
 docker build -f Dockerfile-test -t chat-ui-test .
 
 # Run tests in container - NEVER CANCEL, set timeout 300+ seconds
 docker run --rm chat-ui-test bash /app/test/run_tests.sh all
 ```
+
+**Note**: Docker builds may fail in some environments due to SSL certificate issues with package repositories. If Docker builds fail, use the local development approach instead.
 
 ## Validation Workflow
 
