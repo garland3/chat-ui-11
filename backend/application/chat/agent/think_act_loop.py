@@ -56,7 +56,7 @@ class ThinkActAgentLoop(AgentLoopProtocol):
                 "type": "function",
                 "function": {
                     "name": "agent_think",
-                    "description": "Think step: analyze the user input and context, outline next action or finish.",
+                    "description": "Think step: analyze the user input and context, outline next action or finish. Be concise. At max two sentense. You are only thinkig, not acting right now.",
                     "parameters": {
                         "type": "object",
                         "properties": {

@@ -127,31 +127,31 @@ RESOURCES: Dict[str, Dict[str, Any]] = {
     "west_region": {
         "name": "West Region Fleet",
         "defaultSelected": False,
-    "groups": ["users"],
+        "groups": ["users"],
         "predicate": lambda c: c.region == "West",
     },
     "east_region": {
         "name": "East Region Fleet",
         "defaultSelected": False,
-    "groups": ["users"],
+        "groups": ["users"],
         "predicate": lambda c: c.region == "East",
     },
     "central_region": {
         "name": "Central Region Fleet",
         "defaultSelected": False,
-    "groups": ["users"],
+        "groups": ["users"],
         "predicate": lambda c: c.region == "Central",
     },
     "executive_fleet": {
         "name": "Executive Fleet",
         "defaultSelected": False,
-    "groups": ["executive"],
+        "groups": ["executive"],
         "predicate": lambda c: "executive" in (c.tags or []),
     },
     "pool_cars": {
         "name": "Pool Cars",
         "defaultSelected": False,
-    "groups": ["users"],
+        "groups": ["users"],
         "predicate": lambda c: c.assigned_to is None,
     },
 }
@@ -264,70 +264,25 @@ def _search_score(query: str, c: Car) -> Tuple[float, str]:
 @mcp.tool
 def rag_discover_resources(username: str) -> Dict[str, Any]:
     """
-    Discover and enumerate available corporate fleet data sources with user-specific access control and preferences.
-
-    This fleet management resource discovery tool provides comprehensive access to corporate vehicle data:
-    
-    **Fleet Data Source Management:**
-    - Dynamic discovery of available fleet databases and data sources
-    - User-specific resource access control and permission validation
-    - Default resource selection based on user profiles and preferences
-    - Departmental and regional data source organization
-
-    **Access Control Features:**
-    - User authentication and authorization validation
-    - Role-based access to different fleet data categories
-    - Group-based permissions for departmental access
-    - Audit logging for resource access requests
-
-    **Resource Types Available:**
-    - Real-time vehicle location and status data
-    - Fleet utilization and assignment information
-    - Maintenance records and service history
-    - Fuel consumption and efficiency metrics
-    - Driver assignments and department allocations
-
-    **User Personalization:**
-    - Custom default resource selection per user
-    - Personalized data views based on user role
-    - Saved preferences for frequently accessed data
-    - Department-specific resource prioritization
-
-    **Use Cases:**
-    - Fleet manager dashboard initialization
-    - Regional supervisor data access setup
-    - Executive reporting and analytics preparation
-    - Field operations coordination
-    - Maintenance scheduling and planning
-    - Compliance reporting and audit preparation
-
-    **Data Integration:**
-    - Multi-source fleet data aggregation
-    - Real-time vehicle tracking integration
-    - ERP and HR system connectivity
-    - Geographic information system (GIS) integration
+    Discover available fleet data sources (resources) for this server.
 
     Args:
-        username: User identifier for access control and personalization (string)
+        username: The current user's username (for ACL/defaults purposes)
 
     Returns:
-        Dictionary containing:
-        - resources: List of available fleet data sources with metadata
-        - Each resource includes: id, name, authRequired status, access groups, defaultSelected flag
-        - meta_data: Discovery timing and system information
-        Or error message if user access validation fails
+        { results: { resources: [ {id, name, authRequired?, defaultSelected?} ] } }
     """
     start, meta = _start_meta()
     try:
         default_sid = _user_default_resource(username)
         resources_ui: List[Dict[str, Any]] = []
-    for rid, info in RESOURCES.items():
+        for rid, info in RESOURCES.items():
             resources_ui.append({
                 "id": rid,
                 "name": info.get("name") or rid,
-        # New contract: authRequired is always true, include per-resource groups
-        "authRequired": True,
-        "groups": list(info.get("groups", [])),
+                # New contract: authRequired is always true, include per-resource groups
+                "authRequired": True,
+                "groups": list(info.get("groups", [])),
                 "defaultSelected": (rid == default_sid) or bool(info.get("defaultSelected", False)),
             })
         return {

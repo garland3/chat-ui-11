@@ -1,6 +1,6 @@
 import { X, Trash2, Search, Plus, Wrench, ChevronDown, ChevronUp } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useChat } from '../contexts/ChatContext'
 import { useMarketplace } from '../contexts/MarketplaceContext'
 
@@ -70,6 +70,31 @@ const ToolsPanel = ({ isOpen, onClose }) => {
   
   const serverList = Object.values(allServers)
 
+  // Ensure only one prompt remains selected globally if storage had more
+  useEffect(() => {
+    if (selectedPrompts && selectedPrompts.size > 1) {
+      const first = Array.from(selectedPrompts)[0]
+      setSinglePrompt(first)
+    }
+  }, [selectedPrompts, setSinglePrompt])
+
+  // Derive currently selected prompt (if any)
+  const selectedPromptKey = selectedPrompts && selectedPrompts.size > 0
+    ? Array.from(selectedPrompts)[0]
+    : null
+
+  const selectedPromptInfo = (() => {
+    if (!selectedPromptKey) return null
+    const idx = selectedPromptKey.indexOf('_')
+    if (idx === -1) return { key: selectedPromptKey, server: 'Unknown', name: selectedPromptKey }
+    const server = selectedPromptKey.slice(0, idx)
+    const name = selectedPromptKey.slice(idx + 1)
+    // Try to find description from our server list
+    const srv = serverList.find(s => s.server === server)
+    const desc = srv?.prompts?.find(p => p.name === name)?.description || ''
+    return { key: selectedPromptKey, server, name, description: desc }
+  })()
+
   // Filter servers based on search term
   const filteredServers = serverList.filter(server => {
     if (!searchTerm) return true
@@ -108,6 +133,26 @@ const ToolsPanel = ({ isOpen, onClose }) => {
     }
   }
 
+  // Returns true if ANY tool or prompt from this server is selected
+  const isServerEnabledAny = (serverName) => {
+    const server = getServerByName(serverName)
+    if (!server) return false
+    const { toolKeys, promptKeys } = getServerKeys(server)
+    const anyTool = toolKeys.some(k => selectedTools.has(k))
+    const anyPrompt = promptKeys.some(k => selectedPrompts.has(k))
+    return anyTool || anyPrompt
+  }
+
+  // Returns true if ALL tools are selected AND (if prompts exist) one prompt is selected
+  const isServerAllSelected = (serverName) => {
+    const server = getServerByName(serverName)
+    if (!server) return false
+    const { toolKeys, promptKeys } = getServerKeys(server)
+    const allToolsSelected = toolKeys.length === 0 || toolKeys.every(k => selectedTools.has(k))
+    const promptSatisfied = promptKeys.length === 0 || promptKeys.some(k => selectedPrompts.has(k))
+    return allToolsSelected && promptSatisfied
+  }
+
   const ensureSinglePrompt = (promptKey) => {
     // Deselect all other prompts
     Array.from(selectedPrompts).forEach(existing => {
@@ -125,17 +170,8 @@ const ToolsPanel = ({ isOpen, onClose }) => {
     }
   }
 
-  const isServerSelected = (serverName) => {
-    const server = getServerByName(serverName)
-    if (!server) return false
-    const { toolKeys, promptKeys } = getServerKeys(server)
-    const hasAny = toolKeys.length > 0 || promptKeys.length > 0
-    if (!hasAny) return false
-    const allToolsSelected = toolKeys.length === 0 || toolKeys.every(k => selectedTools.has(k))
-    // If server has prompts, at least one of its prompts must be the (globally) selected prompt
-    const promptSatisfied = promptKeys.length === 0 || promptKeys.some(k => selectedPrompts.has(k))
-    return allToolsSelected && promptSatisfied
-  }
+  // Backward compat helper retained but now references "all selected" semantics
+  const isServerSelected = (serverName) => isServerAllSelected(serverName)
 
   const toggleServerItems = (serverName) => {
     console.debug('[TOOLS_PANEL] toggleServerItems invoked', { serverName })
@@ -203,6 +239,34 @@ const ToolsPanel = ({ isOpen, onClose }) => {
         serverSelectedNow: isServerSelected(serverName)
       })
     }, 0)
+  }
+
+  // Enable with a minimal default: if no items selected, select first tool, else first prompt
+  const enableServerMinimal = (serverName) => {
+    const server = getServerByName(serverName)
+    if (!server) return
+    const { toolKeys, promptKeys } = getServerKeys(server)
+    // Prefer first tool if available
+    if (toolKeys.length > 0) {
+      const first = toolKeys[0]
+      if (!selectedTools.has(first)) toggleTool(first)
+      return
+    }
+    // Else, pick first prompt (enforcing single prompt)
+    if (promptKeys.length > 0) {
+      setSinglePrompt(promptKeys[0])
+    }
+  }
+
+  // Disable everything for this server
+  const disableServerAll = (serverName) => {
+    const server = getServerByName(serverName)
+    if (!server) return
+    const { toolKeys, promptKeys } = getServerKeys(server)
+    const toolsToRemove = toolKeys.filter(k => selectedTools.has(k))
+    const promptsToRemove = promptKeys.filter(k => selectedPrompts.has(k))
+    if (toolsToRemove.length) removeTools(toolsToRemove)
+    if (promptsToRemove.length) removePrompts(promptsToRemove)
   }
 
 
@@ -282,6 +346,38 @@ const ToolsPanel = ({ isOpen, onClose }) => {
               />
             </button>
           </div>
+
+          {/* Selected Prompt Summary */}
+          <div className="p-4 bg-gray-700 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-white font-medium">Selected Prompt</h3>
+                {selectedPromptInfo ? (
+                  <p className="text-sm text-gray-300 mt-1">
+                    <span className="font-semibold text-purple-300">{selectedPromptInfo.name}</span>
+                    <span className="text-gray-400"> from </span>
+                    <span className="font-medium">{selectedPromptInfo.server}</span>
+                  </p>
+                ) : (
+                  <p className="text-sm text-gray-400 mt-1">None selected</p>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {selectedPromptInfo && (
+                  <button
+                    onClick={() => setSinglePrompt(null)}
+                    className="px-3 py-1.5 rounded text-xs font-medium bg-gray-600 hover:bg-gray-500 text-gray-100 transition-colors"
+                    title="Clear selected prompt"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
+            {selectedPromptInfo?.description && (
+              <p className="text-xs text-gray-400 mt-2 line-clamp-2">{selectedPromptInfo.description}</p>
+            )}
+          </div>
         </div>
 
         {/* Tools List */}
@@ -358,20 +454,15 @@ const ToolsPanel = ({ isOpen, onClose }) => {
                             {server.tools.length > 0 && (
                               <div className="mb-1">
                                 <div className="flex flex-wrap gap-1">
-                                  {server.tools.map(tool => {
+          {server.tools.map(tool => {
                                     const toolKey = `${server.server}_${tool}`
                                     const isSelected = selectedTools.has(toolKey)
                                     return (
                                       <button
                                         key={tool}
                                         onClick={() => {
-                                          if (!isSelected) {
-                                            // If tool not selected, enable both server and this tool
-                                            toggleServerItems(server.server)
-                                          } else {
-                                            // If already selected, just toggle this specific tool
-                                            toggleTool(toolKey)
-                                          }
+            // Toggle ONLY this specific tool
+            toggleTool(toolKey)
                                         }}
                                         className={`px-2 py-0.5 text-xs rounded text-white transition-colors hover:opacity-80 ${
                                           isSelected ? 'bg-blue-600' : 'bg-gray-600 hover:bg-blue-600'
@@ -398,10 +489,10 @@ const ToolsPanel = ({ isOpen, onClose }) => {
                                         key={prompt.name}
                                         onClick={() => {
                                           if (!isSelected) {
-                                            // If prompt not selected, enable server and set this as single prompt
-                                            toggleServerItems(server.server)
+                                            // Set this prompt as the single selected prompt
+                                            setSinglePrompt(promptKey)
                                           } else {
-                                            // If already selected, toggle this specific prompt
+                                            // Deselect this prompt
                                             togglePrompt(promptKey)
                                           }
                                         }}
@@ -421,18 +512,43 @@ const ToolsPanel = ({ isOpen, onClose }) => {
                           
                           {/* Action Buttons */}
                           <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                            {/* Toggle All Button */}
-                            <button
-                              onClick={() => toggleServerItems(server.server)}
-                              className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
-                                isServerSelected(server.server)
-                                  ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                                  : 'bg-gray-600 hover:bg-gray-500 text-gray-200'
-                              }`}
-                            >
-                              {isServerSelected(server.server) ? 'Enabled' : 'Enable'}
-                            </button>
-                            
+                            {/* Enable buttons in a horizontal row */}
+                            <div className="flex items-center gap-1">
+                              {/* Enable (any) Button */}
+                              <button
+                                onClick={() => {
+                                  if (isServerEnabledAny(server.server)) {
+                                    // Disable everything for this server
+                                    disableServerAll(server.server)
+                                  } else {
+                                    // Enable minimally (first tool or prompt)
+                                    enableServerMinimal(server.server)
+                                  }
+                                }}
+                                className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                                  isServerEnabledAny(server.server)
+                                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                                    : 'bg-gray-600 hover:bg-gray-500 text-gray-200'
+                                }`}
+                                title="Enable this server (at least one item)"
+                              >
+                                {isServerEnabledAny(server.server) ? 'Enabled' : 'Enable'}
+                              </button>
+
+                              {/* Enable All Button */}
+                              <button
+                                onClick={() => toggleServerItems(server.server)}
+                                className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${
+                                  isServerAllSelected(server.server)
+                                    ? 'bg-green-600 hover:bg-green-700 text-white'
+                                    : 'bg-gray-600 hover:bg-gray-500 text-gray-200'
+                                }`}
+                                title="Enable all tools (and choose a prompt if available)"
+                              >
+                                {isServerAllSelected(server.server) ? 'All On' : 'Enable All'}
+                              </button>
+                            </div>
+
                             {/* Expand Button */}
                             {hasIndividualItems && (
                               <button
