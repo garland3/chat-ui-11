@@ -64,24 +64,24 @@ jobs:
           cat npm-audit-report.json
         fi
 
-    # Advanced dependency scanning with Snyk
-    - name: Run Snyk to check for vulnerabilities
-      uses: snyk/actions/setup@master
-    
-    - name: Snyk Python scan
-      run: |
-        snyk test --file=requirements.txt --json > snyk-python-report.json || true
-      env:
-        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-      continue-on-error: true
+    # Advanced dependency scanning with Snyk (requires SNYK_TOKEN)
+    # - name: Run Snyk to check for vulnerabilities
+    #   uses: snyk/actions/setup@master
+    # 
+    # - name: Snyk Python scan
+    #   run: |
+    #     snyk test --file=requirements.txt --json > snyk-python-report.json || true
+    #   env:
+    #     SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+    #   continue-on-error: true
 
-    - name: Snyk Node.js scan  
-      run: |
-        cd frontend
-        snyk test --json > snyk-node-report.json || true
-      env:
-        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-      continue-on-error: true
+    # - name: Snyk Node.js scan  
+    #   run: |
+    #     cd frontend
+    #     snyk test --json > snyk-node-report.json || true
+    #   env:
+    #     SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+    #   continue-on-error: true
 
     # Upload dependency scan artifacts
     - name: Upload dependency scan reports
@@ -92,8 +92,6 @@ jobs:
         path: |
           safety-report.json
           frontend/npm-audit-report.json
-          snyk-python-report.json
-          frontend/snyk-node-report.json
 
   sast-scan:
     name: Static Application Security Testing
@@ -119,20 +117,20 @@ jobs:
           cat bandit-report.json
         fi
 
-    # Semgrep for multi-language SAST
-    - name: Run Semgrep
-      uses: returntocorp/semgrep-action@v1
-      with:
-        config: >-
-          p/security-audit
-          p/secrets
-          p/python
-          p/javascript
-          p/typescript
-          p/react
-        generateSarif: "1"
-      env:
-        SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+    # Semgrep for multi-language SAST (requires SEMGREP_APP_TOKEN)
+    # - name: Run Semgrep
+    #   uses: returntocorp/semgrep-action@v1
+    #   with:
+    #     config: >-
+    #       p/security-audit
+    #       p/secrets
+    #       p/python
+    #       p/javascript
+    #       p/typescript
+    #       p/react
+    #     generateSarif: "1"
+    #   env:
+    #     SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
 
     # CodeQL Analysis
     - name: Initialize CodeQL
@@ -157,7 +155,6 @@ jobs:
         name: sast-reports
         path: |
           bandit-report.json
-          semgrep.sarif
 
   secrets-scan:
     name: Secrets Scanning
@@ -177,12 +174,12 @@ jobs:
         head: HEAD
         extra_args: --debug --only-verified
 
-    # GitLeaks for additional secret detection
-    - name: Run GitLeaks
-      uses: gitleaks/gitleaks-action@v2
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+    # GitLeaks for additional secret detection (requires GITLEAKS_LICENSE)
+    # - name: Run GitLeaks
+    #   uses: gitleaks/gitleaks-action@v2
+    #   env:
+    #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    #     GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
 
   container-scan:
     name: Container Security Scan
