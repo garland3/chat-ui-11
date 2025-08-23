@@ -132,6 +132,12 @@ class AppSettings(BaseSettings):
     s3_endpoint: str = "http://127.0.0.1:8003"
     s3_use_mock: bool = True
     s3_timeout: int = 30
+    # Real S3/MinIO settings
+    s3_bucket: str = Field(default="chatui", validation_alias=AliasChoices("S3_BUCKET"))
+    s3_region: str = Field(default="us-east-1", validation_alias=AliasChoices("S3_REGION"))
+    s3_access_key_id: str | None = Field(default=None, validation_alias=AliasChoices("S3_ACCESS_KEY_ID"))
+    s3_secret_access_key: str | None = Field(default=None, validation_alias=AliasChoices("S3_SECRET_ACCESS_KEY"))
+    s3_path_style: bool = Field(default=True, validation_alias=AliasChoices("S3_PATH_STYLE"))
     
     # Feature flags
     feature_workspaces_enabled: bool = False
