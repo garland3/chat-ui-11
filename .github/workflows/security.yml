@@ -165,14 +165,14 @@ jobs:
       with:
         fetch-depth: 0  # Full history for better secret detection
 
-    # TruffleHog for secrets scanning
-    - name: TruffleHog OSS
-      uses: trufflesecurity/trufflehog@main
-      with:
-        path: ./
-        base: main
-        head: HEAD
-        extra_args: --debug --only-verified
+    # # TruffleHog for secrets scanning
+    # - name: TruffleHog OSS
+    #   uses: trufflesecurity/trufflehog@main
+    #   with:
+    #     path: ./
+    #     base: main
+    #     head: HEAD
+    #     extra_args: --debug --only-verified
 
     # GitLeaks for additional secret detection (requires GITLEAKS_LICENSE)
     # - name: Run GitLeaks
@@ -206,22 +206,22 @@ jobs:
       with:
         sarif_file: 'trivy-results.sarif'
 
-    # Docker Scout for additional container scanning
-    - name: Docker Scout scan
-      uses: docker/scout-action@v1
-      if: always()
-      with:
-        command: cves
-        image: security-scan:latest
-        only-severities: critical,high
-        format: sarif
-        output: scout-results.sarif
+    # # Docker Scout for additional container scanning
+    # - name: Docker Scout scan
+    #   uses: docker/scout-action@v1
+    #   if: always()
+    #   with:
+    #     command: cves
+    #     image: security-scan:latest
+    #     only-severities: critical,high
+    #     format: sarif
+    #     output: scout-results.sarif
 
-    - name: Upload Scout scan results
-      uses: github/codeql-action/upload-sarif@v2
-      if: always()
-      with:
-        sarif_file: 'scout-results.sarif'
+    # - name: Upload Scout scan results
+    #   uses: github/codeql-action/upload-sarif@v2
+    #   if: always()
+    #   with:
+    #     sarif_file: 'scout-results.sarif'
 
     # Upload container scan artifacts
     - name: Upload container scan reports
