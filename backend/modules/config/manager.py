@@ -86,6 +86,11 @@ class AppSettings(BaseSettings):
     debug_mode: bool = False
     # Logging settings
     log_level: str = "INFO"  # Override default logging level (DEBUG, INFO, WARNING, ERROR)
+    litellm_log_level: str = Field(
+        default="INFO",
+        description="LiteLLM logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL)",
+        validation_alias="LITELLM_LOG_LEVEL"
+    )
     
     # RAG settings
     mock_rag: bool = False

@@ -36,11 +36,28 @@ class LiteLLMCaller:
         if llm_config is None:
             from modules.config import config_manager
             self.llm_config = config_manager.llm_config
+            # Get LiteLLM log level from config
+            litellm_log_level = config_manager.app_settings.litellm_log_level
         else:
             self.llm_config = llm_config
+            # Fallback to INFO if no config manager available
+            litellm_log_level = "INFO"
         
-        # Set litellm verbosity based on debug mode
-        litellm.set_verbose = debug_mode
+        # Set LiteLLM logging via environment variable (new method)
+        if debug_mode or litellm_log_level.upper() == "DEBUG":
+            os.environ["LITELLM_LOG"] = "DEBUG"
+        else:
+            os.environ["LITELLM_LOG"] = litellm_log_level.upper()
+        
+        # Also control LiteLLM's internal logger directly
+        litellm_logger = logging.getLogger("LiteLLM")
+        if debug_mode or litellm_log_level.upper() == "DEBUG":
+            litellm_logger.setLevel(logging.DEBUG)
+        else:
+            litellm_logger.setLevel(getattr(logging, litellm_log_level.upper(), logging.INFO))
+            
+        # Remove deprecated verbose setting
+        # litellm.set_verbose = debug_mode  # This is deprecated
     
     def _get_litellm_model_name(self, model_name: str) -> str:
         """Convert internal model name to LiteLLM compatible format."""
@@ -116,11 +133,10 @@ class LiteLLMCaller:
         if tools_schema:
             tool_names = [t.get("function", {}).get("name") for t in tools_schema if t.get("function")]
         
-        logger.info("LLM_CALL_INPUT: model=%s, messages=%d, tools_required=%s, tools=%s", 
+        logger.info("LLM_CALL_INPUT: model=%s, messages=%d, tools_required=%s, tools=%s, content=%s", 
                     model_name, len(messages), 
                     tool_choice == "required", 
-                    tool_names)
-        logger.info("LLM_CALL_MESSAGES: %s", truncated_messages)
+                    tool_names, truncated_messages)
 
     def _log_post_llm_response(self, response, model_name):
         """Log LLM response with truncated content and tool call details."""

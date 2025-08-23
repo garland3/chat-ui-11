@@ -85,10 +85,10 @@ class MCPToolManager:
 
     async def _initialize_single_client(self, server_name: str, config: Dict[str, Any]) -> Optional[Client]:
         """Initialize a single MCP client. Returns None if initialization fails."""
-        logger.info(f"=== Initializing client for server '{server_name}' ===\n\nServer config: {config}")
+        logger.debug(f"=== Initializing client for server '{server_name}' ===\n\nServer config: {config}")
         try:
             transport_type = self._determine_transport_type(config)
-            logger.info(f"Determined transport type: {transport_type}")
+            logger.debug(f"Determined transport type: {transport_type}")
             
             if transport_type in ["http", "sse"]:
                 # HTTP/SSE MCP server
@@ -119,11 +119,11 @@ class MCPToolManager:
             elif transport_type == "stdio":
                 # STDIO MCP server
                 command = config.get("command")
-                logger.info(f"STDIO transport - command: {command}")
+                logger.debug(f"STDIO transport - command: {command}")
                 if command:
                     # Custom command specified
                     cwd = config.get("cwd")
-                    logger.info(f"Working directory specified: {cwd}")
+                    logger.debug(f"Working directory specified: {cwd}")
                     if cwd:
                         # Convert relative path to absolute path from project root
                         if not os.path.isabs(cwd):
@@ -132,11 +132,11 @@ class MCPToolManager:
                             # project root is: /workspaces/chat-ui-11
                             project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
                             cwd = os.path.join(project_root, cwd)
-                            logger.info(f"Converted relative cwd to absolute: {cwd} (project_root: {project_root})")
+                            logger.debug(f"Converted relative cwd to absolute: {cwd} (project_root: {project_root})")
                         
                         if os.path.exists(cwd):
-                            logger.info(f"✓ Working directory exists: {cwd}")
-                            logger.info(f"Creating STDIO client for {server_name} with command: {command} in cwd: {cwd}")
+                            logger.debug(f"✓ Working directory exists: {cwd}")
+                            logger.debug(f"Creating STDIO client for {server_name} with command: {command} in cwd: {cwd}")
                             from fastmcp.client.transports import StdioTransport
                             transport = StdioTransport(command=command[0], args=command[1:], cwd=cwd)
                             client = Client(transport)
@@ -146,7 +146,7 @@ class MCPToolManager:
                             logger.error(f"✗ Working directory does not exist: {cwd}")
                             return None
                     else:
-                        logger.info(f"No cwd specified, creating STDIO client for {server_name} with command: {command}")
+                        logger.debug(f"No cwd specified, creating STDIO client for {server_name} with command: {command}")
                         client = Client(command)
                         logger.debug(f"✓ Successfully created STDIO MCP client for {server_name} with custom command")
                         return client
@@ -253,15 +253,15 @@ class MCPToolManager:
         logger.info(f"=== TOOL DISCOVERY: Starting discovery for server '{server_name}' ===")
         logger.debug(f"Server config: {self.servers_config.get(server_name, 'No config found')}")
         try:
-            logger.info(f"Opening client connection for {server_name}...")
+            logger.debug(f"Opening client connection for {server_name}...")
             async with client:
-                logger.info(f"Client connected successfully for {server_name}, listing tools...")
+                logger.debug(f"Client connected successfully for {server_name}, listing tools...")
                 tools = await client.list_tools()
                 logger.debug(f"✓ Successfully got {len(tools)} tools from {server_name}: {[tool.name for tool in tools]}")
 
                 # Log detailed tool information
                 for i, tool in enumerate(tools):
-                    logger.info(
+                    logger.debug(
                         "  Tool %d: name='%s', description='%s'",
                         i + 1,
                         tool.name,
@@ -272,7 +272,7 @@ class MCPToolManager:
                     'tools': tools,
                     'config': self.servers_config[server_name]
                 }
-                logger.info(f"✓ Successfully stored {len(tools)} tools for {server_name} in available_tools")
+                logger.debug(f"✓ Successfully stored {len(tools)} tools for {server_name} in available_tools")
                 logger.info(f"=== TOOL DISCOVERY: Completed successfully for server '{server_name}' ===")
                 return server_data
         except Exception as e:
