@@ -181,7 +181,7 @@ async def ingest_tool_files(
     if uploaded_refs and update_callback:
         try:
             organized = file_manager.organize_files_metadata(uploaded_refs)
-            logger.info(
+            logger.debug(
                 "Emitting files_update for tool uploads: total=%d, names=%s",
                 len(organized.get('files', [])),
                 list(uploaded_refs.keys()),
@@ -275,7 +275,7 @@ async def emit_files_update_from_context(
             }
         
         organized = file_manager.organize_files_metadata(file_refs)
-        logger.info(
+        logger.debug(
             "Emitting files_update from context: total=%d",
             len(organized.get('files', [])),
         )
@@ -343,7 +343,7 @@ async def ingest_v2_artifacts(
         # Emit files update if successful uploads
         if uploaded_refs and update_callback:
             organized = file_manager.organize_files_metadata(uploaded_refs)
-            logger.info(
+            logger.debug(
                 "Emitting files_update for v2 artifacts: total=%d, names=%s",
                 len(organized.get('files', [])),
                 list(uploaded_refs.keys()),

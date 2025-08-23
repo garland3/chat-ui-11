@@ -42,37 +42,69 @@ logger = logging.getLogger(__name__)
 
 async def websocket_update_callback(websocket: WebSocket, message: dict):
     """
-    Callback function to handle websocket updates with logging.
+    Callback function to handle websocket updates with enhanced logging.
     """
     try:
         mtype = message.get("type")
+        
+        # Create truncated version for debug logging
+        truncated_msg = {}
+        for k, v in message.items():
+            if k == "content" and isinstance(v, str) and len(v) > 100:
+                truncated_msg[k] = v[:100] + "..."
+            elif isinstance(v, str) and len(v) > 100:
+                truncated_msg[k] = v[:100] + "..."
+            elif isinstance(v, dict):
+                # Truncate nested dict content
+                truncated_v = {}
+                for nk, nv in v.items():
+                    if isinstance(nv, str) and len(nv) > 50:
+                        truncated_v[nk] = nv[:50] + "..."
+                    else:
+                        truncated_v[nk] = nv
+                truncated_msg[k] = truncated_v
+            else:
+                truncated_msg[k] = v
+        
+        # Log UI update with message type and size
+        message_size = len(str(message))
+        logger.info("UI_UPDATE: type=%s, size=%d", mtype, message_size)
+        logger.debug("UI_UPDATE_DATA: %s", truncated_msg)
+        
+        # Type-specific logging (moved to DEBUG)
         if mtype == "intermediate_update":
             utype = message.get("update_type") or message.get("data", {}).get("update_type")
             if utype == "canvas_files":
                 files = (message.get("data") or {}).get("files") or []
-                # logger.info(
-                #     "WS SEND: intermediate_update canvas_files count=%d files=%s display=%s",
-                #     len(files),
-                #     [f.get("filename") for f in files if isinstance(f, dict)],
-                #     (message.get("data") or {}).get("display"),
-                # )
+                logger.debug(
+                    "Canvas files update: count=%d files=%s display=%s",
+                    len(files),
+                    [f.get("filename") for f in files if isinstance(f, dict)],
+                    (message.get("data") or {}).get("display"),
+                )
             elif utype == "files_update":
                 files = (message.get("data") or {}).get("files") or []
-            #     logger.info(
-            #         "WS SEND: intermediate_update files_update total=%d",
-            #         len(files),
-            #     )
-            # else:
-            #     logger.info("WS SEND: intermediate_update update_type=%s", utype)
+                logger.debug("Files update: total=%d", len(files))
+            else:
+                logger.debug("Intermediate update type: %s", utype)
         elif mtype == "canvas_content":
             content = message.get("content")
             clen = len(content) if isinstance(content, str) else "obj"
-            logger.info("WS SEND: canvas_content length=%s", clen)
-        else:
-            logger.info("WS SEND: %s", mtype)
-    except Exception:
+            logger.debug("Canvas content length: %s", clen)
+        elif mtype == "agent_update":
+            update_type = message.get("update_type")
+            logger.debug("Agent update type: %s", update_type)
+        elif mtype == "tool_start":
+            tool_name = message.get("tool_name")
+            logger.debug("Tool start: %s", tool_name)
+        elif mtype == "tool_complete":
+            tool_name = message.get("tool_name")
+            logger.debug("Tool complete: %s", tool_name)
+            
+    except Exception as e:
         # Non-fatal logging error; continue to send
-        pass
+        logger.debug("Error in websocket update logging: %s", e)
+    
     await websocket.send_json(message)
 
 

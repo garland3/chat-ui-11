@@ -100,14 +100,62 @@ class LiteLLMCaller:
         
         return kwargs
 
+    def _log_pre_llm_call(self, messages, model_name, tools_schema=None, tool_choice=None):
+        """Log LLM call input with truncated message content."""
+        truncated_messages = []
+        for msg in messages:
+            content = str(msg.get('content', ''))
+            truncated_content = content[:500] + "..." if len(content) > 500 else content
+            truncated_messages.append({
+                "role": msg.get("role"),
+                "content": truncated_content,
+                "has_tool_calls": bool(msg.get("tool_calls"))
+            })
+        
+        tool_names = []
+        if tools_schema:
+            tool_names = [t.get("function", {}).get("name") for t in tools_schema if t.get("function")]
+        
+        logger.info("LLM_CALL_INPUT: model=%s, messages=%d, tools_required=%s, tools=%s", 
+                    model_name, len(messages), 
+                    tool_choice == "required", 
+                    tool_names)
+        logger.info("LLM_CALL_MESSAGES: %s", truncated_messages)
+
+    def _log_post_llm_response(self, response, model_name):
+        """Log LLM response with truncated content and tool call details."""
+        message = response.choices[0].message
+        content = getattr(message, 'content', '') or ""
+        tool_calls = getattr(message, 'tool_calls', None)
+        
+        truncated_content = content[:500] + "..." if len(content) > 500 else content
+        tool_names = []
+        tool_args_summary = []
+        
+        if tool_calls:
+            for tc in tool_calls:
+                if hasattr(tc, 'function'):
+                    tool_names.append(tc.function.name)
+                    args = getattr(tc.function, 'arguments', {})
+                    if isinstance(args, str):
+                        args_str = args[:200] + "..." if len(args) > 200 else args
+                    else:
+                        args_str = str(args)[:200]
+                    tool_args_summary.append(f"{tc.function.name}({args_str})")
+        
+        logger.info("LLM_CALL_OUTPUT: model=%s, content_length=%d, tool_calls=%s", 
+                    model_name, len(content), tool_names)
+        logger.info("LLM_CALL_CONTENT: %s", truncated_content)
+        if tool_args_summary:
+            logger.info("LLM_CALL_TOOLS: %s", tool_args_summary)
+
     async def call_plain(self, model_name: str, messages: List[Dict[str, str]], temperature: float = 0.7) -> str:
         """Plain LLM call - no tools, no RAG."""
         litellm_model = self._get_litellm_model_name(model_name)
         model_kwargs = self._get_model_kwargs(model_name, temperature)
         
         try:
-            total_chars = sum(len(str(msg.get('content', ''))) for msg in messages)
-            logger.info(f"Plain LLM call: {len(messages)} messages, {total_chars} chars")
+            self._log_pre_llm_call(messages, model_name)
             
             response = await acompletion(
                 model=litellm_model,
@@ -115,8 +163,8 @@ class LiteLLMCaller:
                 **model_kwargs
             )
             
+            self._log_post_llm_response(response, model_name)
             content = response.choices[0].message.content or ""
-            logger.info(f"LLM response preview: '{content[:200]}{'...' if len(content) > 200 else ''}'")
             return content
             
         except Exception as exc:
@@ -135,8 +183,7 @@ class LiteLLMCaller:
         model_kwargs = self._get_model_kwargs(model_name, temperature)
         
         try:
-            total_chars = sum(len(str(msg.get('content', ''))) for msg in messages)
-            logger.info(f"Streaming LLM call: {len(messages)} messages, {total_chars} chars")
+            self._log_pre_llm_call(messages, model_name)
             
             # Enable streaming
             model_kwargs["stream"] = True
@@ -159,7 +206,8 @@ class LiteLLMCaller:
                             await stream_callback(delta.content)
             
             full_content = "".join(content_parts)
-            logger.info(f"Streaming LLM response complete: {len(full_content)} chars")
+            logger.info("LLM_CALL_OUTPUT: model=%s, content_length=%d, streaming=true", model_name, len(full_content))
+            logger.info("LLM_STREAMING_CONTENT: %s", full_content[:500] + "..." if len(full_content) > 500 else full_content)
             return full_content
             
         except Exception as exc:
@@ -244,8 +292,7 @@ class LiteLLMCaller:
             logger.info(f"Using tool_choice='auto' instead of 'required' for better compatibility")
 
         try:
-            total_chars = sum(len(str(msg.get('content', ''))) for msg in messages)
-            logger.info(f"LLM call with tools: {len(messages)} messages, {total_chars} chars, {len(tools_schema)} tools")
+            self._log_pre_llm_call(messages, model_name, tools_schema, final_tool_choice)
             
             response = await acompletion(
                 model=litellm_model,
@@ -255,6 +302,7 @@ class LiteLLMCaller:
                 **model_kwargs
             )
             
+            self._log_post_llm_response(response, model_name)
             message = response.choices[0].message
             return LLMResponse(
                 content=getattr(message, 'content', None) or "",
@@ -275,6 +323,7 @@ class LiteLLMCaller:
                         **model_kwargs
                     )
                     
+                    self._log_post_llm_response(response, model_name)
                     message = response.choices[0].message
                     return LLMResponse(
                         content=getattr(message, 'content', None) or "",
@@ -328,6 +377,8 @@ class LiteLLMCaller:
             messages_with_rag.insert(-1, rag_context_message)
             
             # Call LLM with enriched context and tools
+            logger.info("LLM_CALL_WITH_RAG: model=%s, data_source=%s, enriched_messages=%d", 
+                       model_name, data_source, len(messages_with_rag))
             llm_response = await self.call_with_tools(model_name, messages_with_rag, tools_schema, tool_choice, temperature=temperature)
             
             # Append metadata to content if available and no tool calls

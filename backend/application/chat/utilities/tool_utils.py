@@ -389,7 +389,7 @@ async def synthesize_tool_results(
             "content": prompt_text
         })
     else:
-        logger.info("Proceeding without dedicated tool synthesis prompt (fallback)")
+        logger.debug("Proceeding without dedicated tool synthesis prompt (fallback)")
 
     final_response = await llm_caller.call_plain(model, synthesis_messages)
 

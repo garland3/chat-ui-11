@@ -113,7 +113,7 @@ class MCPToolManager:
                     logger.debug(f"Creating HTTP client for {server_name} at {url}")
                     client = Client(url)
                 
-                logger.info(f"Created {transport_type.upper()} MCP client for {server_name}")
+                logger.debug(f"Created {transport_type.upper()} MCP client for {server_name}")
                 return client
             
             elif transport_type == "stdio":
@@ -140,7 +140,7 @@ class MCPToolManager:
                             from fastmcp.client.transports import StdioTransport
                             transport = StdioTransport(command=command[0], args=command[1:], cwd=cwd)
                             client = Client(transport)
-                            logger.info(f"✓ Successfully created STDIO MCP client for {server_name} with custom command and cwd")
+                            logger.debug(f"✓ Successfully created STDIO MCP client for {server_name} with custom command and cwd")
                             return client
                         else:
                             logger.error(f"✗ Working directory does not exist: {cwd}")
@@ -148,7 +148,7 @@ class MCPToolManager:
                     else:
                         logger.info(f"No cwd specified, creating STDIO client for {server_name} with command: {command}")
                         client = Client(command)
-                        logger.info(f"✓ Successfully created STDIO MCP client for {server_name} with custom command")
+                        logger.debug(f"✓ Successfully created STDIO MCP client for {server_name} with custom command")
                         return client
                 else:
                     # Fallback to old behavior for backward compatibility
@@ -157,7 +157,7 @@ class MCPToolManager:
                     if os.path.exists(server_path):
                         logger.debug(f"Server script exists for {server_name}, creating client...")
                         client = Client(server_path)  # Client auto-detects STDIO transport from .py file
-                        logger.info(f"Created MCP client for {server_name}")
+                        logger.debug(f"Created MCP client for {server_name}")
                         logger.debug(f"Successfully created client for {server_name}")
                         return client
                     else:
@@ -239,7 +239,7 @@ class MCPToolManager:
                 logger.error(f"✗ Exception during client initialization for {server_name}: {result}", exc_info=True)
             elif result is not None:
                 self.clients[server_name] = result
-                logger.info(f"✓ Successfully initialized client for {server_name}")
+                logger.debug(f"✓ Successfully initialized client for {server_name}")
             else:
                 logger.warning(f"⚠ Failed to initialize client for {server_name}")
         
@@ -257,7 +257,7 @@ class MCPToolManager:
             async with client:
                 logger.info(f"Client connected successfully for {server_name}, listing tools...")
                 tools = await client.list_tools()
-                logger.info(f"✓ Successfully got {len(tools)} tools from {server_name}: {[tool.name for tool in tools]}")
+                logger.debug(f"✓ Successfully got {len(tools)} tools from {server_name}: {[tool.name for tool in tools]}")
 
                 # Log detailed tool information
                 for i, tool in enumerate(tools):
@@ -523,7 +523,7 @@ class MCPToolManager:
                 if progress_handler is not None:
                     kwargs["progress_handler"] = progress_handler
                 result = await client.call_tool(tool_name, arguments, **kwargs)
-                logger.info(f"Successfully called {tool_name} on {server_name}")
+                logger.debug(f"Successfully called {tool_name} on {server_name}")
                 return result
         except Exception as e:
             logger.error(f"Error calling {tool_name} on {server_name}: {e}")
@@ -541,7 +541,7 @@ class MCPToolManager:
                     result = await client.get_prompt(prompt_name, arguments)
                 else:
                     result = await client.get_prompt(prompt_name)
-                logger.info(f"Successfully retrieved prompt {prompt_name} from {server_name}")
+                logger.debug(f"Successfully retrieved prompt {prompt_name} from {server_name}")
                 return result
         except Exception as e:
             logger.error(f"Error getting prompt {prompt_name} from {server_name}: {e}")
@@ -771,6 +771,44 @@ class MCPToolManager:
             normalized = {"results": str(raw_result)}
         return normalized
     
+    def _log_pre_tool_call(self, tool_call, server_name, actual_tool_name):
+        """Log tool call input with truncated arguments."""
+        args_str = json.dumps(tool_call.arguments, ensure_ascii=False)
+        truncated_args = args_str[:500] + "..." if len(args_str) > 500 else args_str
+        
+        logger.info("TOOL_CALL_INPUT: server=%s, tool=%s, call_id=%s", 
+                    server_name, actual_tool_name, tool_call.id)
+        logger.info("TOOL_CALL_ARGS: %s", truncated_args)
+
+    def _log_post_tool_response(self, raw_result, tool_call, server_name, actual_tool_name):
+        """Log tool response with sanitized content."""
+        result_summary = self._sanitize_tool_response(raw_result)
+        has_error = hasattr(raw_result, 'error') or (isinstance(raw_result, dict) and 'error' in raw_result)
+        
+        logger.info("TOOL_CALL_OUTPUT: server=%s, tool=%s, call_id=%s, success=%s", 
+                    server_name, actual_tool_name, tool_call.id, not has_error)
+        logger.info("TOOL_CALL_RESULT: %s", result_summary)
+
+    def _sanitize_tool_response(self, raw_result):
+        """Sanitize tool response by removing base64 content and sensitive data."""
+        try:
+            if hasattr(raw_result, 'structured_content'):
+                sc = raw_result.structured_content
+                if isinstance(sc, dict):
+                    # Remove potentially large or sensitive fields
+                    sanitized = {k: v for k, v in sc.items() 
+                                if k not in ['returned_file_contents', 'artifacts'] 
+                                and not k.endswith('_b64')}
+                    return str(sanitized)[:500]
+            elif isinstance(raw_result, dict):
+                sanitized = {k: v for k, v in raw_result.items() 
+                           if k not in ['returned_file_contents', 'artifacts']
+                           and not k.endswith('_b64')}
+                return str(sanitized)[:500]
+            return str(raw_result)[:500]
+        except Exception:
+            return "<error_sanitizing_response>"
+
     async def execute_tool(
         self,
         tool_call: ToolCall,
@@ -781,6 +819,8 @@ class MCPToolManager:
         if tool_call.name == "canvas_canvas":
             # Canvas tool just returns the content - it's handled by frontend
             content = tool_call.arguments.get("content", "")
+            self._log_pre_tool_call(tool_call, "canvas", "canvas")
+            logger.info("TOOL_CALL_OUTPUT: server=canvas, tool=canvas, call_id=%s, success=true", tool_call.id)
             return ToolResult(
                 tool_call_id=tool_call.id,
                 content=f"Canvas content displayed: {content[:100]}..." if len(content) > 100 else f"Canvas content displayed: {content}",
@@ -819,6 +859,9 @@ class MCPToolManager:
         server_name = tool_entry['server']
         actual_tool_name = tool_entry['tool'].name if tool_entry['tool'] else tool_call.name
         
+        # Log the tool call input
+        self._log_pre_tool_call(tool_call, server_name, actual_tool_name)
+        
         try:
             # Build a progress handler that forwards to UI if provided via context
             async def _progress_handler(progress: float, total: Optional[float], message: Optional[str]) -> None:
@@ -846,6 +889,10 @@ class MCPToolManager:
                 tool_call.arguments,
                 progress_handler=_progress_handler,
             )
+            
+            # Log the tool call output
+            self._log_post_tool_response(raw_result, tool_call, server_name, actual_tool_name)
+            
             normalized_content = self._normalize_mcp_tool_result(raw_result)
             content_str = json.dumps(normalized_content, ensure_ascii=False)
             

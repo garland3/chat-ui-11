@@ -53,7 +53,7 @@ async def safe_get_tools_schema(
     
     try:
         tools_schema = tool_manager.get_tools_schema(selected_tools)
-        logger.info(f"Got {len(tools_schema)} tool schemas for selected tools: {selected_tools}")
+        logger.debug(f"Got {len(tools_schema)} tool schemas for selected tools: {selected_tools}")
         return tools_schema
     except Exception as e:
         logger.error(f"Error getting tools schema: {e}", exc_info=True)
@@ -80,12 +80,12 @@ async def safe_call_llm_with_tools(
             llm_response = await llm_caller.call_with_rag_and_tools(
                 model, messages, data_sources, tools_schema, user_email, tool_choice, temperature=temperature
             )
-            logger.info(f"LLM response received with RAG and tools for user {user_email}, has_tool_calls: {llm_response.has_tool_calls()}")
+            logger.debug(f"LLM response received with RAG and tools for user {user_email}, has_tool_calls: {llm_response.has_tool_calls()}")
         else:
             llm_response = await llm_caller.call_with_tools(
                 model, messages, tools_schema, tool_choice, temperature=temperature
             )
-            logger.info(f"LLM response received with tools only, has_tool_calls: {llm_response.has_tool_calls()}")
+            logger.debug(f"LLM response received with tools only, has_tool_calls: {llm_response.has_tool_calls()}")
         return llm_response
     except Exception as e:
         logger.error(f"Error calling LLM with tools: {e}", exc_info=True)

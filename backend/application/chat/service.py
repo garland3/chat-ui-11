@@ -128,18 +128,17 @@ class ChatService:
         Returns:
             Response dictionary to send to client
         """
-        # Log input arguments with content trimmed
+        # Enhanced message input logging
         content_preview = content[:100] + "..." if len(content) > 100 else content
         sanitized_kwargs = error_utils.sanitize_kwargs_for_logging(kwargs)
         
-        logger.info(
-            f"handle_chat_message called - session_id: {session_id}, "
-            f"content: '{content_preview}', model: {model}, "
-            f"selected_tools: {selected_tools}, selected_prompts: {selected_prompts}, selected_data_sources: {selected_data_sources}, "
-            f"only_rag: {only_rag}, tool_choice_required: {tool_choice_required}, "
-            f"user_email: {user_email}, agent_mode: {agent_mode}, "
-            f"kwargs: {sanitized_kwargs}"
-        )
+        logger.info("CHAT_MESSAGE_INPUT: session=%s, model=%s, content_length=%d, "
+                   "tools=%s, prompts=%s, data_sources=%s, agent_mode=%s, user=%s, "
+                   "tool_choice_required=%s, only_rag=%s",
+                   session_id, model, len(content), 
+                   selected_tools, selected_prompts, selected_data_sources, 
+                   agent_mode, user_email, tool_choice_required, only_rag)
+        logger.info("CHAT_MESSAGE_CONTENT: %s", content_preview)
 
         # Get or create session
         session = self.sessions.get(session_id)
@@ -1095,7 +1094,7 @@ class ChatService:
             return
 
         if not self.file_manager:
-            logger.info("No file_manager configured; skipping artifact ingestion")
+            logger.debug("No file_manager configured; skipping artifact ingestion")
             return
 
         # Build a working session context including user email
