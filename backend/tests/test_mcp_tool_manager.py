@@ -3,7 +3,6 @@
 import pytest
 import json
 from unittest.mock import Mock, AsyncMock, patch
-from typing import Dict, Any
 
 from modules.mcp_tools.client import MCPToolManager
 from domain.messages.models import ToolCall, ToolResult
