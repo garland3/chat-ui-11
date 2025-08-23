@@ -9,7 +9,6 @@ import pytest
 from unittest.mock import Mock, AsyncMock, patch
 from application.chat.service import ChatService
 from domain.sessions.models import Session
-from core.auth_utils import create_authorization_manager
 import asyncio
 
 
