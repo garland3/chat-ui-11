@@ -503,7 +503,7 @@ class MCPToolManager:
             'mapping': server_tool_mapping
         }
     
-    async def call_tool(
+    async def _call_mcp_tool(
         self,
         server_name: str,
         tool_name: str,
@@ -511,7 +511,7 @@ class MCPToolManager:
         *,
         progress_handler: Optional[Any] = None,
     ) -> Any:
-        """Call a specific tool on an MCP server."""
+        """Call a specific tool on an MCP server (internal method)."""
         if server_name not in self.clients:
             raise ValueError(f"No client available for server: {server_name}")
         
@@ -607,27 +607,11 @@ class MCPToolManager:
 
         # Build (or reuse) an index of full tool name -> (server_name, tool_obj)
         # so we can do O(1) lookups without fragile string parsing.
-        if not hasattr(self, "_tool_index") or not getattr(self, "_tool_index"):
-            index = {}
-            for server_name, server_data in self.available_tools.items():
-                if server_name == "canvas":
-                    index["canvas_canvas"] = {
-                        'server': 'canvas',
-                        'tool': None  # pseudo tool
-                    }
-                else:
-                    for tool in server_data.get('tools', []):
-                        full_name = f"{server_name}_{tool.name}"
-                        index[full_name] = {
-                            'server': server_name,
-                            'tool': tool
-                        }
-            self._tool_index = index
-        else:
-            index = self._tool_index
+        index = self._ensure_tool_index()
 
         matched = []
         missing = []
+        # logger.info(f"TOOL_INDEX_LOOKUP: Requested tools={tool_names}, Index size={len(index)}, Available={list(index.keys())}")
         for requested in tool_names:
             entry = index.get(requested)
             if not entry:
@@ -681,6 +665,26 @@ class MCPToolManager:
     # ------------------------------------------------------------
     # Internal helpers
     # ------------------------------------------------------------
+    def _ensure_tool_index(self) -> Dict[str, Any]:
+        """Ensure tool index is built and return it."""
+        if not hasattr(self, "_tool_index") or not getattr(self, "_tool_index"):
+            index = {}
+            for server_name, server_data in self.available_tools.items():
+                if server_name == "canvas":
+                    index["canvas_canvas"] = {
+                        'server': 'canvas',
+                        'tool': None  # pseudo tool
+                    }
+                else:
+                    for tool in server_data.get('tools', []):
+                        full_name = f"{server_name}_{tool.name}"
+                        index[full_name] = {
+                            'server': server_name,
+                            'tool': tool
+                        }
+            self._tool_index = index
+        return self._tool_index
+    
     def _normalize_mcp_tool_result(self, raw_result: Any) -> Dict[str, Any]:
         """Normalize a FastMCP CallToolResult (or similar object) into our contract.
 
@@ -771,27 +775,16 @@ class MCPToolManager:
             normalized = {"results": str(raw_result)}
         return normalized
     
-    def _log_pre_tool_call(self, tool_call, server_name, actual_tool_name):
-        """Log tool call input with truncated arguments."""
-        args_str = json.dumps(tool_call.arguments, ensure_ascii=False)
-        truncated_args = args_str[:500] + "..." if len(args_str) > 500 else args_str
-        
-        # Combine all logging information into a single log message
-        log_message = f"TOOL_CALL_INPUT: server={server_name}, tool={actual_tool_name}, call_id={tool_call.id}"
-        log_message += f"\nTOOL_CALL_ARGS: {truncated_args}"
-        
-        logger.info(log_message)
-
-    def _log_post_tool_response(self, raw_result, tool_call, server_name, actual_tool_name):
-        """Log tool response with sanitized content."""
-        result_summary = self._sanitize_tool_response(raw_result)
-        has_error = hasattr(raw_result, 'error') or (isinstance(raw_result, dict) and 'error' in raw_result)
-        
-        # Combine all logging information into a single log message
-        log_message = f"TOOL_CALL_OUTPUT: server={server_name}, tool={actual_tool_name}, call_id={tool_call.id}, success={not has_error}"
-        log_message += f"\nTOOL_CALL_RESULT: {result_summary}"
-        
-        logger.info(log_message)
+    def _log_tool_call(self, tool_call, server_name, actual_tool_name, stage: str, raw_result=None):
+        """Log tool call input/output in a unified format."""
+        if stage == "input":
+            args_str = json.dumps(tool_call.arguments, ensure_ascii=False)
+            truncated_args = args_str[:500] + "..." if len(args_str) > 500 else args_str
+            logger.info(f"TOOL_CALL_INPUT: server={server_name}, tool={actual_tool_name}, call_id={tool_call.id}\nTOOL_CALL_ARGS: {truncated_args}")
+        elif stage == "output":
+            result_summary = self._sanitize_tool_response(raw_result)
+            has_error = hasattr(raw_result, 'error') or (isinstance(raw_result, dict) and 'error' in raw_result)
+            logger.info(f"TOOL_CALL_OUTPUT: server={server_name}, tool={actual_tool_name}, call_id={tool_call.id}, success={not has_error}\nTOOL_CALL_RESULT: {result_summary}")
 
     def _sanitize_tool_response(self, raw_result):
         """Sanitize tool response by removing base64 content and sensitive data."""
@@ -799,7 +792,6 @@ class MCPToolManager:
             if hasattr(raw_result, 'structured_content'):
                 sc = raw_result.structured_content
                 if isinstance(sc, dict):
-                    # Remove potentially large or sensitive fields
                     sanitized = {k: v for k, v in sc.items() 
                                 if k not in ['returned_file_contents', 'artifacts'] 
                                 and not k.endswith('_b64')}
@@ -812,46 +804,98 @@ class MCPToolManager:
             return str(raw_result)[:500]
         except Exception:
             return "<error_sanitizing_response>"
+    
+    def _handle_canvas_tool(self, tool_call: ToolCall) -> ToolResult:
+        """Handle canvas pseudo-tool execution."""
+        content = tool_call.arguments.get("content", "")
+        self._log_tool_call(tool_call, "canvas", "canvas", "input")
+        logger.info("TOOL_CALL_OUTPUT: server=canvas, tool=canvas, call_id=%s, success=true", tool_call.id)
+        return ToolResult(
+            tool_call_id=tool_call.id,
+            content=f"Canvas content displayed: {content[:100]}..." if len(content) > 100 else f"Canvas content displayed: {content}",
+            success=True
+        )
+    
+    def _create_progress_handler(self, tool_call: ToolCall, context: Optional[Dict[str, Any]]):
+        """Create progress handler for tool execution."""
+        async def _progress_handler(progress: float, total: Optional[float], message: Optional[str]) -> None:
+            try:
+                update_cb = None
+                if isinstance(context, dict):
+                    update_cb = context.get("update_callback")
+                if update_cb is not None:
+                    # Deferred import to avoid cycles
+                    from application.chat.utilities.notification_utils import notify_tool_progress
+                    await notify_tool_progress(
+                        tool_call_id=tool_call.id,
+                        tool_name=tool_call.name,
+                        progress=progress,
+                        total=total,
+                        message=message,
+                        update_callback=update_cb,
+                    )
+            except Exception:
+                logger.debug("Progress handler forwarding failed", exc_info=True)
+        return _progress_handler
+    
+    def _extract_tool_result_components(self, raw_result):
+        """Extract v2 MCP response components from raw result."""
+        artifacts: List[Dict[str, Any]] = []
+        display_config: Optional[Dict[str, Any]] = None
+        meta_data: Optional[Dict[str, Any]] = None
 
-    async def execute_tool(
+        try:
+            if isinstance(raw_result, dict):
+                structured = raw_result
+            else:
+                structured = {}
+                if hasattr(raw_result, "structured_content") and raw_result.structured_content:  # type: ignore[attr-defined]
+                    sc = raw_result.structured_content  # type: ignore[attr-defined]
+                    if isinstance(sc, dict):
+                        structured = sc
+                elif hasattr(raw_result, "data") and raw_result.data:  # type: ignore[attr-defined]
+                    dt = raw_result.data  # type: ignore[attr-defined]
+                    if isinstance(dt, dict):
+                        structured = dt
+
+            if isinstance(structured, dict) and structured:
+                # Extract artifacts
+                raw_artifacts = structured.get("artifacts")
+                if isinstance(raw_artifacts, list):
+                    for art in raw_artifacts:
+                        if isinstance(art, dict):
+                            name = art.get("name")
+                            b64 = art.get("b64")
+                            if name and b64:
+                                artifacts.append(art)
+
+                # Extract display
+                disp = structured.get("display")
+                if isinstance(disp, dict):
+                    display_config = disp
+
+                # Extract metadata
+                md = structured.get("meta_data")
+                if isinstance(md, dict):
+                    meta_data = md
+        except Exception:
+            logger.warning("Error extracting v2 MCP components from tool result", exc_info=True)
+        
+        return artifacts, display_config, meta_data
+
+    async def call_tool(
         self,
         tool_call: ToolCall,
         context: Optional[Dict[str, Any]] = None
     ) -> ToolResult:
-        """Execute a tool call."""
+        """Execute a tool call (renamed from execute_tool)."""
         # Handle canvas pseudo-tool
         if tool_call.name == "canvas_canvas":
-            # Canvas tool just returns the content - it's handled by frontend
-            content = tool_call.arguments.get("content", "")
-            self._log_pre_tool_call(tool_call, "canvas", "canvas")
-            logger.info("TOOL_CALL_OUTPUT: server=canvas, tool=canvas, call_id=%s, success=true", tool_call.id)
-            return ToolResult(
-                tool_call_id=tool_call.id,
-                content=f"Canvas content displayed: {content[:100]}..." if len(content) > 100 else f"Canvas content displayed: {content}",
-                success=True
-            )
-        
-        # Use the tool index to get server and tool name (avoids parsing issues with dashes/underscores)
-        if not hasattr(self, "_tool_index") or not getattr(self, "_tool_index"):
-            # Build tool index if not available (same logic as in get_tools_schema)
-            index = {}
-            for server_name, server_data in self.available_tools.items():
-                if server_name == "canvas":
-                    index["canvas_canvas"] = {
-                        'server': 'canvas',
-                        'tool': None  # pseudo tool
-                    }
-                else:
-                    for tool in server_data.get('tools', []):
-                        full_name = f"{server_name}_{tool.name}"
-                        index[full_name] = {
-                            'server': server_name,
-                            'tool': tool
-                        }
-            self._tool_index = index
+            return self._handle_canvas_tool(tool_call)
         
         # Look up the tool in our index
-        tool_entry = self._tool_index.get(tool_call.name)
+        tool_index = self._ensure_tool_index()
+        tool_entry = tool_index.get(tool_call.name)
         if not tool_entry:
             return ToolResult(
                 tool_call_id=tool_call.id,
@@ -864,83 +908,27 @@ class MCPToolManager:
         actual_tool_name = tool_entry['tool'].name if tool_entry['tool'] else tool_call.name
         
         # Log the tool call input
-        self._log_pre_tool_call(tool_call, server_name, actual_tool_name)
+        self._log_tool_call(tool_call, server_name, actual_tool_name, "input")
         
         try:
-            # Build a progress handler that forwards to UI if provided via context
-            async def _progress_handler(progress: float, total: Optional[float], message: Optional[str]) -> None:
-                try:
-                    update_cb = None
-                    if isinstance(context, dict):
-                        update_cb = context.get("update_callback")
-                    if update_cb is not None:
-                        # Deferred import to avoid cycles
-                        from application.chat.utilities.notification_utils import notify_tool_progress
-                        await notify_tool_progress(
-                            tool_call_id=tool_call.id,
-                            tool_name=tool_call.name,
-                            progress=progress,
-                            total=total,
-                            message=message,
-                            update_callback=update_cb,
-                        )
-                except Exception:
-                    logger.debug("Progress handler forwarding failed", exc_info=True)
+            # Create progress handler
+            progress_handler = self._create_progress_handler(tool_call, context)
 
-            raw_result = await self.call_tool(
+            raw_result = await self._call_mcp_tool(
                 server_name,
                 actual_tool_name,
                 tool_call.arguments,
-                progress_handler=_progress_handler,
+                progress_handler=progress_handler,
             )
             
             # Log the tool call output
-            self._log_post_tool_response(raw_result, tool_call, server_name, actual_tool_name)
+            self._log_tool_call(tool_call, server_name, actual_tool_name, "output", raw_result)
             
             normalized_content = self._normalize_mcp_tool_result(raw_result)
             content_str = json.dumps(normalized_content, ensure_ascii=False)
             
-            # Extract v2 MCP response components (supports dict or FastMCP result objects)
-            artifacts: List[Dict[str, Any]] = []
-            display_config: Optional[Dict[str, Any]] = None
-            meta_data: Optional[Dict[str, Any]] = None
-
-            try:
-                if isinstance(raw_result, dict):
-                    structured = raw_result
-                else:
-                    structured = {}
-                    if hasattr(raw_result, "structured_content") and raw_result.structured_content:  # type: ignore[attr-defined]
-                        sc = raw_result.structured_content  # type: ignore[attr-defined]
-                        if isinstance(sc, dict):
-                            structured = sc
-                    elif hasattr(raw_result, "data") and raw_result.data:  # type: ignore[attr-defined]
-                        dt = raw_result.data  # type: ignore[attr-defined]
-                        if isinstance(dt, dict):
-                            structured = dt
-
-                if isinstance(structured, dict) and structured:
-                    # Extract artifacts
-                    raw_artifacts = structured.get("artifacts")
-                    if isinstance(raw_artifacts, list):
-                        for art in raw_artifacts:
-                            if isinstance(art, dict):
-                                name = art.get("name")
-                                b64 = art.get("b64")
-                                if name and b64:
-                                    artifacts.append(art)
-
-                    # Extract display
-                    disp = structured.get("display")
-                    if isinstance(disp, dict):
-                        display_config = disp
-
-                    # Extract metadata
-                    md = structured.get("meta_data")
-                    if isinstance(md, dict):
-                        meta_data = md
-            except Exception:
-                logger.warning("Error extracting v2 MCP components from tool result", exc_info=True)
+            # Extract v2 MCP response components
+            artifacts, display_config, meta_data = self._extract_tool_result_components(raw_result)
 
             return ToolResult(
                 tool_call_id=tool_call.id,
@@ -967,7 +955,7 @@ class MCPToolManager:
         """Execute multiple tool calls."""
         results = []
         for tool_call in tool_calls:
-            result = await self.execute_tool(tool_call, context)
+            result = await self.call_tool(tool_call, context)
             results.append(result)
         return results
 

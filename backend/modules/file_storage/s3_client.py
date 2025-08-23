@@ -8,7 +8,7 @@ supporting both real AWS S3 and our mock S3 service for development.
 import logging
 import re
 from typing import Dict, List, Optional, Any
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 import httpx
 
 
@@ -59,18 +59,22 @@ class S3StorageClient:
         """
         if not file_key or not isinstance(file_key, str):
             raise ValueError("File key must be a non-empty string")
-        
+        # Normalize any percent-encoded input once to validate on the real characters
+        decoded_key = unquote(file_key)
+
         # Remove any potentially dangerous characters
-        # S3 keys should only contain alphanumeric, hyphens, underscores, dots, and forward slashes
-        if not re.match(r'^[a-zA-Z0-9._/-]+$', file_key):
+        # Allow common email/path characters used in our keys: '@', '+'.
+        # Also allow '%' to tolerate pre-encoded inputs reaching this layer.
+        # Keep strict allowlist to reduce risk of path or header injection.
+        if not re.match(r'^[a-zA-Z0-9._/@+%\-]+$', decoded_key):
             raise ValueError("File key contains invalid characters")
-        
+
         # Prevent path traversal attempts
-        if '..' in file_key or file_key.startswith('/'):
+        if '..' in decoded_key or decoded_key.startswith('/'):
             raise ValueError("File key contains invalid path sequences")
-        
-        # URL encode the file key to safely include it in URLs
-        return quote(file_key, safe='/')
+
+        # URL encode the file key to safely include it in URLs (keep path separators only)
+        return quote(decoded_key, safe='/')
     
     async def upload_file(
         self, 

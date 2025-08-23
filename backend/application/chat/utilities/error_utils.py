@@ -53,6 +53,7 @@ async def safe_get_tools_schema(
     
     try:
         tools_schema = tool_manager.get_tools_schema(selected_tools)
+        # logger.info(f"TOOL_SCHEMA_RESOLUTION: Input tools={selected_tools}, Output schemas={len(tools_schema)}, Names={[s.get('function', {}).get('name') for s in tools_schema]}")
         logger.debug(f"Got {len(tools_schema)} tool schemas for selected tools: {selected_tools}")
         return tools_schema
     except Exception as e:

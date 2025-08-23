@@ -18,6 +18,15 @@ import os
 from typing import Any, Dict, List, Optional, Callable, Awaitable
 from dataclasses import dataclass
 
+# Set LiteLLM logging level before import to prevent verbose import messages
+try:
+    from modules.config import config_manager
+    litellm_log_level = config_manager.app_settings.litellm_log_level
+    os.environ["LITELLM_LOG"] = litellm_log_level.upper()
+except Exception:
+    # Fallback to INFO if config not available
+    os.environ["LITELLM_LOG"] = "INFO"
+
 import litellm
 from litellm import completion, acompletion
 from .models import LLMResponse
@@ -48,18 +57,13 @@ class LiteLLMCaller:
         # log the settings config level
         # logger.info(f"LiteLLM settings: {self.llm_config}")   
 
-        # Set LiteLLM logging via environment variable (new method) 
-        if debug_mode or litellm_log_level.upper() == "DEBUG":
+        # Update LiteLLM logging if debug_mode overrides config
+        if debug_mode:
             os.environ["LITELLM_LOG"] = "DEBUG"
-        else:
-            os.environ["LITELLM_LOG"] = litellm_log_level.upper()
-        
-        # Also control LiteLLM's internal logger directly
-        litellm_logger = logging.getLogger("LiteLLM")
-        if debug_mode or litellm_log_level.upper() == "DEBUG":
+            litellm_logger = logging.getLogger("LiteLLM")
             litellm_logger.setLevel(logging.DEBUG)
-        else:
-            litellm_logger.setLevel(getattr(logging, litellm_log_level.upper(), logging.INFO))
+        
+        # Note: LiteLLM log level is already set at import time from config
             
         # Remove deprecated verbose setting
         # litellm.set_verbose = debug_mode  # This is deprecated
@@ -137,6 +141,9 @@ class LiteLLMCaller:
         tool_names = []
         if tools_schema:
             tool_names = [t.get("function", {}).get("name") for t in tools_schema if t.get("function")]
+            # Debug: Log the full tools_schema to understand what's being filtered
+            # logger.info("TOOLS_SCHEMA_DEBUG: Received %d tools in schema: %s", 
+            #            len(tools_schema), [t.get("function", {}).get("name") for t in tools_schema])
         
         logger.info("LLM_CALL_INPUT: model=%s, messages=%d, tools_required=%s, tools=%s, content=%s", 
                     model_name, len(messages), 
