@@ -15,7 +15,7 @@ import asyncio
 import json
 import logging
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Callable, Awaitable
 from dataclasses import dataclass
 
 import litellm
@@ -122,6 +122,51 @@ class LiteLLMCaller:
         except Exception as exc:
             logger.error("Error calling LLM: %s", exc, exc_info=True)
             raise Exception(f"Failed to call LLM: {exc}")
+
+    async def call_plain_streaming(
+        self, 
+        model_name: str, 
+        messages: List[Dict[str, str]], 
+        stream_callback: Optional[Callable[[str], Awaitable[None]]] = None,
+        temperature: float = 0.7
+    ) -> str:
+        """Plain LLM call with streaming support - content is sent to callback as it arrives."""
+        litellm_model = self._get_litellm_model_name(model_name)
+        model_kwargs = self._get_model_kwargs(model_name, temperature)
+        
+        try:
+            total_chars = sum(len(str(msg.get('content', ''))) for msg in messages)
+            logger.info(f"Streaming LLM call: {len(messages)} messages, {total_chars} chars")
+            
+            # Enable streaming
+            model_kwargs["stream"] = True
+            
+            response = await acompletion(
+                model=litellm_model,
+                messages=messages,
+                **model_kwargs
+            )
+            
+            content_parts = []
+            
+            # Stream the response
+            async for chunk in response:
+                if chunk.choices and len(chunk.choices) > 0:
+                    delta = chunk.choices[0].delta
+                    if hasattr(delta, 'content') and delta.content:
+                        content_parts.append(delta.content)
+                        if stream_callback:
+                            await stream_callback(delta.content)
+            
+            full_content = "".join(content_parts)
+            logger.info(f"Streaming LLM response complete: {len(full_content)} chars")
+            return full_content
+            
+        except Exception as exc:
+            logger.error("Error in streaming LLM call: %s", exc, exc_info=True)
+            # Fallback to non-streaming if streaming fails
+            logger.info("Falling back to non-streaming call")
+            return await self.call_plain(model_name, messages, temperature)
     
     async def call_with_rag(
         self, 

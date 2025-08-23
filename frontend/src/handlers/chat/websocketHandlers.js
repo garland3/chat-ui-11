@@ -242,6 +242,51 @@ export function createWebSocketHandler(deps) {
           setIsThinking(false)
           addMessage({ role: 'assistant', content: data.message, timestamp: new Date().toISOString() })
           break
+        case 'chat_stream_start':
+          // Start streaming: create an empty assistant message that will be updated
+          setIsThinking(false)  // Remove thinking indicator
+          addMessage({ 
+            role: 'assistant', 
+            content: '', 
+            timestamp: new Date().toISOString(),
+            isStreaming: true
+          })
+          break
+        case 'chat_stream_chunk':
+          // Update the last assistant message with new chunk
+          if (data.chunk) {
+            mapMessages(prev => {
+              const newMessages = [...prev]
+              for (let i = newMessages.length - 1; i >= 0; i--) {
+                if (newMessages[i].role === 'assistant' && newMessages[i].isStreaming) {
+                  newMessages[i] = {
+                    ...newMessages[i],
+                    content: newMessages[i].content + data.chunk
+                  }
+                  break
+                }
+              }
+              return newMessages
+            })
+          }
+          break
+        case 'chat_stream_complete':
+          // Mark streaming as complete
+          mapMessages(prev => {
+            const newMessages = [...prev]
+            for (let i = newMessages.length - 1; i >= 0; i--) {
+              if (newMessages[i].role === 'assistant' && newMessages[i].isStreaming) {
+                newMessages[i] = {
+                  ...newMessages[i],
+                  isStreaming: false,
+                  content: data.message || newMessages[i].content  // Use final message or accumulated content
+                }
+                break
+              }
+            }
+            return newMessages
+          })
+          break
         case 'error':
           setIsThinking(false)
           addMessage({ role: 'system', content: `Error: ${data.message}`, timestamp: new Date().toISOString() })

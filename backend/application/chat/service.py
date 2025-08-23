@@ -318,8 +318,25 @@ class ChatService:
         messages: List[Dict[str, str]],
         temperature: float = 0.7,
     ) -> Dict[str, Any]:
-        """Handle plain LLM call without tools or RAG."""
-        response_content = await self.llm.call_plain(model, messages, temperature=temperature)
+        """Handle plain LLM call without tools or RAG with streaming support."""
+        
+        # Send stream start notification
+        if self.connection:
+            await notification_utils.notify_chat_stream_start(self.connection.send_json)
+
+        # Define stream callback to send chunks to frontend
+        async def stream_callback(chunk: str) -> None:
+            if self.connection:
+                await notification_utils.notify_chat_stream_chunk(chunk, self.connection.send_json)
+
+        # Call LLM with streaming if supported
+        if hasattr(self.llm, 'call_plain_streaming'):
+            response_content = await self.llm.call_plain_streaming(
+                model, messages, stream_callback, temperature=temperature
+            )
+        else:
+            # Fallback to non-streaming for compatibility
+            response_content = await self.llm.call_plain(model, messages, temperature=temperature)
 
         # Add assistant message to history
         assistant_message = Message(
@@ -328,11 +345,10 @@ class ChatService:
         )
         session.history.add_message(assistant_message)
 
-        # Send the chat response and mark completion
+        # Send stream completion and final message
         if self.connection:
-            await notification_utils.notify_chat_response(
-                message=response_content,
-                has_pending_tools=False,
+            await notification_utils.notify_chat_stream_complete(
+                final_message=response_content,
                 update_callback=self.connection.send_json
             )
             await notification_utils.notify_response_complete(self.connection.send_json)

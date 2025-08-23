@@ -280,6 +280,56 @@ async def notify_chat_response(
     })
 
 
+async def notify_chat_stream_start(
+    update_callback: Optional[UpdateCallback] = None
+) -> None:
+    """
+    Send chat stream start notification.
+    
+    Pure function that signals streaming has started.
+    """
+    if not update_callback:
+        return
+        
+    await safe_notify(update_callback, {"type": "chat_stream_start"})
+
+
+async def notify_chat_stream_chunk(
+    chunk: str,
+    update_callback: Optional[UpdateCallback] = None
+) -> None:
+    """
+    Send chat stream chunk notification.
+    
+    Pure function that sends a streaming chunk.
+    """
+    if not update_callback:
+        return
+        
+    await safe_notify(update_callback, {
+        "type": "chat_stream_chunk",
+        "chunk": chunk
+    })
+
+
+async def notify_chat_stream_complete(
+    final_message: str,
+    update_callback: Optional[UpdateCallback] = None
+) -> None:
+    """
+    Send chat stream completion notification.
+    
+    Pure function that signals streaming has completed.
+    """
+    if not update_callback:
+        return
+        
+    await safe_notify(update_callback, {
+        "type": "chat_stream_complete", 
+        "message": final_message
+    })
+
+
 async def notify_response_complete(update_callback: Optional[UpdateCallback]) -> None:
     """
     Send response completion notification.
