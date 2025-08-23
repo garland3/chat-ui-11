@@ -103,7 +103,7 @@ class ChatService:
         """Create a new chat session."""
         session = Session(id=session_id, user_email=user_email)
         self.sessions[session_id] = session
-        logger.info(f"Created session {session_id} for user {user_email}")
+        logger.debug(f"Created session {session_id} for user {user_email}")
         return session
     
     async def handle_chat_message(
