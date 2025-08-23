@@ -776,18 +776,22 @@ class MCPToolManager:
         args_str = json.dumps(tool_call.arguments, ensure_ascii=False)
         truncated_args = args_str[:500] + "..." if len(args_str) > 500 else args_str
         
-        logger.info("TOOL_CALL_INPUT: server=%s, tool=%s, call_id=%s", 
-                    server_name, actual_tool_name, tool_call.id)
-        logger.info("TOOL_CALL_ARGS: %s", truncated_args)
+        # Combine all logging information into a single log message
+        log_message = f"TOOL_CALL_INPUT: server={server_name}, tool={actual_tool_name}, call_id={tool_call.id}"
+        log_message += f"\nTOOL_CALL_ARGS: {truncated_args}"
+        
+        logger.info(log_message)
 
     def _log_post_tool_response(self, raw_result, tool_call, server_name, actual_tool_name):
         """Log tool response with sanitized content."""
         result_summary = self._sanitize_tool_response(raw_result)
         has_error = hasattr(raw_result, 'error') or (isinstance(raw_result, dict) and 'error' in raw_result)
         
-        logger.info("TOOL_CALL_OUTPUT: server=%s, tool=%s, call_id=%s, success=%s", 
-                    server_name, actual_tool_name, tool_call.id, not has_error)
-        logger.info("TOOL_CALL_RESULT: %s", result_summary)
+        # Combine all logging information into a single log message
+        log_message = f"TOOL_CALL_OUTPUT: server={server_name}, tool={actual_tool_name}, call_id={tool_call.id}, success={not has_error}"
+        log_message += f"\nTOOL_CALL_RESULT: {result_summary}"
+        
+        logger.info(log_message)
 
     def _sanitize_tool_response(self, raw_result):
         """Sanitize tool response by removing base64 content and sensitive data."""
