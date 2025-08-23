@@ -9,7 +9,6 @@ import pytest
 from unittest.mock import Mock, AsyncMock, patch
 from application.chat.service import ChatService
 from domain.sessions.models import Session
-import asyncio
 
 
 class TestACLFixIntegration:
