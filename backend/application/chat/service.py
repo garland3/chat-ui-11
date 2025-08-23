@@ -261,17 +261,44 @@ class ChatService:
                                 servers_config,
                                 getattr(self.tool_manager, "get_server_groups", lambda s: []),
                             )
-                        # Filter tools by server prefix
+                        # Filter tools by server authorization using tool index
+                        # logger.info(f"ACL_FILTER_START: original_tools={selected_tools}, authorized_servers={authorized_servers}")
                         filtered_tools: List[str] = []
+                        
+                        # Build tool index if not available
+                        tool_index = getattr(self.tool_manager, '_tool_index', None)
+                        if not tool_index:
+                            # Fallback: build a temporary tool index
+                            tool_index = {}
+                            for server_name, server_data in getattr(self.tool_manager, 'available_tools', {}).items():
+                                if server_name == "canvas":
+                                    tool_index["canvas_canvas"] = {'server': 'canvas', 'tool': None}
+                                else:
+                                    for tool in server_data.get('tools', []):
+                                        full_name = f"{server_name}_{tool.name}"
+                                        tool_index[full_name] = {'server': server_name, 'tool': tool}
+                        
                         for t in selected_tools or []:
                             if t == "canvas_canvas":
                                 filtered_tools.append(t)
                                 continue
-                            if isinstance(t, str) and "_" in t:
-                                server = t.split("_", 1)[0]
+                                
+                            # Use tool index to get correct server name (handles underscores properly)
+                            if t in tool_index:
+                                server = tool_index[t]['server']
+                                # logger.info(f"ACL_FILTER_CHECK: tool={t}, server={server}, authorized={server in authorized_servers}")
                                 if server in authorized_servers:
                                     filtered_tools.append(t)
+                            else:
+                                # Fallback to old string parsing if tool not in index
+                                if isinstance(t, str) and "_" in t:
+                                    server = t.split("_", 1)[0]  # Old logic as fallback
+                                    # logger.info(f"ACL_FILTER_FALLBACK: tool={t}, server={server}, authorized={server in authorized_servers}")
+                                    if server in authorized_servers:
+                                        filtered_tools.append(t)
+                        
                         selected_tools = filtered_tools
+                        # logger.info(f"ACL_FILTER_RESULT: filtered_tools={selected_tools}")
                     except Exception:
                         logger.debug("Tool ACL filtering failed; proceeding with original selection", exc_info=True)
                 response = await self._handle_tools_mode_with_utilities(
@@ -375,6 +402,7 @@ class ChatService:
         - Persist artifacts and update session context
         """
         # Resolve schemas
+        # logger.info(f"TOOLS_MODE_ENTRY: selected_tools={selected_tools}")
         tools_schema = await error_utils.safe_get_tools_schema(self.tool_manager, selected_tools)
 
         # Call LLM with tools (and RAG if provided)
@@ -865,6 +893,7 @@ class ChatService:
             tools_schema: List[Dict[str, Any]] = []
             if selected_tools and self.tool_manager:
                 tools_schema = await error_utils.safe_get_tools_schema(self.tool_manager, selected_tools)
+                # logger.info(f"SERVICE_LAYER_SCHEMAS: Selected tools={selected_tools}, Resolved schemas={len(tools_schema)}, Names={[s.get('function', {}).get('name') for s in tools_schema]}")
 
             tool_results: List[ToolResult] = []
             if tools_schema:

@@ -141,6 +141,9 @@ class LiteLLMCaller:
         tool_names = []
         if tools_schema:
             tool_names = [t.get("function", {}).get("name") for t in tools_schema if t.get("function")]
+            # Debug: Log the full tools_schema to understand what's being filtered
+            # logger.info("TOOLS_SCHEMA_DEBUG: Received %d tools in schema: %s", 
+            #            len(tools_schema), [t.get("function", {}).get("name") for t in tools_schema])
         
         logger.info("LLM_CALL_INPUT: model=%s, messages=%d, tools_required=%s, tools=%s, content=%s", 
                     model_name, len(messages), 

@@ -628,6 +628,7 @@ class MCPToolManager:
 
         matched = []
         missing = []
+        # logger.info(f"TOOL_INDEX_LOOKUP: Requested tools={tool_names}, Index size={len(index)}, Available={list(index.keys())}")
         for requested in tool_names:
             entry = index.get(requested)
             if not entry:
