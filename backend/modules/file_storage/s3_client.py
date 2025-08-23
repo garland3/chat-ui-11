@@ -61,6 +61,30 @@ class S3StorageClient:
             self._secret_key = cfg.s3_secret_access_key
             self._init_boto_client()
     
+    def _sanitize_log_value(self, s: str, max_length: int = 100) -> str:
+        """
+        Sanitize a string value for safe logging.
+        
+        Args:
+            s: The string to sanitize
+            max_length: Maximum length of the logged string
+            
+        Returns:
+            Sanitized string with newlines removed and length limited
+        """
+        if not isinstance(s, str):
+            s = str(s)
+        
+        # Remove carriage returns and newlines
+        sanitized = s.replace('\r', '').replace('\n', '')
+        
+        # Truncate if too long
+        if len(sanitized) > max_length:
+            half_length = max_length // 2
+            sanitized = sanitized[:half_length] + '...' + sanitized[-half_length:]
+        
+        return sanitized
+    
     def _get_auth_headers(self, user_email: str) -> Dict[str, str]:
         """Get authorization headers for the request."""
         if self.use_mock:
@@ -180,7 +204,7 @@ class S3StorageClient:
                     logger.error(error_msg)
                     raise Exception(error_msg)
                 result = response.json()
-                logger.info(f"File uploaded successfully: {result['key']} for user {user_email}")
+                logger.info(f"File uploaded successfully: {self._sanitize_log_value(result['key'])} for user {self._sanitize_log_value(user_email)}")
                 return result
 
             # Real S3/MinIO path
@@ -219,7 +243,7 @@ class S3StorageClient:
                 "tags": file_tags,
                 "user_email": user_email,
             }
-            logger.info(f"File uploaded successfully: {key} for user {user_email}")
+            logger.info(f"File uploaded successfully: {self._sanitize_log_value(key)} for user {self._sanitize_log_value(user_email)}")
             return result
         except Exception as e:
             logger.error(f"Error uploading file to S3: {str(e)}")
@@ -249,13 +273,13 @@ class S3StorageClient:
                     )
                 if response.status_code == 200:
                     result = response.json()
-                    logger.info(f"File retrieved successfully: {file_key} for user {user_email}")
+                    logger.info(f"File retrieved successfully: {self._sanitize_log_value(file_key)} for user {self._sanitize_log_value(user_email)}")
                     return result
                 elif response.status_code == 404:
-                    logger.warning(f"File not found: {file_key} for user {user_email}")
+                    logger.warning(f"File not found: {self._sanitize_log_value(file_key)} for user {self._sanitize_log_value(user_email)}")
                     return None
                 elif response.status_code == 403:
-                    logger.warning(f"Access denied to file: {file_key} for user {user_email}")
+                    logger.warning(f"Access denied to file: {self._sanitize_log_value(file_key)} for user {self._sanitize_log_value(user_email)}")
                     raise Exception("Access denied to file")
                 else:
                     error_msg = f"S3 get failed with status {response.status_code}: {response.text}"
@@ -327,7 +351,7 @@ class S3StorageClient:
                     logger.error(error_msg)
                     raise Exception(error_msg)
                 result = response.json()
-                logger.info(f"Listed {len(result)} files for user {user_email}")
+                logger.info(f"Listed {len(result)} files for user {self._sanitize_log_value(user_email)}")
                 return result
 
             # Real S3/MinIO path
@@ -352,7 +376,7 @@ class S3StorageClient:
                 })
             # Sort newest first by last_modified
             items.sort(key=lambda x: x["last_modified"], reverse=True)
-            logger.info(f"Listed {len(items)} files for user {user_email}")
+            logger.info(f"Listed {len(items)} files for user {self._sanitize_log_value(user_email)}")
             return items
         except Exception as e:
             logger.error(f"Error listing files from S3: {str(e)}")
@@ -379,13 +403,13 @@ class S3StorageClient:
                         headers=headers,
                     )
                 if response.status_code == 200:
-                    logger.info(f"File deleted successfully: {file_key} for user {user_email}")
+                    logger.info(f"File deleted successfully: {self._sanitize_log_value(file_key)} for user {self._sanitize_log_value(user_email)}")
                     return True
                 elif response.status_code == 404:
-                    logger.warning(f"File not found for deletion: {file_key} for user {user_email}")
+                    logger.warning(f"File not found for deletion: {self._sanitize_log_value(file_key)} for user {self._sanitize_log_value(user_email)}")
                     return False
                 elif response.status_code == 403:
-                    logger.warning(f"Access denied for deletion: {file_key} for user {user_email}")
+                    logger.warning(f"Access denied for deletion: {self._sanitize_log_value(file_key)} for user {self._sanitize_log_value(user_email)}")
                     raise Exception("Access denied to delete file")
                 else:
                     error_msg = f"S3 delete failed with status {response.status_code}: {response.text}"
@@ -438,7 +462,7 @@ class S3StorageClient:
                     logger.error(error_msg)
                     raise Exception(error_msg)
                 result = response.json()
-                logger.info(f"Got file stats for user {user_email}: {result}")
+                logger.info(f"Got file stats for user {self._sanitize_log_value(user_email)}: {result}")
                 return result
 
             # Real S3/MinIO path: aggregate over list
@@ -452,7 +476,7 @@ class S3StorageClient:
                 "upload_count": upload_count,
                 "generated_count": generated_count,
             }
-            logger.info(f"Got file stats for user {user_email}: {result}")
+            logger.info(f"Got file stats for user {self._sanitize_log_value(user_email)}: {result}")
             return result
         except Exception as e:
             logger.error(f"Error getting user stats from S3: {str(e)}")
