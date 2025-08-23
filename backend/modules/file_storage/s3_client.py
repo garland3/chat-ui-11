@@ -180,7 +180,9 @@ class S3StorageClient:
                     logger.error(error_msg)
                     raise Exception(error_msg)
                 result = response.json()
-                logger.info(f"File uploaded successfully: {result['key']} for user {user_email}")
+                safe_user_email = user_email.replace('\n', '').replace('\r', '')
+                safe_key = str(result['key']).replace('\n', '').replace('\r', '')
+                logger.info(f"File uploaded successfully: {safe_key} for user {safe_user_email}")
                 return result
 
             # Real S3/MinIO path
