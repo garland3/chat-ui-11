@@ -159,11 +159,13 @@ class LiteLLMCaller:
                         args_str = str(args)[:200]
                     tool_args_summary.append(f"{tc.function.name}({args_str})")
         
-        logger.info("LLM_CALL_OUTPUT: model=%s, content_length=%d, tool_calls=%s", 
-                    model_name, len(content), tool_names)
-        logger.info("LLM_CALL_CONTENT: %s", truncated_content)
+        # Combine all logging information into a single log message
+        log_message = f"LLM_CALL_OUTPUT: model={model_name}, content_length={len(content)}, tool_calls={tool_names}"
+        log_message += f"\nLLM_CALL_CONTENT: {truncated_content}"
         if tool_args_summary:
-            logger.info("LLM_CALL_TOOLS: %s", tool_args_summary)
+            log_message += f"\nLLM_CALL_TOOLS: {tool_args_summary}"
+        
+        logger.info(log_message)
 
     async def call_plain(self, model_name: str, messages: List[Dict[str, str]], temperature: float = 0.7) -> str:
         """Plain LLM call - no tools, no RAG."""

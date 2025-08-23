@@ -4,10 +4,19 @@ Thinking MCP Server using FastMCP
 Provides a thinking tool that processes thoughts and breaks down problems step by step.
 """
 
+import logging
 from typing import List, Dict, Any
+import sys
+from pathlib import Path
+
+# Use relative import for local modules
+from .._mcp_logging import init_mcp_logging, log_tool_call  # type: ignore
 from fastmcp import FastMCP
 
-# Initialize the MCP server
+
+# Initialize unified logging to write to logs/app.jsonl like the main app
+init_mcp_logging("thinking")
+logger = logging.getLogger(__name__)
 mcp = FastMCP("Thinking")
 
 
@@ -60,15 +69,21 @@ def thinking(list_of_thoughts: List[str]) -> Dict[str, Any]:
         Or error message if no thoughts provided or processing fails
     """
     try:
+        # Log call with name + args (sanitized structure)
+        log_tool_call("thinking", list_of_thoughts=list_of_thoughts)
+
         if not list_of_thoughts:
             return {"results": {"error": "No thoughts provided"}}
-        
-        return {"results": {
-            "thoughts": list_of_thoughts,
-            "count": len(list_of_thoughts)
-        }}
+
+        return {
+            "results": {
+                "thoughts": list_of_thoughts,
+                "count": len(list_of_thoughts),
+            }
+        }
 
     except Exception as e:
+        logger.exception("thinking_tool_error")
         return {"results": {"error": f"Error processing thoughts: {str(e)}"}}
 
 
