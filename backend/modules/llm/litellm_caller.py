@@ -33,6 +33,8 @@ class LiteLLMCaller:
     
     def __init__(self, llm_config=None, debug_mode: bool = False):
         """Initialize with optional config dependency injection."""
+        # log the log level to info. 
+      
         if llm_config is None:
             from modules.config import config_manager
             self.llm_config = config_manager.llm_config
@@ -42,8 +44,11 @@ class LiteLLMCaller:
             self.llm_config = llm_config
             # Fallback to INFO if no config manager available
             litellm_log_level = "INFO"
-        
-        # Set LiteLLM logging via environment variable (new method)
+        logger.info(f"Initializing LiteLLMCaller with litellm_log_level={litellm_log_level}")
+        # log the settings config level
+        # logger.info(f"LiteLLM settings: {self.llm_config}")   
+
+        # Set LiteLLM logging via environment variable (new method) 
         if debug_mode or litellm_log_level.upper() == "DEBUG":
             os.environ["LITELLM_LOG"] = "DEBUG"
         else:
