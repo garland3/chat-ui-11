@@ -137,7 +137,7 @@ async def execute_single_tool(
             arguments=filtered_args
         )
 
-        result = await tool_manager.execute_tool(
+        result = await tool_manager.call_tool(
             tool_call_obj,
             context={
                 "session_id": session_context.get("session_id"),
