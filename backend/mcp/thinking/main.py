@@ -9,9 +9,8 @@ from typing import List, Dict, Any
 import sys
 from pathlib import Path
 
-# MCPs may run with CWD at their own tool folder; add parent (backend/mcp) for local imports
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from _mcp_logging import init_mcp_logging, log_tool_call  # type: ignore
+# Use relative import for local modules
+from .._mcp_logging import init_mcp_logging, log_tool_call  # type: ignore
 from fastmcp import FastMCP
 
 
