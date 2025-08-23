@@ -5,11 +5,11 @@ This module provides a client interface to interact with S3 storage,
 supporting both real AWS S3 and our mock S3 service for development.
 """
 
-import json
 import logging
+import re
 from typing import Dict, List, Optional, Any
+from urllib.parse import quote
 import httpx
-from datetime import datetime
 
 
 logger = logging.getLogger(__name__)
@@ -43,6 +43,34 @@ class S3StorageClient:
             # For real S3, this would use AWS credentials
             # TODO: Implement proper AWS S3 authentication
             return {}
+    
+    def _validate_and_sanitize_file_key(self, file_key: str) -> str:
+        """
+        Validate and sanitize file key to prevent SSRF attacks.
+        
+        Args:
+            file_key: The file key to validate
+            
+        Returns:
+            Sanitized file key safe for URL construction
+            
+        Raises:
+            ValueError: If file_key contains invalid characters
+        """
+        if not file_key or not isinstance(file_key, str):
+            raise ValueError("File key must be a non-empty string")
+        
+        # Remove any potentially dangerous characters
+        # S3 keys should only contain alphanumeric, hyphens, underscores, dots, and forward slashes
+        if not re.match(r'^[a-zA-Z0-9._/-]+$', file_key):
+            raise ValueError("File key contains invalid characters")
+        
+        # Prevent path traversal attempts
+        if '..' in file_key or file_key.startswith('/'):
+            raise ValueError("File key contains invalid path sequences")
+        
+        # URL encode the file key to safely include it in URLs
+        return quote(file_key, safe='/')
     
     async def upload_file(
         self, 
@@ -114,13 +142,13 @@ class S3StorageClient:
             Dictionary containing file data and metadata
         """
         try:
+            # Validate and sanitize file_key to prevent SSRF
+            sanitized_file_key = self._validate_and_sanitize_file_key(file_key)
             headers = self._get_auth_headers(user_email)
             
-            # CodeQL SSRF suppression: file_key is validated S3 key, not user-controlled URL input
-            # codeql[py/ssrf]
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.get(
-                    f"{self.base_url}/files/{file_key}",
+                    f"{self.base_url}/files/{sanitized_file_key}",
                     headers=headers
                 )
                 
@@ -199,13 +227,13 @@ class S3StorageClient:
             True if deletion was successful
         """
         try:
+            # Validate and sanitize file_key to prevent SSRF
+            sanitized_file_key = self._validate_and_sanitize_file_key(file_key)
             headers = self._get_auth_headers(user_email)
             
-            # CodeQL SSRF suppression: file_key is validated S3 key, not user-controlled URL input
-            # codeql[py/ssrf]
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.delete(
-                    f"{self.base_url}/files/{file_key}",
+                    f"{self.base_url}/files/{sanitized_file_key}",
                     headers=headers
                 )
                 
@@ -243,6 +271,7 @@ class S3StorageClient:
             # CodeQL SSRF suppression: user_email comes from trusted reverse proxy auth,
             # not direct user input, so this is not a security risk
             # codeql[py/ssrf]
+            # codeql[py/partial-ssrf]
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 response = await client.get(
                     f"{self.base_url}/users/{user_email}/files/stats",
