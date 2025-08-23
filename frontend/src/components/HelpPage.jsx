@@ -4,31 +4,33 @@ import {
   ArrowLeft, MessageSquare, Settings, Database, Store, Key, Zap, Code, 
   FileText, AlertTriangle, Bot 
 } from 'lucide-react'
+import { useWS } from '../contexts/WSContext'
 
 const HelpPage = () => {
   const navigate = useNavigate()
   const [helpConfig, setHelpConfig] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const { config, configLoaded } = useWS()
 
   useEffect(() => {
     const fetchHelpConfig = async () => {
       try {
-        const response = await fetch('/api/config')
-        if (!response.ok) {
-          throw new Error('Failed to fetch help configuration')
+        // Use config from WSContext instead of fetching directly
+        if (configLoaded) {
+          if (config) {
+            setHelpConfig(config.help_config || { title: "Help & Documentation", sections: [] })
+          }
+          setLoading(false)
         }
-        const data = await response.json()
-        setHelpConfig(data.help_config || { title: "Help & Documentation", sections: [] })
       } catch (err) {
         setError(err.message)
-      } finally {
         setLoading(false)
       }
     }
 
     fetchHelpConfig()
-  }, [])
+  }, [config, configLoaded])
 
   const getIcon = (iconName) => {
     const icons = {

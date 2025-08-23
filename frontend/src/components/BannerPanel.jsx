@@ -1,30 +1,31 @@
 import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
+import { useWS } from '../contexts/WSContext'
 
 function BannerPanel() {
   const [bannerMessages, setBannerMessages] = useState([])
   const [dismissedMessages, setDismissedMessages] = useState(new Set())
   const [bannerEnabled, setBannerEnabled] = useState(false)
+  const { config, configLoaded } = useWS()
 
   useEffect(() => {
-    // Fetch banner messages and configuration from the backend
+    // Fetch banner messages from the backend (config is now provided by WSContext)
     const fetchBanners = async () => {
       try {
-        // First get the config to check if banners are enabled
-        const configResponse = await fetch('/api/config')
-        const config = await configResponse.json()
-        
-        if (!config.banner_enabled) {
+        // Check if config is loaded and banners are enabled
+        if (configLoaded && config && !config.banner_enabled) {
           setBannerEnabled(false)
           return
         }
         
-        setBannerEnabled(true)
-        
-        // If banners are enabled, fetch the messages
-        const bannersResponse = await fetch('/api/banners')
-        const bannersData = await bannersResponse.json()
-        setBannerMessages(bannersData.messages || [])
+        if (configLoaded && config && config.banner_enabled) {
+          setBannerEnabled(true)
+          
+          // If banners are enabled, fetch the messages
+          const bannersResponse = await fetch('/api/banners')
+          const bannersData = await bannersResponse.json()
+          setBannerMessages(bannersData.messages || [])
+        }
       } catch (error) {
         console.error('Error fetching banner messages:', error)
         setBannerMessages([])
@@ -36,14 +37,14 @@ function BannerPanel() {
     // Refresh banner messages every 5 minutes
     const interval = setInterval(fetchBanners, 5 * 60 * 1000)
     return () => clearInterval(interval)
-  }, [])
+  }, [config, configLoaded])
 
   const handleDismiss = (index) => {
     setDismissedMessages(prev => new Set([...prev, index]))
   }
 
-  // Don't render anything if banners are disabled or no messages
-  if (!bannerEnabled || bannerMessages.length === 0) {
+  // Don't render anything if config isn't loaded yet, banners are disabled, or no messages
+  if (!configLoaded || !bannerEnabled || bannerMessages.length === 0) {
     return null
   }
 

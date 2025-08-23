@@ -15,6 +15,8 @@ export const WSProvider = ({ children }) => {
   const [connectionStatus, setConnectionStatus] = useState('Disconnected')
   const wsRef = useRef(null)
   const messageHandlersRef = useRef([])
+  const [config, setConfig] = useState(null)
+  const [configLoaded, setConfigLoaded] = useState(false)
 
   const connectWebSocket = () => {
     // In development, use the backend port 8000 directly
@@ -43,10 +45,24 @@ export const WSProvider = ({ children }) => {
     try {
       wsRef.current = new WebSocket(wsUrl)
 
-      wsRef.current.onopen = () => {
+      wsRef.current.onopen = async () => {
         console.log('WebSocket connected')
         setIsConnected(true)
         setConnectionStatus('Connected')
+        
+        // Immediately call the api/config after websocket connection
+        try {
+          const res = await fetch('/api/config')
+          if (!res.ok) throw new Error(res.status)
+          const cfg = await res.json()
+          setConfig(cfg)
+          setConfigLoaded(true)
+          console.log('Config loaded successfully after websocket connection')
+        } catch (error) {
+          console.error('Failed to load config after websocket connection:', error)
+          // Set configLoaded to true even on error to prevent infinite waiting
+          setConfigLoaded(true)
+        }
       }
 
       wsRef.current.onmessage = (event) => {
@@ -148,7 +164,9 @@ export const WSProvider = ({ children }) => {
     connectionStatus,
     sendMessage,
     addMessageHandler,
-    reconnectWebSocket
+    reconnectWebSocket,
+    config,
+    configLoaded
   }
 
   return (
