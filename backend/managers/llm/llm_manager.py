@@ -6,6 +6,8 @@ import logging
 import os
 from typing import Any, Dict, List
 
+from common.models.common_models import ConversationHistory
+
 # Set basic logging before imports
 logger = logging.getLogger(__name__)
 
@@ -30,10 +32,12 @@ class LLMManager:
         self.debug_mode = debug_mode
         logger.info("LLMManager initialized for Phase 1A")
     
-    async def call_plain(self, model_name: str, messages: List[Dict[str, str]], temperature: float = 0.7) -> str:
+    async def call_plain(self, model_name: str, conversation_history: ConversationHistory, temperature: float = 0.7) -> str:
         """Plain LLM call - simplified for Phase 1A."""
         
+        messages = conversation_history.get_messages_for_llm()
         if not LITELLM_AVAILABLE:
+            logger.info("NOT LITELLM_AVAILABLE")
             # Mock response for Phase 1A when LiteLLM is not available
             user_message = messages[-1].get("content", "") if messages else ""
             return f"Mock LLM response to: {user_message}"
@@ -42,13 +46,19 @@ class LLMManager:
         if not self.llm_config:
             raise ValueError("LLM configuration is required but not provided")
         
-        if model_name not in self.llm_config.models:
-            # print the found models
-            logger.info(f"Available models: {list(self.llm_config.models.keys())}")
-            print(f"Available models: {list(self.llm_config.models.keys())}")
-            raise ValueError(f"Model '{model_name}' not found in LLM configuration")
+        # Find the model instance by model_name
+        model_config = None
+        for model_instance in self.llm_config.models:
+            if model_instance.model_name == model_name:
+                model_config = model_instance
+                break
         
-        model_config = self.llm_config.models[model_name]
+        if model_config is None:
+            # print the found models
+            available_models = [model.model_name for model in self.llm_config.models]
+            logger.info(f"Available models: {available_models}")
+            print(f"Available models: {available_models}")
+            raise ValueError(f"Model '{model_name}' not found in LLM configuration")
         litellm_model = self._get_litellm_model_name(model_name)
         kwargs = {
             "max_tokens": model_config.max_tokens or 1000,
@@ -64,7 +74,7 @@ class LLMManager:
         
         try:
             logger.info(f"Calling LLM: {litellm_model} with {len(messages)} messages")
-            
+             # Get conversation history for LLM
             response = await acompletion(
                 model=litellm_model,
                 messages=messages,
@@ -83,10 +93,19 @@ class LLMManager:
     
     def _get_litellm_model_name(self, model_name: str) -> str:
         """Convert internal model name to LiteLLM compatible format."""
-        if not self.llm_config or model_name not in self.llm_config.models:
+        if not self.llm_config:
             return model_name
         
-        model_config = self.llm_config.models[model_name]
+        # Find the model instance by model_name
+        model_config = None
+        for model_instance in self.llm_config.models:
+            if model_instance.model_name == model_name:
+                model_config = model_instance
+                break
+        
+        if model_config is None:
+            return model_name
+        
         model_id = model_config.model_name
         
         # Map common providers to LiteLLM format

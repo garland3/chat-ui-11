@@ -28,9 +28,11 @@ async def websocket_update_callback(websocket: WebSocket, message: dict):
     Simple callback function to handle websocket updates.
     """
     try:
+        logger.info(f"Sending websocket update: {message.get('type', 'unknown')} - {len(message.get('content', ''))} chars")
         await websocket.send_json(message)
+        logger.info("Websocket message sent successfully")
     except Exception as e:
-        logger.error(f"Error sending websocket message: {e}")
+        logger.error(f"Error sending websocket message: {e}", exc_info=True)
 
 
 @asynccontextmanager

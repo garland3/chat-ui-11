@@ -11,12 +11,16 @@ from pathlib import Path
 
 def test_all_imports_compile():
     """Test that all backend modules can be imported without syntax errors."""
-    
+    # print the current dir.
+    print(f"Current directory: {Path.cwd()}")
+
     # Add the backend directory to the Python path
     backend_dir = Path(__file__).parent.parent
     if str(backend_dir) not in sys.path:
         sys.path.insert(0, str(backend_dir))
-    
+    # print the added dir
+    print(f"Added backend directory to sys.path: {backend_dir}")
+
     # List of all modules to test for compilation
     modules_to_test = [
         # Main entry point

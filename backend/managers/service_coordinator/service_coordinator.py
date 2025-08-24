@@ -5,7 +5,7 @@ from typing import Any, Callable, Dict, Optional, Awaitable
 from uuid import UUID
 
 from ..session.session_manager import SessionManager
-from ..session.session_models import MessageRole
+# Common models will be imported by session manager
 from ..llm.llm_manager import LLMManager
 
 logger = logging.getLogger(__name__)
@@ -50,12 +50,8 @@ class ServiceCoordinator:
             # Update session in manager
             self.session_manager.update_session(session)
             
-            # Get conversation history for LLM
-            messages_for_llm = session.history.get_messages_for_llm()
-            
             # Call LLM
-            logger.info(f"Calling LLM {model} with {len(messages_for_llm)} messages")
-            llm_response = await self.llm_manager.call_plain(model, messages_for_llm, temperature)
+            llm_response = await self.llm_manager.call_plain(model, session.history, temperature)
             
             # Add assistant response to session
             assistant_message = session.add_assistant_message(llm_response, {
@@ -68,13 +64,19 @@ class ServiceCoordinator:
             
             # Send final response via callback
             if update_callback:
-                await update_callback({
+                callback_message = {
                     "type": "response",
                     "content": llm_response,
                     "model": model,
                     "session_id": str(session_id),
                     "message_id": str(assistant_message.id),
-                })
+                }
+                logger.info(f"Sending response callback for session {session_id}: {len(llm_response)} chars")
+                try:
+                    await update_callback(callback_message)
+                    logger.info(f"Response callback sent successfully for session {session_id}")
+                except Exception as callback_error:
+                    logger.error(f"Error sending response callback: {callback_error}", exc_info=True)
             
             logger.info(f"Chat message processed successfully for session {session_id}")
             

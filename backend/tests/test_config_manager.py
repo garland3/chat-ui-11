@@ -10,6 +10,7 @@ if str(backend_dir) not in sys.path:
     sys.path.insert(0, str(backend_dir))
 
 from managers.config.config_manager import ConfigManager
+from managers.config.config_models import LLMInstance
 
 
 def test_config_manager_finds_llm_config():
@@ -22,8 +23,11 @@ def test_config_manager_finds_llm_config():
     # Should have models loaded (not empty)
     assert len(llm_config.models) > 0, "LLM config should contain models"
     
-    # Verify we can access the models dict
-    assert isinstance(llm_config.models, dict), "Models should be a dictionary"
+    # Verify we can access the models list
+    assert isinstance(llm_config.models, list), "Models should be a list"
+    # Verify that each item in the list is an LLMInstance
+    if llm_config.models:
+        assert isinstance(llm_config.models[0], LLMInstance), "Each model should be an LLMInstance object"
 
 
 def test_config_manager_search_paths():

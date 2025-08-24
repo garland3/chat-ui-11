@@ -1,12 +1,12 @@
 """Pydantic models for configuration - Phase 1A."""
 
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
 
 
-class ModelConfig(BaseModel):
-    """Configuration for a single LLM model."""
+class LLMInstance(BaseModel):
+    """Configuration for a single LLM instance."""
     model_name: str
     model_url: str
     api_key: str
@@ -18,15 +18,18 @@ class ModelConfig(BaseModel):
 
 class LLMConfig(BaseModel):
     """Configuration for all LLM models."""
-    models: Dict[str, ModelConfig]
+    models: List[LLMInstance]
     
-    @classmethod
-    def validate_models(cls, v):
-        """Convert dict values to ModelConfig objects."""
-        if isinstance(v, dict):
-            return {name: ModelConfig(**config) if isinstance(config, dict) else config 
-                   for name, config in v.items()}
-        return v
+    # The validate_models method is no longer needed as we are expecting a list directly.
+    # If the config file structure changes to a list of models, this method would need to be removed or adapted.
+    # For now, we'll remove it as the request is to change LLMConfig to hold a list.
+    # @classmethod
+    # def validate_models(cls, v):
+    #     """Convert dict values to ModelConfig objects."""
+    #     if isinstance(v, dict):
+    #         return {name: ModelConfig(**config) if isinstance(config, dict) else config 
+    #                for name, config in v.items()}
+    #     return v
 
 
 class AppSettings(BaseSettings):

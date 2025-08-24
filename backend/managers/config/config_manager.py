@@ -5,11 +5,11 @@ Simplified configuration management for Phase 1A.
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import List, Optional
 
 import yaml
 
-from .config_models import AppSettings, LLMConfig
+from .config_models import AppSettings, LLMConfig, LLMInstance
 
 logger = logging.getLogger(__name__)
 
@@ -33,8 +33,8 @@ class ConfigManager:
         
         return candidates
     
-    def _load_file_with_error_handling(self, file_paths: List[Path], file_type: str) -> Optional[Dict[str, Any]]:
-        """Load a file with error handling and logging."""
+    def _load_file_with_error_handling(self, file_paths: List[Path], file_type: str) -> List[LLMInstance]:
+        """Load a file with error handling and logging, returning a list of LLMInstances."""
         for path in file_paths:
             try:
                 if not path.exists():
@@ -50,12 +50,34 @@ class ConfigManager:
                     else:
                         raise ValueError(f"Unsupported file type: {file_type}")
                 
-                if not isinstance(data, dict):
-                    logger.error(f"Invalid {file_type} format in {path}: expected dict, got {type(data)}")
-                    continue
-                    
                 logger.info(f"Successfully loaded {file_type} config from {path}")
-                return data
+                
+                # Convert loaded data to list of LLMInstances
+                if isinstance(data, dict) and 'models' in data:
+                    # Handle dict format with 'models' key
+                    models_data = data['models']
+                    if isinstance(models_data, dict):
+                        # Convert dict of models to list
+                        instances = []
+                        for name, config in models_data.items():
+                            if isinstance(config, dict):
+                                # Create a copy of config and use the key name as identifier if no model_name exists
+                                config_copy = config.copy()
+                                if 'model_name' not in config_copy:
+                                    config_copy['model_name'] = name
+                                instances.append(LLMInstance(**config_copy))
+                            else:
+                                instances.append(config)
+                        return instances
+                    elif isinstance(models_data, list):
+                        # Already a list of models
+                        return [LLMInstance(**model) if isinstance(model, dict) else model for model in models_data]
+                elif isinstance(data, list):
+                    # Handle direct list format
+                    return [LLMInstance(**model) if isinstance(model, dict) else model for model in data]
+                else:
+                    logger.error(f"Unexpected data format in config file: {type(data)}")
+                    return []
                 
             except (yaml.YAMLError, json.JSONDecodeError) as e:
                 logger.error(f"{file_type} parsing error in {path}: {e}")
@@ -65,7 +87,7 @@ class ConfigManager:
                 continue
         
         logger.warning(f"{file_type} config not found in any of these locations: {[str(p) for p in file_paths]}")
-        return None
+        return []
     
     @property
     def app_settings(self) -> AppSettings:
@@ -86,18 +108,17 @@ class ConfigManager:
             try:
                 llm_filename = self.app_settings.llm_config_file
                 file_paths = self._search_paths(llm_filename)
-                data = self._load_file_with_error_handling(file_paths, "YAML")
+                llm_instances = self._load_file_with_error_handling(file_paths, "YAML")
+                self._llm_config = LLMConfig(models=llm_instances)
                 
-                if data:
-                    self._llm_config = LLMConfig(**data)
+                if llm_instances:
                     logger.info(f"Loaded {len(self._llm_config.models)} models from LLM config")
                 else:
-                    self._llm_config = LLMConfig(models={})
                     logger.info("Created empty LLM config (no configuration file found)")
                     
             except Exception as e:
                 logger.error(f"Failed to parse LLM configuration: {e}")
-                self._llm_config = LLMConfig(models={})
+                self._llm_config = LLMConfig(models=[])
         
         return self._llm_config
 
