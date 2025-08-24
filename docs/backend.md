@@ -267,3 +267,28 @@ python -c "from config import config_manager; print(config_manager.app_settings)
 # Check logs
 tail -f backend/logs/app.log
 ```
+
+## Models layout (v2 refactor)
+
+We split models by concern to avoid layer leakage and import cycles:
+
+- `backend/models/domain/`
+  - Core business entities (e.g., `messaging.py`: `Message`, `ConversationHistory`, `ToolResult`)
+- `backend/models/transport/`
+  - Wire-level schemas
+  - `api/` for REST
+  - `ws/` for WebSocket
+  - `mcp/` for MCP protocol transport models (e.g., `MCPServer`, `MCPTool`, `MCPServerConfigModel`)
+- `backend/models/shared/`
+  - Common primitives/enums/mixins
+
+Compatibility shims remain for existing imports:
+
+- `backend/common/models/common_models.py` re-exports domain messaging models
+- `backend/common/models/mcp_models.py` re-exports transport MCP models
+- `backend/managers/mcp/mcp_models.py` re-exports MCP models for legacy usage
+
+Deprecation plan:
+
+- New code should import from `models.domain.*` or `models.transport.*`
+- Existing imports will continue to work during the migration window and can be updated incrementally

@@ -4,9 +4,9 @@ import logging
 from typing import Any, Callable, Dict, Optional, Awaitable
 from uuid import UUID
 
-from ..session.session_manager import SessionManager
+from managers.session.session_manager import SessionManager
 # Common models will be imported by session manager
-from ..llm.llm_manager import LLMManager
+from managers.llm.llm_manager import LLMManager
 
 logger = logging.getLogger(__name__)
 
@@ -78,7 +78,7 @@ class ServiceCoordinator:
                 except Exception as callback_error:
                     logger.error(f"Error sending response callback: {callback_error}", exc_info=True)
             
-            logger.info(f"Chat message processed successfully for session {session_id}")
+            # logger.info(f"Chat message processed successfully for session {session_id}")
             
             return {
                 "type": "chat_response",

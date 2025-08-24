@@ -98,6 +98,7 @@ backend/
 ├── main.py                         # FastAPI app entry point (KEEP EXISTING)
 ├── managers/
 NOTE: this was updaed so no individual files are in the managers
+NOTE: a routes dir was added to put all the routes 
 │   ├── __init__.py
 │   ├── service_coordinator.py      # Main coordinator, transport-agnostic (SINGLE FILE)
 │   ├── ui_callback_handler.py      # UI callback interface (SINGLE FILE)
@@ -187,12 +188,9 @@ NOTE: this was updaed so no individual files are in the managers
 - `s3_storage.py` (not `storage.py`)
 - `conversation_history.py` (not `history.py`)
 
-### Single File vs Module Decision Criteria
+## common models
 
-**Single Files** - Simple managers with focused responsibility:
-- `service_coordinator.py` - Main coordinator
-- `ui_callback_handler.py` - Interface definitions  
-- `logger_coordinator.py` - Simple logging coordination
+* common models which might be shared are in the  models folder
 
 **Modules** - Complex managers needing multiple supporting classes:
 - `auth/` - Authentication, permissions, tokens
@@ -332,7 +330,7 @@ NOTE: this was updaed so no individual files are in the managers
 
 The frontend is nice and will only need a few tweaks.Try not to modify it. 
 
-### Phase 1: Extract Managers
+[x] ### Phase 1: Extract Managers
 
 Part A 
 - move old version to old.backend, create 'backend' as a fresh start. 
@@ -344,28 +342,15 @@ Part A
 - focus on minimal implementation to just get things working with just the LLM doing chat. 
 - preference for copying code from the old.backend, and then deleting unneed parts. Literally use the `cp` command. Only copy 1 file at a time. Under no circumstance shouuld you copy a whole fodler. 
 
-Part B
-1. Create manager interfaces and base classes
-2. Extract session management from service.py
-3. Create auth manager singleton
-4. Move MCP logic to simplified MCP manager
+part B
+[x]* move the mcp to folder. 
+* setup the common mcp logging, and other utilities
+* setup the mcp manager
+* setup the tool managere
+* expose the /api/config to get hte list of tools
 
-### Phase 2: Simplify Service Layer
-1. Refactor service.py to use managers
-2. Remove streaming code complexity
-3. Remove prompt checking (as requested)
-4. Create service manager as main coordinator
-
-### Phase 3: Clean Up Routes and Models
-1. Update routes to use managers
-2. Create per-module models
-3. Move MCP servers to separate directory
-4. Update tests
-
-### Phase 4: Interface Standardization
-1. Implement storage interface
-2. Implement UI callback interface
-3. Update dependency injection in app factory
+Part C 
+* wire the service to allow tool calling from the mcps
 
 ## Key Changes from Current Structure
 

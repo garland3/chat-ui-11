@@ -35,18 +35,51 @@ class LLMConfig(BaseModel):
 class AppSettings(BaseSettings):
     """Main application settings loaded from environment variables."""
     
+    # Existing fields
     app_name: str = "Chat UI"
     port: int = 8000
     debug_mode: bool = False
     log_level: str = "INFO"
     litellm_log_level: str = "INFO"
-    
-    # Config file names
     llm_config_file: str = Field(default="llmconfig.yml", validation_alias="LLM_CONFIG_FILE")
     
+    # Fields from .env
+    mock_rag: bool = False
+    openai_api_key: str = ""
+    anthropic_api_key: str = ""
+    google_api_key: str = ""
+    openrouter_api_key: str = ""
+    environment: str = "development"
+    feature_workspaces_enabled: bool = False
+    feature_rag_enabled: bool = False
+    feature_tools_enabled: bool = False
+    feature_marketplace_enabled: bool = False
+    feature_files_panel_enabled: bool = False
+    feature_chat_history_enabled: bool = False
+    agent_max_steps: int = 30
+    agent_default_enabled: bool = False
+    feature_agent_mode_available: bool = False
+    app_log_dir: str = ""
+    capability_token_secret: str = ""
+    agent_loop_strategy: str = "think-act"
+    s3_use_mock: bool = False
+    s3_endpoint: str = ""
+    s3_bucket: str = ""
+    s3_access_key_id: str = ""
+    s3_secret_access_key: str = ""
+    s3_region: str = ""
+    s3_path_style: bool = False
+    
     model_config = {
-        "env_file": "../.env", 
-        "env_file_encoding": "utf-8", 
-        "extra": "ignore",
+        "env_file": "../.env",
+        "env_file_encoding": "utf-8",
+        "extra": "allow",
         "env_prefix": "",
     }
+
+
+# Import MCP models from common location  
+from common.models.mcp_models import MCPServerConfigModel, MCPConfig
+
+# Export for use in other modules
+__all__ = ['LLMInstance', 'LLMConfig', 'AppSettings', 'MCPServerConfigModel', 'MCPConfig']

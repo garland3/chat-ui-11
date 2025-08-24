@@ -16,6 +16,7 @@ from managers.auth.utils import get_current_user
 from managers.app_factory.app_factory import app_factory
 from pathlib import Path
 import os
+from interfaces.mcp_interface import get_mcp_tools_info
 
 logger = logging.getLogger(__name__)
 
@@ -70,18 +71,25 @@ async def get_config(current_user: str = Depends(get_current_user)):
 
     # each 'model' is an LLMInstance
     model_names = [model.model_name for model in llm_config.models]
+    
+    # Get MCP tools if tools feature is enabled
+    tools_info, available_servers = [], []
+    if app_settings.feature_tools_enabled:
+        tools_info, available_servers = await get_mcp_tools_info(current_user)
 
     return {
         "app_name": app_settings.app_name,
         "models": model_names,
-        "user": current_user, 
+        "user": current_user,
+        "tools": tools_info,
+        "available_servers": available_servers,
         "features": {
-            "workspaces": False,
-            "rag": False,
-            "tools": False,
-            "marketplace": False,
-            "files_panel": False,
-            "chat_history": False
+            "workspaces": app_settings.feature_workspaces_enabled,
+            "rag": app_settings.feature_rag_enabled,
+            "tools": app_settings.feature_tools_enabled,
+            "marketplace": app_settings.feature_marketplace_enabled,
+            "files_panel": app_settings.feature_files_panel_enabled,
+            "chat_history": app_settings.feature_chat_history_enabled
         }
     }
 

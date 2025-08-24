@@ -5,6 +5,8 @@ from ..config.config_manager import config_manager
 from ..llm.llm_manager import LLMManager
 from ..session.session_manager import SessionManager
 from ..service_coordinator.service_coordinator import ServiceCoordinator
+from managers.mcp.mcp_manager import MCPManager
+from managers.tools.tool_caller import ToolCaller
 
 logger = logging.getLogger(__name__)
 
@@ -17,6 +19,8 @@ class AppFactory:
         self.llm_manager = None
         self.session_manager = None
         self.service_coordinator = None
+        self.mcp_manager = None
+        self.tool_caller = None
         logger.info("AppFactory initialized - Phase 1A")
 
     def get_config_manager(self):
@@ -46,6 +50,20 @@ class AppFactory:
                 llm_manager=self.get_llm_manager()
             )
         return self.service_coordinator
+    
+    async def get_mcp_manager(self):
+        """Get MCP manager - lazy initialization."""
+        if self.mcp_manager is None:
+            self.mcp_manager = MCPManager(self.config_manager)
+            await self.mcp_manager.initialize()
+        return self.mcp_manager
+    
+    async def get_tool_caller(self):
+        """Get tool caller - lazy initialization."""
+        if self.tool_caller is None:
+            mcp_manager = await self.get_mcp_manager()
+            self.tool_caller = ToolCaller(mcp_manager)
+        return self.tool_caller
 
     def initialize_managers(self):
         """Initialize all managers."""
