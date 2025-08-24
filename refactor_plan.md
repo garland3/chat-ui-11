@@ -102,7 +102,10 @@ backend/
 │   ├── ui_callback_handler.py      # UI callback interface (SINGLE FILE)
 │   ├── logger_coordinator.py       # Central logging (SINGLE FILE)
 │   ├── app_factory.py               # App factory (SINGLE FILE)
-│   ├── config_manager.py            # Configuration management (SINGLE FILE)
+│   ├── config/                      # Configuration management (MODULE)
+│   │   ├── __init__.py
+│   │   ├── config_manager.py       # Main ConfigManager class
+│   │   └── config_models.py        # Configuration-related models
 │   ├── auth/                       # Auth management (MODULE)
 │   │   ├── __init__.py
 │   │   ├── auth_manager.py         # Main AuthManager class
