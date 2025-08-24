@@ -14,9 +14,9 @@ from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 
 from managers.app_factory.app_factory import app_factory
+from routes.config_route import config_router # Import the config router
 
-# Load environment variables from the parent directory
-load_dotenv(dotenv_path="../.env")
+
 
 # Setup basic logging
 logging.basicConfig(level=logging.INFO)
@@ -51,6 +51,9 @@ app = FastAPI(
     version="2.0.0-phase1a",
     lifespan=lifespan,
 )
+
+# Include the config routes
+app.include_router(config_router)
 
 # Serve frontend build (Vite)
 static_dir = Path(__file__).parent.parent / "frontend" / "dist"

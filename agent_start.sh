@@ -24,7 +24,7 @@ echo "Mock S3 storage folder cleared"
 
 # Configuration
 USE_NEW_FRONTEND=${USE_NEW_FRONTEND:-true}
-START_S3_MOCK=true
+START_S3_MOCK=false
 
 # Kill any running uvicorn processes (skip if only rebuilding frontend)
 if [ "$ONLY_FRONTEND" = false ] && [ "$ONLY_BACKEND" = false ]; then

@@ -65,8 +65,8 @@ class ServiceCoordinator:
             # Send final response via callback
             if update_callback:
                 callback_message = {
-                    "type": "response",
-                    "content": llm_response,
+                    "type": "chat_response",
+                    "message": llm_response,
                     "model": model,
                     "session_id": str(session_id),
                     "message_id": str(assistant_message.id),
@@ -81,8 +81,8 @@ class ServiceCoordinator:
             logger.info(f"Chat message processed successfully for session {session_id}")
             
             return {
-                "type": "response",
-                "content": llm_response,
+                "type": "chat_response",
+                "message": llm_response,
                 "model": model,
                 "session_id": str(session_id),
             }
