@@ -1,12 +1,16 @@
 """Service coordinator for orchestrating chat flows - Phase 1A."""
 
 import logging
-from typing import Any, Callable, Dict, Optional, Awaitable
+from typing import Any, Callable, Dict, List, Optional, Awaitable
 from uuid import UUID
 
 from managers.session.session_manager import SessionManager
 # Common models will be imported by session manager
 from managers.llm.llm_manager import LLMManager
+from managers.mcp.mcp_manager import MCPManager
+from managers.tools.tool_caller import ToolCaller
+from managers.tools.tool_models import ToolCall
+from managers.auth.auth_manager import is_user_in_group
 
 logger = logging.getLogger(__name__)
 
@@ -14,10 +18,12 @@ logger = logging.getLogger(__name__)
 class ServiceCoordinator:
     """Main coordinator that orchestrates managers for chat flows."""
     
-    def __init__(self, session_manager: SessionManager, llm_manager: LLMManager):
+    def __init__(self, session_manager: SessionManager, llm_manager: LLMManager, mcp_manager: Optional[MCPManager] = None, tool_caller: Optional[ToolCaller] = None):
         """Initialize service coordinator with required managers."""
         self.session_manager = session_manager
         self.llm_manager = llm_manager
+        self.mcp_manager = mcp_manager
+        self.tool_caller = tool_caller
         logger.info("ServiceCoordinator initialized - Phase 1A")
     
     async def handle_chat_message(
@@ -50,14 +56,75 @@ class ServiceCoordinator:
             # Update session in manager
             self.session_manager.update_session(session)
             
-            # Call LLM
-            llm_response = await self.llm_manager.call_plain(model, session.history, temperature)
+            # call log info, and log the first N=100 chars fo the message, list of seleced tools, agent_model, username, in 1 call 
+            logger.info(f"Session {session_id} - Model: {model}, Temperature: {temperature}, User: {user_email}, Message: {content[:100]}..., Selected Tools: {selected_tools}, Agent Mode: {agent_mode}")
             
-            # Add assistant response to session
-            assistant_message = session.add_assistant_message(llm_response, {
-                "model": model,
-                "temperature": temperature,
-            })
+            # Check if we need to use tools
+            if selected_tools and self.mcp_manager and self.tool_caller:
+                # Get username for authorization
+                username = user_email
+
+                # Get authorized and filtered tools using dependency injection
+                filtered_tools = self.tool_caller.get_authorized_tools_for_user(
+                    username,
+                    selected_tools, 
+                    is_user_in_group
+                )
+                
+                logger.info(f"Using {len(filtered_tools)} tools for LLM call")
+                
+                # Call LLM with tools
+                llm_response_data = await self.llm_manager.call_with_tools(
+                    model, session.history, filtered_tools, "auto", temperature
+                )
+                
+                llm_content = llm_response_data.get("content", "")
+                tool_calls = llm_response_data.get("tool_calls", [])
+                
+                # Execute tool calls if any
+                tool_results = []
+                if tool_calls:
+                    logger.info(f"Executing {len(tool_calls)} tool calls")
+                    
+                    for tool_call_data in tool_calls:
+                        tool_call = ToolCall(
+                            id=tool_call_data["id"],
+                            name=tool_call_data["name"],
+                            arguments=tool_call_data["arguments"]
+                        )
+                        result = await self.tool_caller.execute_tool(tool_call)
+                        tool_results.append(result)
+                        
+                        # Add tool result to session history
+                        session.add_tool_message(tool_call.name, result.content, tool_call.id)
+                
+                # Add assistant response to session
+                assistant_message = session.add_assistant_message(llm_content, {
+                    "model": model,
+                    "temperature": temperature,
+                    "tool_calls": tool_calls,
+                    "tool_results": [{"id": r.tool_call_id, "content": r.content, "success": r.success} for r in tool_results]
+                })
+                
+                final_response = llm_content
+                if tool_results:
+                    # If there were tool results, make a final call to get response
+                    final_llm_response = await self.llm_manager.call_plain(model, session.history, temperature)
+                    final_response = final_llm_response
+                    assistant_message = session.add_assistant_message(final_response, {
+                        "model": model,
+                        "temperature": temperature,
+                    })
+                
+            else:
+                # Plain LLM call without tools
+                final_response = await self.llm_manager.call_plain(model, session.history, temperature)
+                
+                # Add assistant response to session
+                assistant_message = session.add_assistant_message(final_response, {
+                    "model": model,
+                    "temperature": temperature,
+                })
             
             # Update session
             self.session_manager.update_session(session)
@@ -66,12 +133,12 @@ class ServiceCoordinator:
             if update_callback:
                 callback_message = {
                     "type": "chat_response",
-                    "message": llm_response,
+                    "message": final_response,
                     "model": model,
                     "session_id": str(session_id),
                     "message_id": str(assistant_message.id),
                 }
-                logger.info(f"Sending response callback for session {session_id}: {len(llm_response)} chars")
+                logger.info(f"Sending response callback for session {session_id}: {len(final_response)} chars")
                 try:
                     await update_callback(callback_message)
                     logger.info(f"Response callback sent successfully for session {session_id}")
@@ -82,7 +149,7 @@ class ServiceCoordinator:
             
             return {
                 "type": "chat_response",
-                "message": llm_response,
+                "message": final_response,
                 "model": model,
                 "session_id": str(session_id),
             }

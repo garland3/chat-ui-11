@@ -20,7 +20,7 @@ async def get_mcp_tools_info(current_user: str):
         await app_factory.get_tool_caller()
         
         # For now, assume all users are in the "users" group
-        # TODO: Implement proper user group resolution
+        # TODO: Implement proper user group resolution and authorization
         user_groups = ["users"]
         
         # Get authorized servers for the user

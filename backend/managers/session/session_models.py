@@ -52,3 +52,17 @@ class Session:
         self.history.add_message(message)
         self.update_timestamp()
         return message
+    
+    def add_tool_message(self, tool_name: str, content: str, tool_call_id: str) -> Message:
+        """Add a tool result message to the session."""
+        message = Message(
+            role=MessageRole.TOOL,
+            content=content,
+            metadata={
+                "tool_name": tool_name,
+                "tool_call_id": tool_call_id
+            }
+        )
+        self.history.add_message(message)
+        self.update_timestamp()
+        return message

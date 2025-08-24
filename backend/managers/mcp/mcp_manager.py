@@ -118,8 +118,10 @@ class MCPManager:
             if config.cwd:
                 # Convert relative path to absolute
                 if not Path(config.cwd).is_absolute():
-                    # Project root is parent of backend
-                    project_root = Path(__file__).parents[2]  # /workspaces/chat-ui-11
+                    # Project root is parent of backend (.. of backend dir)
+                    # __file__ = /repo/backend/managers/mcp/mcp_manager.py
+                    # parents[3] -> /repo
+                    project_root = Path(__file__).parents[3]  # /workspaces/chat-ui-11
                     cwd = str(project_root / config.cwd)
                 else:
                     cwd = config.cwd

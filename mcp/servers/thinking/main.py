@@ -10,13 +10,13 @@ import sys
 from pathlib import Path
 
 # MCPs may run with CWD at their own tool folder; add parent (backend/mcp) for local imports
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from _mcp_logging import init_mcp_logging, log_tool_call  # type: ignore
+# sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+# from _mcp_logging import init_mcp_logging, log_tool_call  # type: ignore
 from fastmcp import FastMCP
 
 
 # Initialize unified logging to write to logs/app.jsonl like the main app
-init_mcp_logging("thinking")
+# init_mcp_logging("thinking")
 logger = logging.getLogger(__name__)
 mcp = FastMCP("Thinking")
 
@@ -71,7 +71,7 @@ def thinking(list_of_thoughts: List[str]) -> Dict[str, Any]:
     """
     try:
         # Log call with name + args (sanitized structure)
-        log_tool_call("thinking", list_of_thoughts=list_of_thoughts)
+        # log_tool_call("thinking", list_of_thoughts=list_of_thoughts)
 
         if not list_of_thoughts:
             return {"results": {"error": "No thoughts provided"}}

@@ -344,13 +344,14 @@ Part A
 
 part B
 [x]* move the mcp to folder. 
-* setup the common mcp logging, and other utilities
-* setup the mcp manager
-* setup the tool managere
-* expose the /api/config to get hte list of tools
+[x]* setup the common mcp logging, and other utilities
+[x]* setup the mcp manager
+[x]* setup the tool managere
+[x]* expose the /api/config to get hte list of tools
 
 Part C 
-* wire the service to allow tool calling from the mcps
+* wire the service to allow tool calling from the mcps, so make a if tools in handle_chat_message
+* setup the authentication to allowed mcp servers. Always check when getting the config, always check when a user tries to call a function.
 
 ## Key Changes from Current Structure
 

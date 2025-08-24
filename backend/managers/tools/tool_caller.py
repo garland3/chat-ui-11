@@ -1,7 +1,7 @@
 """Tool execution manager that integrates with MCP servers."""
 
 import logging
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Callable
 from managers.mcp.mcp_manager import MCPManager
 from .tool_models import ToolCall, ToolResult
 
@@ -62,6 +62,63 @@ class ToolCaller:
         """Get tools for specific servers."""
         tools = self.mcp_manager.get_tools_for_servers(server_names)
         return [tool.to_openai_schema() for tool in tools]
+    
+    def get_authorized_tools_for_user(
+        self, 
+        username: str,
+        selected_tools: List[str], 
+        is_user_in_group: Callable[[str, str], bool]
+    ) -> List[Dict[str, Any]]:
+        """Get tools that user is authorized to use, filtered by selection.
+        
+        Args:
+            username: The username to check authorization for
+            selected_tools: List of tool names user wants to use
+            is_user_in_group: Function that checks if user is in a specific group
+            
+        Returns:
+            List of tool schemas in OpenAI format
+        """
+        # Get all available servers and check authorization for each
+        all_servers = self.mcp_manager.get_available_servers()
+        authorized_servers = []
+        
+        for server_name in all_servers:
+            server_info = self.mcp_manager.get_server_info(server_name)
+            if not server_info:
+                continue
+            
+            # If server has no group restrictions, it's available to everyone
+            server_groups = server_info.get('groups', [])
+            if not server_groups:
+                authorized_servers.append(server_name)
+                continue
+            
+            # Check if user is in any of the required groups for this server
+            user_authorized = any(
+                is_user_in_group(username, group) 
+                for group in server_groups
+            )
+            
+            if user_authorized:
+                authorized_servers.append(server_name)
+        
+        logger.debug(f"User {username} authorized for servers: {authorized_servers}")
+        
+        # Get all tools from authorized servers
+        tools_schema = self.get_tools_for_servers(authorized_servers)
+        
+        # Filter by selected tools if provided
+        if selected_tools:
+            filtered_tools = [
+                tool for tool in tools_schema 
+                if tool.get('function', {}).get('name') in selected_tools
+            ]
+            logger.debug(f"Filtered to {len(filtered_tools)} tools from {len(tools_schema)} available for user {username}")
+            return filtered_tools
+        
+        logger.debug(f"Using all {len(tools_schema)} available tools for user {username}")
+        return tools_schema
     
     def _convert_mcp_result(self, tool_call_id: str, raw_result: Any) -> ToolResult:
         """Convert MCP result to ToolResult format."""

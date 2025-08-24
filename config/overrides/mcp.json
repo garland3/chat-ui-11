@@ -2,8 +2,8 @@
 
 
   "thinking": {
-    "command": ["python", "mcp/thinking/main.py"],
-    "cwd": "backend",
+    "command": ["python", "mcp/servers/thinking/main.py"],
+    "cwd": ".",
     "groups": ["users"],
     "is_exclusive": false,
     "description": "Structured thinking and problem analysis tool",
@@ -13,8 +13,8 @@
   },
 
   "calculator": {
-    "command": ["python", "mcp/calculator/main.py"],
-    "cwd": "backend",
+    "command": ["python", "mcp/servers/calculator/main.py"],
+    "cwd": ".",
     "groups": ["users"],
     "is_exclusive": false,
     "description": "Evaluate mathematical expressions, perform calculations with basic arithmetic, trigonometry, and logarithms",
@@ -25,8 +25,8 @@
 
 
   "prompts": {
-    "command": ["python", "mcp/prompts/main.py"],
-    "cwd": "backend",
+    "command": ["python", "mcp/servers/prompts/main.py"],
+    "cwd": ".",
     "groups": ["users"],
     "is_exclusive": false,
     "description": "Specialized system prompts for AI behavior modification",
@@ -35,8 +35,8 @@
     "help_email": "support@chatui.example.com"
   }, 
   "ui-demo": {
-    "command": ["python", "mcp/ui-demo/main.py"],
-    "cwd": "backend",
+    "command": ["python", "mcp/servers/ui-demo/main.py"],
+    "cwd": ".",
     "groups": ["users"],
     "is_exclusive": false,
     "description": "Demo server showcasing custom UI modification capabilities",
@@ -46,8 +46,8 @@
   },
 
   "order_database": {
-    "command": ["python", "mcp/order_database/main.py"],
-    "cwd": "backend",
+    "command": ["python", "mcp/servers/order_database/main.py"],
+    "cwd": ".",
     "groups": ["users"],
     "is_exclusive": false,
     "description": "Customer order database with retrieval and status update functionality",
@@ -57,8 +57,8 @@
   }
   ,
   "csv_reporter": {
-    "command": ["python", "mcp/csv_reporter/main.py"],
-    "cwd": "backend",
+    "command": ["python", "mcp/servers/csv_reporter/main.py"],
+    "cwd": ".",
     "groups": ["users"],
     "is_exclusive": false,
     "description": "Generate reports from uploaded CSV files, demonstrating filename URL rewriting and username injection.",
@@ -67,9 +67,9 @@
     "help_email": "support@chatui.example.com"
   },
   
-    "code-executor": {
-    "command": ["python", "mcp/code-executor/main.py"],
-    "cwd": "backend",
+  "code-executor": {
+  "command": ["python", "mcp/servers/code-executor/main.py"],
+  "cwd": ".",
     "groups": ["users"],
     "is_exclusive": false,
     "description": "Execute Python, JavaScript, and other code snippets in a secure sandboxed environment with safety validation",
@@ -78,8 +78,8 @@
     "help_email": "support@chatui.example.com"
   },
   "pptx_generator": {
-    "command": ["python", "mcp/pptx_generator/main.py"],
-    "cwd": "backend",
+    "command": ["python", "mcp/servers/pptx_generator/main.py"],
+    "cwd": ".",
     "groups": ["users"],
     "is_exclusive": false,
     "description": "Converts JSON input containing slide data into a PowerPoint presentation. Input should be a JSON object with a 'slides' array, each containing 'title' and 'content' fields.",
@@ -89,8 +89,8 @@
   },
 
   "progress_demo": {
-    "command": ["python", "mcp/progress_demo/main.py"],
-    "cwd": "backend",
+    "command": ["python", "mcp/servers/progress_demo/main.py"],
+    "cwd": ".",
     "groups": ["users"],
     "is_exclusive": false,
     "description": "Demo long-running tool that reports progress updates every few seconds.",
