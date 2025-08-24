@@ -11,6 +11,10 @@ from enum import Enum
 import time
 import os
 import base64
+import httpx
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Initialize the MCP server
 mcp = FastMCP("OrderDatabase")
@@ -59,6 +63,50 @@ def _finalize_meta(meta: Dict[str, Any], start: float) -> Dict[str, Any]:
     meta = dict(meta)  # shallow copy
     meta["elapsed_ms"] = round((time.perf_counter() - start) * 1000, 3)
     return meta
+
+
+BACKEND_BASE_URL = os.environ.get("CHATUI_BACKEND_BASE_URL", "http://127.0.0.1:8000")
+
+
+def _upload_artifact_to_s3(content: bytes, filename: str, content_type: str, username: str) -> Dict[str, str]:
+    """Upload artifact content to S3 via backend API and return artifact info with URL."""
+    try:
+        content_b64 = base64.b64encode(content).decode("utf-8")
+        
+        upload_payload = {
+            "filename": filename,
+            "content_base64": content_b64,
+            "content_type": content_type,
+            "tags": {"source": "mcp_tool", "generator": "order_database"}
+        }
+        
+        with httpx.Client(timeout=30.0) as client:
+            response = client.post(
+                f"{BACKEND_BASE_URL}/api/files",
+                json=upload_payload,
+                headers={"X-User-Email": username}
+            )
+            response.raise_for_status()
+            
+            result = response.json()
+            file_key = result["key"]
+            download_url = f"/api/files/download/{file_key}"
+            
+            return {
+                "name": filename,
+                "url": download_url,
+                "mime": content_type,
+                "size": len(content)
+            }
+            
+    except Exception as e:
+        logger.warning(f"S3 upload failed for {filename}, falling back to base64: {e}")
+        return {
+            "name": filename,
+            "b64": base64.b64encode(content).decode("utf-8"),
+            "mime": content_type,
+            "size": len(content)
+        }
 
 @mcp.tool
 def get_order(order_number: str) -> Dict[str, Any]:
@@ -251,6 +299,9 @@ def update_order_status(order_number: str, new_status: str) -> Dict[str, Any]:
                 "meta_data": _finalize_meta(meta, start)
             }
         
+        # Get old status before updating
+        old_status = ORDERS[order_number].status.value
+        
         # Update order status
         ORDERS[order_number].status = status_enum
         meta.update({"is_error": False})
@@ -258,6 +309,7 @@ def update_order_status(order_number: str, new_status: str) -> Dict[str, Any]:
             "results": {
                 "success": True,
                 "order_number": order_number,
+                "old_status": old_status,
                 "new_status": new_status
             },
             "meta_data": _finalize_meta(meta, start)
@@ -306,12 +358,13 @@ def list_all_orders() -> Dict[str, Any]:
         }
 
 @mcp.tool
-def get_signal_data_csv() -> Dict[str, Any]:
+def get_signal_data_csv(username: str = "") -> Dict[str, Any]:
     """
     Return the signal_data.csv file from the same directory as this MCP.
+    Uploads to S3 storage for efficient access.
     
     Returns:
-        Dictionary with the CSV file as a base64 encoded artifact
+        Dictionary with the CSV file uploaded to S3 storage with download URL
     """
     start = time.perf_counter()
     meta: Dict[str, Any] = {}
@@ -332,30 +385,33 @@ def get_signal_data_csv() -> Dict[str, Any]:
         with open(csv_path, 'rb') as f:
             csv_content = f.read()
         
-        # Encode as base64
-        csv_b64 = base64.b64encode(csv_content).decode('utf-8')
+        # Upload to S3
+        artifact = _upload_artifact_to_s3(
+            content=csv_content,
+            filename="signal_data.csv",
+            content_type="text/csv",
+            username=username or "unknown"
+        )
         
         meta.update({"is_error": False, "file_size_bytes": len(csv_content)})
         return {
             "results": {
-                "message": "Signal data CSV file retrieved successfully",
+                "message": "Signal data CSV file retrieved and uploaded to storage",
                 "filename": "signal_data.csv",
                 "file_size_bytes": len(csv_content)
             },
-            "artifacts": [
-                {
-                    "name": "signal_data.csv",
-                    "b64": csv_b64,
-                    "mime": "text/csv",
-                }
-            ],
+            "artifacts": [artifact],
             "display": {
                 "open_canvas": True,
                 "primary_file": "signal_data.csv",
                 "mode": "replace",
                 "viewer_hint": "code",
             },
-            "meta_data": _finalize_meta(meta, start)
+            "meta_data": _finalize_meta({
+                "file_size_bytes": len(csv_content),
+                "storage_method": "s3" if "url" in artifact else "base64_fallback",
+                "is_error": False
+            }, start)
         }
     except Exception as e:
         meta.update({"is_error": True, "reason": type(e).__name__})

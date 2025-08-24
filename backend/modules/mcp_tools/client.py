@@ -863,11 +863,14 @@ class MCPToolManager:
                 raw_artifacts = structured.get("artifacts")
                 if isinstance(raw_artifacts, list):
                     for art in raw_artifacts:
-                        if isinstance(art, dict):
-                            name = art.get("name")
-                            b64 = art.get("b64")
-                            if name and b64:
-                                artifacts.append(art)
+                        if not isinstance(art, dict):
+                            continue
+                        name = art.get("name")
+                        # Accept either base64 content or URL references per v2 spec
+                        has_b64 = isinstance(art.get("b64"), str) and len(art.get("b64")) > 0
+                        has_url = isinstance(art.get("url"), str) and len(art.get("url")) > 0
+                        if name and (has_b64 or has_url):
+                            artifacts.append(art)
 
                 # Extract display
                 disp = structured.get("display")

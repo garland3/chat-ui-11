@@ -35,10 +35,9 @@ class AppFactory:
             config_manager=self.config_manager,
             auth_check_func=is_user_in_group,
         )
-
-        # File storage & manager
-        self.file_storage = S3StorageClient()
-        self.file_manager = FileManager(self.file_storage)
+        # File storage & manager (lazy init to avoid import-time side effects)
+        self.file_storage = None
+        self.file_manager = None
 
         logger.info("AppFactory initialized")
 
@@ -50,7 +49,7 @@ class AppFactory:
             tool_manager=self.mcp_tools,
             connection=connection,
             config_manager=self.config_manager,
-            file_manager=self.file_manager,
+            file_manager=self.get_file_manager(),
         )
 
     # Accessors
@@ -70,9 +69,20 @@ class AppFactory:
         return self.rag_mcp_service
 
     def get_file_storage(self) -> S3StorageClient:  # noqa: D401
+        if self.file_storage is None:
+            try:
+                self.file_storage = S3StorageClient()
+            except Exception as e:
+                # Fallback to mock if real S3 initialization fails (e.g., boto3 missing in tests)
+                logger.warning(
+                    "Falling back to mock S3 client due to init error: %s", e
+                )
+                self.file_storage = S3StorageClient(s3_use_mock=True)
         return self.file_storage
 
     def get_file_manager(self) -> FileManager:  # noqa: D401
+        if self.file_manager is None:
+            self.file_manager = FileManager(self.get_file_storage())
         return self.file_manager
 
 

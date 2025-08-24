@@ -1,6 +1,13 @@
 """
 Basic chat backend implementing the modular architecture.
 Focuses on essential chat functionality only.
+
+Developer note:
+- For stepping through a single chat flow with specific tools in a debugger,
+    you can run the helper script:
+        scripts/invoke_chat_with_tools.py
+    which calls ChatService.handle_chat_message with a prompt and tools
+    similar to how this module does inside the WebSocket handler.
 """
 
 import logging

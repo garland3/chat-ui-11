@@ -31,6 +31,10 @@ class S3StorageClient:
     
     def __init__(self, s3_endpoint: str = None, s3_timeout: int = None, s3_use_mock: bool = None):
         """Initialize the S3 client with configuration."""
+        logger.info(
+            "S3StorageClient.__init__ called (s3_endpoint provided=%s, timeout provided=%s, use_mock provided=%s)",
+            bool(s3_endpoint), bool(s3_timeout), (s3_use_mock is not None)
+        )
         # Allow dependency injection for testing
         if s3_endpoint is None or s3_timeout is None or s3_use_mock is None:
             from modules.config import config_manager
@@ -87,6 +91,7 @@ class S3StorageClient:
     
     def _get_auth_headers(self, user_email: str) -> Dict[str, str]:
         """Get authorization headers for the request."""
+        logger.info("S3StorageClient._get_auth_headers called (use_mock=%s)", self.use_mock)
         if self.use_mock:
             # For mock service, use user email as bearer token
             return {"Authorization": f"Bearer {user_email}"}
@@ -107,6 +112,10 @@ class S3StorageClient:
         Raises:
             ValueError: If file_key contains invalid characters
         """
+        logger.info(
+            "S3StorageClient._validate_and_sanitize_file_key called (len=%s)",
+            (len(file_key) if isinstance(file_key, str) else None),
+        )
         if not file_key or not isinstance(file_key, str):
             raise ValueError("File key must be a non-empty string")
         # Normalize any percent-encoded input once to validate on the real characters
@@ -127,6 +136,7 @@ class S3StorageClient:
         return quote(decoded_key, safe='/@+')
 
     def _init_boto_client(self) -> None:
+        logger.info("S3StorageClient._init_boto_client called")
         if boto3 is None:
             raise RuntimeError("boto3 is required for real S3/MinIO usage")
         session = boto3.session.Session()
@@ -181,6 +191,15 @@ class S3StorageClient:
             Dictionary containing file metadata including the S3 key
         """
         try:
+            logger.info(
+                "S3StorageClient.upload_file called (user=%s, filename=%s, content_len=%s, content_type=%s, source_type=%s, use_mock=%s)",
+                self._sanitize_log_value(user_email),
+                self._sanitize_log_value(filename),
+                (len(content_base64) if isinstance(content_base64, str) else None),
+                self._sanitize_log_value(content_type),
+                self._sanitize_log_value(source_type),
+                self.use_mock,
+            )
             file_tags = tags or {}
             file_tags["source"] = source_type
 
@@ -261,6 +280,12 @@ class S3StorageClient:
             Dictionary containing file data and metadata
         """
         try:
+            logger.info(
+                "S3StorageClient.get_file called (user=%s, file_key_len=%s, use_mock=%s)",
+                self._sanitize_log_value(user_email),
+                (len(file_key) if isinstance(file_key, str) else None),
+                self.use_mock,
+            )
             # Validate and sanitize file_key to prevent SSRF
             sanitized_file_key = self._validate_and_sanitize_file_key(file_key)
 
@@ -335,6 +360,13 @@ class S3StorageClient:
             List of file metadata dictionaries
         """
         try:
+            logger.info(
+                "S3StorageClient.list_files called (user=%s, file_type=%s, limit=%s, use_mock=%s)",
+                self._sanitize_log_value(user_email),
+                self._sanitize_log_value(file_type or ""),
+                limit,
+                self.use_mock,
+            )
             if self.use_mock:
                 headers = self._get_auth_headers(user_email)
                 params = {"limit": limit}
@@ -394,6 +426,12 @@ class S3StorageClient:
             True if deletion was successful
         """
         try:
+            logger.info(
+                "S3StorageClient.delete_file called (user=%s, file_key_len=%s, use_mock=%s)",
+                self._sanitize_log_value(user_email),
+                (len(file_key) if isinstance(file_key, str) else None),
+                self.use_mock,
+            )
             sanitized_file_key = self._validate_and_sanitize_file_key(file_key)
             if self.use_mock:
                 headers = self._get_auth_headers(user_email)
@@ -450,6 +488,11 @@ class S3StorageClient:
             Dictionary containing file statistics
         """
         try:
+            logger.info(
+                "S3StorageClient.get_user_stats called (user=%s, use_mock=%s)",
+                self._sanitize_log_value(user_email),
+                self.use_mock,
+            )
             if self.use_mock:
                 headers = self._get_auth_headers(user_email)
                 async with httpx.AsyncClient(timeout=self.timeout) as client:

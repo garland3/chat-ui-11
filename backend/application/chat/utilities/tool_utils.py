@@ -13,6 +13,7 @@ from domain.messages.models import ToolCall, ToolResult, Message, MessageRole
 from interfaces.llm import LLMResponse
 from core.capabilities import create_download_url
 from .notification_utils import _sanitize_filename_value  # reuse same filename sanitizer for UI args
+from .file_utils import ingest_v2_artifacts  # lightweight in-loop context refresh
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,8 @@ async def execute_tools_workflow(
     tool_manager,
     llm_caller,
     prompt_provider,
-    update_callback: Optional[UpdateCallback] = None
+    update_callback: Optional[UpdateCallback] = None,
+    file_manager: Optional[Any] = None,
 ) -> tuple[str, List[ToolResult]]:
     """
     Execute the complete tools workflow: calls -> results -> synthesis.
@@ -52,6 +54,24 @@ async def execute_tools_workflow(
             update_callback=update_callback
         )
         tool_results.append(result)
+
+        # Refresh session_context with any newly produced artifacts so subsequent
+        # tools in the same turn can resolve filenames -> download URLs.
+        # Use ingest_v2_artifacts directly (no canvas/events here) to avoid
+        # duplicate UI notifications; final consolidation still happens later.
+        try:
+            if file_manager is not None and getattr(result, "artifacts", None):
+                user_email = session_context.get("user_email")
+                if user_email:
+                    session_context = await ingest_v2_artifacts(
+                        session_context=session_context,
+                        tool_result=result,
+                        user_email=user_email,
+                        file_manager=file_manager,
+                        update_callback=None,
+                    )
+        except Exception as _ctx_err:
+            logger.debug(f"Non-fatal: failed in-loop artifact context refresh: {_ctx_err}")
 
     # Add tool results to messages
     for result in tool_results:
@@ -233,6 +253,10 @@ def prepare_tool_arguments(tool_call, session_context: Dict[str, Any], tool_mana
     
     Pure function that transforms arguments based on context and tool schema.
     """
+    # Return empty args if no arguments provided
+    if not tool_call.function.arguments:
+        return {}
+        
     # Parse raw arguments
     raw_args = getattr(tool_call.function, "arguments", {})
     if isinstance(raw_args, dict):

@@ -33,6 +33,18 @@ from .models import LLMResponse
 
 logger = logging.getLogger(__name__)
 
+# Immediately align LiteLLM Python logger(s) to configured level and stop propagation
+_lvl_name = os.getenv("LITELLM_LOG", "INFO").upper()
+_lvl = getattr(logging, _lvl_name, logging.INFO)
+for _name in ("LiteLLM", "litellm"):
+    _lg = logging.getLogger(_name)
+    _lg.setLevel(_lvl)
+    _lg.propagate = False
+    # Ensure a NullHandler so messages don't bubble even if someone changes root handlers
+    for _h in list(_lg.handlers):
+        _lg.removeHandler(_h)
+    _lg.addHandler(logging.NullHandler())
+
 # Configure LiteLLM settings
 litellm.drop_params = True  # Drop unsupported params instead of erroring
 
@@ -60,8 +72,10 @@ class LiteLLMCaller:
         # Update LiteLLM logging if debug_mode overrides config
         if debug_mode:
             os.environ["LITELLM_LOG"] = "DEBUG"
-            litellm_logger = logging.getLogger("LiteLLM")
-            litellm_logger.setLevel(logging.DEBUG)
+            for name in ("LiteLLM", "litellm"):
+                litellm_logger = logging.getLogger(name)
+                litellm_logger.setLevel(logging.DEBUG)
+                litellm_logger.propagate = False
         
         # Note: LiteLLM log level is already set at import time from config
             

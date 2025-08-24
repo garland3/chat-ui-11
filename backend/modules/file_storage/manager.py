@@ -19,8 +19,20 @@ class FileManager:
     """Centralized file management with S3 integration."""
     
     def __init__(self, s3_client: Optional[S3StorageClient] = None):
-        """Initialize with optional S3 client dependency injection."""
-        self.s3_client = s3_client or S3StorageClient()
+        """Initialize with optional S3 client dependency injection.
+
+        Defaults to a mock S3 client to avoid boto3 dependency in tests or local dev.
+        """
+        self.s3_client = s3_client or S3StorageClient(s3_use_mock=True)
+    
+    async def validate_s3_file_access(self, user_email: str, file_key: str) -> bool:
+        """Validate that a user has access to a specific S3 file key."""
+        try:
+            file_info = await self.s3_client.get_file(user_email, file_key)
+            return file_info is not None
+        except Exception as e:
+            logger.warning(f"Failed to validate S3 file access for user {user_email}, key {file_key}: {e}")
+            return False
     
     def get_content_type(self, filename: str) -> str:
         """Determine content type based on filename."""

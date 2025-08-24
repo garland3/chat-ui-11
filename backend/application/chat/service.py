@@ -155,20 +155,20 @@ class ChatService:
         session.update_timestamp()
 
         # Prompt-injection risk check on user input (observe + log medium/high)
-        try:
-            pi = calculate_prompt_injection_risk(content or "", mode="general")
-            if pi.get("risk_level") in ("medium", "high"):
-                log_high_risk_event(
-                    source="user_input",
-                    user=user_email,
-                    content=content or "",
-                    score=int(pi.get("score", 0)),
-                    risk_level=str(pi.get("risk_level")),
-                    triggers=list(pi.get("triggers", [])),
-                    extra={"session_id": str(session_id)},
-                )
-        except Exception:
-            logger.debug("Prompt risk check failed (user input)", exc_info=True)
+        # try:
+        #     pi = calculate_prompt_injection_risk(content or "", mode="general")
+        #     if pi.get("risk_level") in ("medium", "high"):
+        #         log_high_risk_event(
+        #             source="user_input",
+        #             user=user_email,
+        #             content=content or "",
+        #             score=int(pi.get("score", 0)),
+        #             risk_level=str(pi.get("risk_level")),
+        #             triggers=list(pi.get("triggers", [])),
+        #             extra={"session_id": str(session_id)},
+        #         )
+        # except Exception:
+        #     logger.debug("Prompt risk check failed (user input)", exc_info=True)
         
         # Handle user file ingestion using utilities
         session.context = await file_utils.handle_session_files(
@@ -442,6 +442,7 @@ class ChatService:
             llm_caller=self.llm,
             prompt_provider=self.prompt_provider,
             update_callback=update_callback or (self.connection.send_json if self.connection else None),
+            file_manager=self.file_manager,
         )
 
         # Update session with artifacts

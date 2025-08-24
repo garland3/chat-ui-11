@@ -31,6 +31,130 @@ Notes:
 - Prefer `artifacts` over legacy arrays. If both are present, `artifacts` wins.
 - The backend persists artifacts to storage and only injects names/hints into the model context.
 
+
+-- 
+### 1.1) Error Handling
+
+When a tool execution fails, return a structured error that the backend and UI can reliably interpret.
+
+Minimum contract (required on error):
+- `meta_data.is_error: true` – machine signal that this is an error response.
+- `results.error: string` – concise, user-facing message about what went wrong.
+
+Recommended fields (optional but useful):
+- `meta_data.reason: string` – short internal reason/class (e.g., "ValidationError", "PermissionDenied").
+- `meta_data.error_code: string` – stable machine code (e.g., "E_VALIDATION", "E_PERMISSION").
+- `meta_data.details: object` – small, structured specifics (e.g., which param failed). Keep < 3KB.
+- `meta_data.elapsed_ms: number` – duration to failure for diagnostics.
+- `meta_data.retryable: boolean` – whether the caller should retry automatically.
+- `meta_data.retry_after_ms: number` – backoff hint when `retryable` is true (e.g., for rate limits).
+- `meta_data.correlation_id: string` – ID the backend logs for cross-referencing.
+
+UI behavior on error:
+- Show `results.error` prominently; provide a “details” toggle for `reason`, `error_code`, and `details`.
+- Do not open the artifact canvas for error responses. If artifacts are present, keep `display.open_canvas=false`.
+- Preserve the last good canvas view; do not replace it with an error screen.
+
+Common categories and suggested `error_code` values:
+- Validation (bad or unexpected args): `E_VALIDATION` (e.g., Pydantic Unexpected keyword argument)
+- Auth/Permission: `E_PERMISSION` or `E_AUTH`
+- Not found: `E_NOT_FOUND`
+- Rate limited: `E_RATE_LIMIT` (set `retryable=true`, include `retry_after_ms`)
+- Timeout/Cancellation: `E_TIMEOUT` (often retryable)
+- Upstream dependency failure: `E_UPSTREAM`
+- Tool internal error: `E_TOOL_INTERNAL`
+
+Example (generic):
+```json
+{
+  "results": { "error": "User does not have permission to access file 'data.csv'" },
+  "meta_data": {
+    "is_error": true,
+    "reason": "PermissionDeniedError",
+    "error_code": "E_PERMISSION",
+    "elapsed_ms": 52.31,
+    "retryable": false,
+    "correlation_id": "d5b1c3b7-2c1b-4b44-9f5a-1f2c0d0f4b10"
+  }
+}
+```
+
+Example (validation with details):
+```json
+{
+  "results": { "error": "Invalid argument: unexpected keyword 'foo'" },
+  "meta_data": {
+    "is_error": true,
+    "reason": "ValidationError",
+    "error_code": "E_VALIDATION",
+    "details": {
+      "parameter": "foo",
+      "message": "Unexpected keyword argument",
+      "provider_link": "https://errors.pydantic.dev/2.11/v/unexpected_keyword_argument"
+    },
+    "retryable": false
+  }
+}
+```
+
+Lightweight Python helper (optional pattern):
+```python
+def _finalize_meta(meta: Dict[str, Any], start: float) -> Dict[str, Any]:
+    meta = dict(meta)
+    meta["elapsed_ms"] = round((time.perf_counter() - start) * 1000, 3)
+    return meta
+
+try:
+    # execute tool logic
+    ...
+except Exception as e:
+    meta.update({
+        "is_error": True,
+        "reason": type(e).__name__,
+        # map to a stable error_code if you can
+        "error_code": "E_TOOL_INTERNAL",
+    })
+    return {
+        "results": {"error": str(e)},
+        "meta_data": _finalize_meta(meta, start)
+    }
+```
+
+Notes:
+- Keep error payloads small; prefer `results.error` + compact `meta_data`.
+- Avoid secrets in any error fields.
+- Legacy arrays (`returned_file_names/returned_file_contents`) should not be used for errors.
+
+Compatibility (v1 + FastMCP):
+- If a FastMCP result has `is_error=true`, map it to this v2 error shape: `{ "results": { "error": <message> }, "meta_data": { "is_error": true } }` and enrich `meta_data` with `reason/error_code` where possible.
+- Prefer `structured_content` for extracting an error message; fallback to the first `TextContent.text` string; if neither exists, use a generic message like "Tool failed".
+- When migrating v1 responses that only had `results.error`, add `meta_data.is_error=true`.
+- Empty outputs on error are discouraged—always provide a user-facing `results.error`.
+
+Additional example (missing required field):
+```json
+{
+  "results": { "error": "Input validation error: 'instructions' is a required property" },
+  "meta_data": {
+    "is_error": true,
+    "reason": "ValidationError",
+    "error_code": "E_VALIDATION",
+    "details": {
+      "missing": ["instructions"],
+      "schema": "#/properties/instructions",
+      "provider_link": "https://errors.pydantic.dev/2.11/v/missing"
+    },
+    "retryable": false
+  }
+}
+```
+
+Best practices (strongly recommended):
+- Keep `results.error` short (<= 256 chars) and user-friendly; put technical specifics into `meta_data.details`.
+- Do not include stack traces, secrets, or raw SQL/paths in any field; redact before returning.
+- On error, omit `artifacts` unless a compact diagnostic file is truly useful; the UI won’t auto-open the canvas anyway.
+- HTTP status codes may remain 200 for chat flow—use `meta_data.is_error=true` as the canonical error signal.
+
 ---
 ### 2) Canvas Behavior (Frontend)
 

@@ -5,18 +5,16 @@ This module provides:
 - File management utilities
 - Content type detection and categorization
 - CLI tools for file operations
+
+Note: Do not instantiate clients at import time to avoid side effects during
+test collection (e.g., requiring boto3). Import classes only; the app factory
+creates instances when needed.
 """
 
 from .s3_client import S3StorageClient
 from .manager import FileManager
 
-# Create default instances
-s3_client = S3StorageClient()
-file_manager = FileManager(s3_client)
-
 __all__ = [
     "S3StorageClient",
     "FileManager",
-    "s3_client",
-    "file_manager",
 ]

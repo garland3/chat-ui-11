@@ -127,6 +127,15 @@ class OpenTelemetryConfig:
         root.addHandler(file_handler)
         root.setLevel(self.log_level)
 
+        # Always suppress noisy LiteLLM library logs
+        for name in ("LiteLLM", "litellm"):
+            lg = logging.getLogger(name)
+            lg.setLevel(logging.ERROR)
+            lg.propagate = False
+            for h in list(lg.handlers):
+                lg.removeHandler(h)
+            lg.addHandler(logging.NullHandler())
+
         if self.is_development:
             console = logging.StreamHandler()
             console.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))

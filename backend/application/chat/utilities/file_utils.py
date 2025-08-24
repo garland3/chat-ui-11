@@ -6,12 +6,41 @@ chat sessions, including user uploads and tool-generated artifacts.
 """
 
 import logging
+import re
 from typing import Any, Dict, List, Optional, Callable, Awaitable
 
 logger = logging.getLogger(__name__)
 
 # Type hint for update callback
 UpdateCallback = Callable[[Dict[str, Any]], Awaitable[None]]
+
+
+def extract_file_key_from_s3_url(url: str) -> Optional[str]:
+    """Extract S3 file key from download URL format
+/api/files/download/{key}"""
+    if not isinstance(url, str):
+        return None
+    match = re.match(r'^/api/files/download/([^?]+)', url)
+    return match.group(1) if match else None
+
+
+async def validate_user_file_access(user_email: str, file_key: str,
+file_manager) -> bool:
+    """Verify user owns the S3 file referenced by key."""
+    try:
+        # It's expected that `get_file` is a method on the s3_client,
+        # not directly on the file_manager. If this needs adjustment,
+        # the calling code should be file_manager.s3_client.get_file(...).
+        # This function assumes the file_manager has an s3_client attribute.
+        if hasattr(file_manager, 's3_client') and hasattr(file_manager.s3_client, 'get_file'):
+            file_info = await file_manager.s3_client.get_file(user_email, file_key)
+            return file_info is not None
+        else:
+            logger.error("file_manager.s3_client.get_file method not found.")
+            return False
+    except Exception as e:
+        logger.error(f"Error validating user file access for key {file_key}: {e}")
+        return False
 
 
 async def handle_session_files(
@@ -131,7 +160,8 @@ async def ingest_tool_files(
     """
     if not tool_result.returned_file_names:
         return session_context
-
+    # add a log message. 
+    logger.info(f"ingest_tool_files called with tool_result: {tool_result} and user_email: {user_email}")
     # Work with a copy
     updated_context = dict(session_context)
     
@@ -298,61 +328,89 @@ async def ingest_v2_artifacts(
     """
     Persist v2 MCP artifacts into storage and update session context.
     
-    Pure function that returns updated context without mutations.
+    Handles both direct S3 URL references and base64-encoded content.
     """
     if not tool_result.artifacts:
         return session_context
 
-    # Work with a copy
     updated_context = dict(session_context)
-    
-    # Safety: avoid huge ingestions
     MAX_ARTIFACTS = 10
     artifacts = tool_result.artifacts[:MAX_ARTIFACTS]
     
-    try:
-        # Prepare files for upload
-        files_to_upload = []
-        for artifact in artifacts:
-            name = artifact.get("name")
-            b64_content = artifact.get("b64")
-            mime_type = artifact.get("mime")
-            
-            if not name or not b64_content:
-                logger.warning(f"Skipping artifact with missing name or content")
-                continue
-                
-            files_to_upload.append({
+    s3_refs_to_add = []
+    b64_uploads = []
+    
+    for artifact in artifacts:
+        name = artifact.get("name")
+        if not name:
+            logger.warning("Skipping artifact with missing name.")
+            continue
+
+        url = artifact.get("url")
+        b64_content = artifact.get("b64")
+
+        if url:
+            file_key = extract_file_key_from_s3_url(url)
+            if file_key and await validate_user_file_access(user_email, file_key, file_manager):
+                s3_refs_to_add.append({
+                    "name": name,
+                    "key": file_key,
+                    "content_type": artifact.get("mime", "application/octet-stream"),
+                    "size": artifact.get("size", 0),
+                    "source": "mcp_s3_direct"
+                })
+            else:
+                logger.warning(f"Invalid or inaccessible S3 URL for artifact: {name} ({url})")
+        elif b64_content:
+            b64_uploads.append({
                 "filename": name,
                 "content": b64_content,
-                "mime_type": mime_type
+                "mime_type": artifact.get("mime")
             })
-        
-        if not files_to_upload:
-            return updated_context
-            
-        # Upload files to storage
-        uploaded_refs = await file_manager.upload_files_from_base64(
-            files_to_upload, user_email
-        )
-        
-        # Add file references to session context
+
+    try:
+        uploaded_refs = {}
         current_files = updated_context.setdefault("files", {})
-        current_files.update(uploaded_refs)
-        
-        # Emit files update if successful uploads
-        if uploaded_refs and update_callback:
-            organized = file_manager.organize_files_metadata(uploaded_refs)
-            logger.debug(
-                "Emitting files_update for v2 artifacts: total=%d, names=%s",
-                len(organized.get('files', [])),
-                list(uploaded_refs.keys()),
+
+        # Process direct S3 references
+        for ref in s3_refs_to_add:
+            current_files[ref["name"]] = {
+                "key": ref["key"],
+                "content_type": ref["content_type"],
+                "size": ref["size"],
+                "source": ref["source"],
+            }
+            # Add to uploaded_refs for the final notification
+            uploaded_refs[ref["name"]] = {
+                "key": ref["key"],
+                "content_type": ref["content_type"],
+                "size": ref["size"],
+                "source": ref["source"],
+                "tags": {"source": ref["source"]},
+            }
+
+        # Process base64 uploads
+        if b64_uploads:
+            b64_uploaded_refs = await file_manager.upload_files_from_base64(
+                b64_uploads, user_email
             )
-            await update_callback({
-                "type": "intermediate_update",
-                "update_type": "files_update",
-                "data": organized
-            })
+            current_files.update(b64_uploaded_refs)
+            uploaded_refs.update(b64_uploaded_refs)
+
+        # Emit a single files_update event for all processed artifacts
+        if uploaded_refs:
+            organized = file_manager.organize_files_metadata(uploaded_refs)
+            if update_callback:
+                logger.debug(
+                    "Emitting files_update for v2 artifacts: total=%d, names=%s",
+                    len(organized.get('files', [])),
+                    list(uploaded_refs.keys()),
+                )
+                await update_callback({
+                    "type": "intermediate_update",
+                    "update_type": "files_update",
+                    "data": organized
+                })
             
     except Exception as e:
         logger.error(f"Error ingesting v2 artifacts: {e}", exc_info=True)
