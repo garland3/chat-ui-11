@@ -101,6 +101,8 @@ backend/
 │   ├── service_coordinator.py      # Main coordinator, transport-agnostic (SINGLE FILE)
 │   ├── ui_callback_handler.py      # UI callback interface (SINGLE FILE)
 │   ├── logger_coordinator.py       # Central logging (SINGLE FILE)
+│   ├── app_factory.py               # App factory (SINGLE FILE)
+│   ├── config_manager.py            # Configuration management (SINGLE FILE)
 │   ├── auth/                       # Auth management (MODULE)
 │   │   ├── __init__.py
 │   │   ├── auth_manager.py         # Main AuthManager class
@@ -324,7 +326,21 @@ backend/
 
 ## Migration Strategy
 
+The frontend is nice and will only need a few tweaks.Try not to modify it. 
+
 ### Phase 1: Extract Managers
+
+Part A 
+- move old version to old.backend, create 'backend' as a fresh start. 
+- setup the main.py and an app factory. 
+- setup the basic folder structures. 
+-  set the config manager
+- setup the llm manager. 
+- wire up the app to work for the case of just llm calls with no tools, agents, or RAG
+- focus on minimal implementation to just get things working with just the LLM doing chat. 
+- preference for copying code from the old.backend, and then deleting unneed parts. Literally use the `cp` command. Only copy 1 file at a time. Under no circumstance shouuld you copy a whole fodler. 
+
+Part B
 1. Create manager interfaces and base classes
 2. Extract session management from service.py
 3. Create auth manager singleton
