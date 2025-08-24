@@ -1,10 +1,10 @@
 """Application factory for dependency injection and wiring - Phase 1A."""
 
 import logging
-from .config.config_manager import config_manager
-from .llm.llm_manager import LLMManager
-from .session.session_manager import SessionManager
-from .service_coordinator.service_coordinator import ServiceCoordinator
+from ..config.config_manager import config_manager
+from ..llm.llm_manager import LLMManager
+from ..session.session_manager import SessionManager
+from ..service_coordinator.service_coordinator import ServiceCoordinator
 
 logger = logging.getLogger(__name__)
 
@@ -46,6 +46,14 @@ class AppFactory:
                 llm_manager=self.get_llm_manager()
             )
         return self.service_coordinator
+
+    def initialize_managers(self):
+        """Initialize all managers."""
+        self.get_config_manager()
+        self.get_llm_manager()
+        self.get_session_manager()
+        self.get_service_coordinator()
+        logger.info("All managers initialized.")
 
 
 # Global instance for Phase 1A

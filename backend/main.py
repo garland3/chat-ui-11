@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 
-from managers.app_factory import app_factory
+from managers.app_factory.app_factory import app_factory
 
 # Load environment variables from the parent directory
 load_dotenv(dotenv_path="../.env")
@@ -37,6 +37,7 @@ async def websocket_update_callback(websocket: WebSocket, message: dict):
 async def lifespan(app: FastAPI):
     """Application lifespan manager."""
     logger.info("Starting Chat UI Backend (Phase 1A - LLM only)")
+    app_factory.initialize_managers() # Initialize all managers
     yield
     logger.info("Shutting down Chat UI Backend")
 

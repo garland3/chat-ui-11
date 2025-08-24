@@ -43,6 +43,9 @@ class LLMManager:
             raise ValueError("LLM configuration is required but not provided")
         
         if model_name not in self.llm_config.models:
+            # print the found models
+            logger.info(f"Available models: {list(self.llm_config.models.keys())}")
+            print(f"Available models: {list(self.llm_config.models.keys())}")
             raise ValueError(f"Model '{model_name}' not found in LLM configuration")
         
         model_config = self.llm_config.models[model_name]

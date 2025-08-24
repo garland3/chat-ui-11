@@ -88,7 +88,7 @@ def test_all_imports_compile():
 
 def test_basic_app_factory_instantiation():
     """Test that the app factory can be instantiated and basic methods work."""
-    from managers.app_factory import app_factory
+    from managers.app_factory.app_factory import app_factory
     
     # Test that we can get managers without errors
     config_manager = app_factory.get_config_manager()

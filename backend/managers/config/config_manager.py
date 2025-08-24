@@ -23,16 +23,12 @@ class ConfigManager:
         self._llm_config: Optional[LLMConfig] = None
     
     def _search_paths(self, file_name: str) -> List[Path]:
-        """Generate common search paths for a configuration file."""
-        project_root = self._backend_root.parent
-        
+        """Generate common search paths for a configuration file.""" 
         candidates: List[Path] = [
-            project_root / "config" / "overrides" / file_name,
-            project_root / "config" / "defaults" / file_name,
+            Path("../config/overrides") / file_name,
+            Path("../config/defaults") / file_name,
             Path(file_name),
             Path(f"../{file_name}"),
-            project_root / file_name,
-            self._backend_root / file_name,
         ]
         
         return candidates

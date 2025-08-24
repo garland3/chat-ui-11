@@ -97,6 +97,7 @@ Uses a **hybrid approach**: simple managers as single files, complex managers as
 backend/
 ├── main.py                         # FastAPI app entry point (KEEP EXISTING)
 ├── managers/
+NOTE: this was updaed so no individual files are in the managers
 │   ├── __init__.py
 │   ├── service_coordinator.py      # Main coordinator, transport-agnostic (SINGLE FILE)
 │   ├── ui_callback_handler.py      # UI callback interface (SINGLE FILE)
