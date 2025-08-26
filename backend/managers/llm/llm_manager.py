@@ -78,6 +78,9 @@ class LLMManager:
         """Plain LLM call - simplified for Phase 1A."""
 
         messages = conversation_history.get_messages_for_llm()
+        logger.info("-----------------------")
+        logger.info(f"Messages for LLM: {messages}")
+        logger.info("-----------------------")
         if not LITELLM_AVAILABLE:
             logger.info("NOT LITELLM_AVAILABLE")
             return self._get_mock_response(messages)

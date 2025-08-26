@@ -66,10 +66,11 @@ if [ "$ONLY_BACKEND" = true ]; then
     mkdir -p ./logs
     echo "NEW LOG" > ./logs/app.jsonl
 
+    cd backend
     uvicorn main:app --host 0.0.0.0 --port 8000 &
     echo "Backend server started. Exiting as requested."
     exit 0
 fi
-
+cd backend
 uvicorn main:app --port 8000 &
 echo "Server started"

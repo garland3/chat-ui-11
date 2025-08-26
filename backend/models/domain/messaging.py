@@ -1,5 +1,6 @@
 """Domain messaging models previously under common.models.common_models."""
 
+import json
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
@@ -70,11 +71,15 @@ class Message:
 
     def to_llm_format(self) -> Dict[str, Any]:
         """Convert to LLM API format."""
+        # For tool messages, ensure content is a JSON string if it's a dict
+        content = self.content
+        if self.role == MessageRole.TOOL and isinstance(self.content, dict):
+            content = json.dumps(self.content)
+        
         result = {
             "role": self.role.value,
-            "content": self.content,
+            "content": content,
         }
-
         # For tool messages, include tool_call_id from metadata if present
         if self.role == MessageRole.TOOL and "tool_call_id" in self.metadata:
             result["tool_call_id"] = self.metadata["tool_call_id"]
