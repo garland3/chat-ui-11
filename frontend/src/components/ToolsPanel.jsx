@@ -59,11 +59,11 @@ const ToolsPanel = ({ isOpen, onClose }) => {
         is_exclusive: false,
         tools: [],
         tool_count: 0,
-        prompts: promptServer.prompts || [],
+        prompts: promptServer.prompt_details || [],
         prompt_count: promptServer.prompt_count || 0
       }
     } else {
-      allServers[promptServer.server].prompts = promptServer.prompts || []
+      allServers[promptServer.server].prompts = promptServer.prompt_details || []
       allServers[promptServer.server].prompt_count = promptServer.prompt_count || 0
     }
   })
@@ -91,7 +91,8 @@ const ToolsPanel = ({ isOpen, onClose }) => {
     const name = selectedPromptKey.slice(idx + 1)
     // Try to find description from our server list
     const srv = serverList.find(s => s.server === server)
-    const desc = srv?.prompts?.find(p => p.name === name)?.description || ''
+    const promptDetail = srv?.prompts?.find(p => p.name === name)
+    const desc = promptDetail?.description || ''
     return { key: selectedPromptKey, server, name, description: desc }
   })()
 
@@ -115,7 +116,7 @@ const ToolsPanel = ({ isOpen, onClose }) => {
     // Search in prompt names and descriptions
     if (server.prompts.some(prompt => 
       prompt.name.toLowerCase().includes(searchLower) || 
-      prompt.description.toLowerCase().includes(searchLower)
+      (prompt.description && prompt.description.toLowerCase().includes(searchLower))
     )) {
       return true
     }

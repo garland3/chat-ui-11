@@ -45,7 +45,7 @@ class ServiceCoordinator:
         update_callback: Optional[Callable[[Dict[str, Any]], Awaitable[None]]] = None,
         # Unused parameters for Phase 1A compatibility
         selected_tool_map: Optional[Dict[str, List[str]]] = None,
-        selected_prompts: Optional[list] = None,
+        selected_prompt_map: Optional[Dict[str, List[str]]] = None,
         selected_data_sources: Optional[list] = None,
         only_rag: bool = False,
         tool_choice_required: bool = False,

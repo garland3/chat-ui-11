@@ -9,9 +9,10 @@ from fastmcp import Client
 from fastmcp.client.transports import StdioTransport, SSETransport
 
 from managers.config.config_manager import ConfigManager
-from .mcp_models import MCPServer, MCPTool, MCPServerConfig
+from .mcp_models import MCPServer, MCPTool, MCPPrompt, MCPServerConfig
 from .server_registry import ServerRegistry
 from .tool_registry import ToolRegistry
+from .prompt_registry import PromptRegistry
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,7 @@ class MCPManager:
         self.config_manager = config_manager
         self.server_registry = ServerRegistry()
         self.tool_registry = ToolRegistry()
+        self.prompt_registry = PromptRegistry()
         self.clients: Dict[str, Client] = {}
         self._initialized = False
 
@@ -41,6 +43,9 @@ class MCPManager:
 
         # Discover tools from all servers
         await self._discover_tools()
+
+        # Discover prompts from all servers
+        await self._discover_prompts()
 
         self._initialized = True
         logger.info(f"MCP manager initialized with {len(self.clients)} servers")
@@ -206,7 +211,7 @@ class MCPManager:
                     )
                     tools.append(tool)
 
-                logger.debug(
+                logger.info(
                     f"Found {len(tools)} tools in {server_name}: {[t.name for t in tools]}"
                 )
 
@@ -214,6 +219,58 @@ class MCPManager:
             logger.error(f"Error discovering tools for {server_name}: {e}")
 
         return tools
+
+    async def _discover_prompts(self) -> None:
+        """Discover prompts from all initialized clients."""
+        if not self.clients:
+            logger.warning("No clients initialized for prompt discovery")
+            return
+
+        logger.info(f"Discovering prompts from {len(self.clients)} servers")
+
+        # Discover prompts in parallel
+        tasks = [
+            self._discover_prompts_for_server(server_name, client)
+            for server_name, client in self.clients.items()
+        ]
+
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        # Process results
+        for server_name, result in zip(self.clients.keys(), results):
+            if isinstance(result, Exception):
+                logger.error(f"Failed to discover prompts for {server_name}: {result}")
+            elif isinstance(result, list):
+                for prompt in result:
+                    self.prompt_registry.add_prompt(prompt)
+                logger.debug(f"Discovered {len(result)} prompts from {server_name}")
+
+    async def _discover_prompts_for_server(
+        self, server_name: str, client: Client
+    ) -> List[MCPPrompt]:
+        """Discover prompts for a single server."""
+        prompts = []
+        try:
+            async with client:
+                raw_prompts = await client.list_prompts()
+
+                for raw_prompt in raw_prompts:
+                    prompt = MCPPrompt(
+                        name=raw_prompt.name,
+                        server_name=server_name,
+                        description=getattr(raw_prompt, "description", ""),
+                        arguments=getattr(raw_prompt, "arguments", {}),
+                    )
+                    prompts.append(prompt)
+
+                logger.info(
+                    f"Found {len(prompts)} prompts in {server_name}: {[p.name for p in prompts]}"
+                )
+
+        except Exception as e:
+            logger.error(f"Error discovering prompts for {server_name}: {e}")
+
+        return prompts
 
     # Public API methods
 
@@ -271,6 +328,19 @@ class MCPManager:
         """Get a tool by its full name (server_toolname)."""
         return self.tool_registry.get_tool_by_name(tool_name)
 
+    def get_available_prompts(self) -> List[MCPPrompt]:
+        """Get list of all available prompts."""
+        return self.prompt_registry.get_all_prompts()
+
+    def get_prompts_for_servers(self, server_names: List[str]) -> List[MCPPrompt]:
+        """Get prompts for specific servers."""
+        all_prompts = self.prompt_registry.get_all_prompts()
+        return [prompt for prompt in all_prompts if prompt.server_name in server_names]
+
+    def get_prompt_by_name(self, prompt_name: str) -> Optional[MCPPrompt]:
+        """Get a prompt by its full name (server_promptname)."""
+        return self.prompt_registry.get_prompt_by_name(prompt_name)
+
     async def call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Any:
         """Call a tool on its server."""
         tool = self.get_tool_by_name(tool_name)
@@ -290,6 +360,27 @@ class MCPManager:
                 return result
         except Exception as e:
             logger.error(f"Error calling {tool_name}: {e}")
+            raise
+
+    async def get_prompt(self, prompt_name: str, arguments: Dict[str, Any]) -> Any:
+        """Get a prompt from its server."""
+        prompt = self.get_prompt_by_name(prompt_name)
+        if not prompt:
+            raise ValueError(f"Prompt not found: {prompt_name}")
+
+        client = self.clients.get(prompt.server_name)
+        if not client:
+            raise ValueError(f"No client available for server: {prompt.server_name}")
+
+        try:
+            async with client:
+                # Use the original prompt name from the server
+                actual_prompt_name = prompt.name
+                result = await client.get_prompt(actual_prompt_name, arguments)
+                logger.debug(f"Successfully retrieved prompt {prompt_name}")
+                return result
+        except Exception as e:
+            logger.error(f"Error retrieving prompt {prompt_name}: {e}")
             raise
 
     async def cleanup(self) -> None:

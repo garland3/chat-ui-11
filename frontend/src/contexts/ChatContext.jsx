@@ -102,12 +102,24 @@ export const ChatProvider = ({ children }) => {
 				return acc
 			}, {})
 
+			// Build selected_prompt_map from Set of fqns like server_prompt
+			const selectedPromptMap = Array.from(selectedPrompts).reduce((acc, fqn) => {
+				const idx = fqn.indexOf('_')
+				if (idx > 0) {
+					const server = fqn.slice(0, idx)
+					const prompt = fqn.slice(idx + 1)
+					if (!acc[server]) acc[server] = []
+					acc[server].push(prompt)
+				}
+				return acc
+			}, {})
+
 			sendMessage({
 			type: 'chat',
 			content,
 			model: currentModel,
 				selected_tool_map: selectedToolMap,
-			selected_prompts: [...selectedPrompts],
+			selected_prompt_map: selectedPromptMap,
 			selected_data_sources: [...selectedDataSources],
 			only_rag: config.onlyRag,
 			tool_choice_required: selections.toolChoiceRequired,

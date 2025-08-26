@@ -13,7 +13,7 @@ from managers.auth.utils import get_current_user
 
 # import app factory
 from managers.app_factory.app_factory import app_factory
-from interfaces.mcp_interface import get_mcp_tools_info
+from interfaces.mcp_interface import get_mcp_tools_info, get_mcp_prompts_info
 
 logger = logging.getLogger(__name__)
 
@@ -70,16 +70,19 @@ async def get_config(current_user: str = Depends(get_current_user)):
     # each 'model' is an LLMInstance
     model_names = [model.model_name for model in llm_config.models]
 
-    # Get MCP tools if tools feature is enabled
+    # Get MCP tools and prompts if tools feature is enabled
     tools_info, available_servers = [], []
+    prompts_info, available_prompt_servers = [], []
     if app_settings.feature_tools_enabled:
         tools_info, available_servers = await get_mcp_tools_info(current_user)
+        prompts_info, available_prompt_servers = await get_mcp_prompts_info(current_user)
 
     return {
         "app_name": app_settings.app_name,
         "models": model_names,
         "user": current_user,
         "tools": tools_info,
+        "prompts": prompts_info,
         "available_servers": available_servers,
         "features": {
             "workspaces": app_settings.feature_workspaces_enabled,

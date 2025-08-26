@@ -2,7 +2,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from managers.mcp.mcp_manager import MCPManager
-from common.models.mcp_models import MCPServer, MCPTool, MCPServerConfig
+from managers.mcp.mcp_models import MCPServer, MCPTool, MCPPrompt, MCPServerConfig
 
 
 # Mocking necessary components
@@ -68,8 +68,21 @@ def mock_fastmcp_client():
     mock_tool2.inputSchema = {}
     mock_tool2.meta = MagicMock(get=mock_meta_get)
 
+    # Create mock prompts
+    mock_prompt1 = MagicMock()
+    mock_prompt1.name = "prompt1"
+    mock_prompt1.description = "Test prompt 1"
+    mock_prompt1.arguments = {}
+
+    mock_prompt2 = MagicMock()
+    mock_prompt2.name = "prompt2"
+    mock_prompt2.description = "Test prompt 2"
+    mock_prompt2.arguments = {}
+
     mock_client.list_tools.return_value = [mock_tool1, mock_tool2]
+    mock_client.list_prompts.return_value = [mock_prompt1, mock_prompt2]
     mock_client.call_tool.return_value = {"result": "success"}
+    mock_client.get_prompt.return_value = {"messages": [{"content": "Test prompt response"}]}
     return mock_client
 
 
@@ -134,7 +147,7 @@ async def test_mcp_manager_initialization(mcp_manager, mock_config_manager):
 
     with (
         patch(
-            "common.models.mcp_models.MCPServerConfig.from_pydantic",
+            "managers.mcp.mcp_models.MCPServerConfig.from_pydantic",
             mock_mcp_server_config_from_pydantic,
         ),
         patch.object(
@@ -146,12 +159,16 @@ async def test_mcp_manager_initialization(mcp_manager, mock_config_manager):
         patch.object(
             mcp_manager, "_discover_tools", new_callable=AsyncMock
         ) as mock_discover_tools,
+        patch.object(
+            mcp_manager, "_discover_prompts", new_callable=AsyncMock
+        ) as mock_discover_prompts,
     ):
         await mcp_manager.initialize()
 
         mock_load_configs.assert_called_once()
         mock_init_clients.assert_called_once()
         mock_discover_tools.assert_called_once()
+        mock_discover_prompts.assert_called_once()
         assert mcp_manager._initialized is True
 
 
@@ -217,7 +234,7 @@ async def test_mcp_manager_initialize_clients(
     # Patch the methods that _initialize_clients calls
     with (
         patch(
-            "common.models.mcp_models.MCPServerConfig.from_pydantic",
+            "managers.mcp.mcp_models.MCPServerConfig.from_pydantic",
             mock_mcp_server_config_from_pydantic,
         ),
         patch.object(
@@ -443,6 +460,131 @@ async def test_mcp_manager_get_tool_by_name(
 
 
 @pytest.mark.asyncio
+async def test_mcp_manager_discover_prompts(
+    mcp_manager, mock_config_manager, mock_fastmcp_client
+):
+    """Test discovering prompts."""
+    mcp_manager.clients["test_server_1"] = mock_fastmcp_client
+    mcp_manager.clients["test_server_2"] = mock_fastmcp_client
+
+    await mcp_manager._discover_prompts()
+
+    assert (
+        len(mcp_manager.prompt_registry._prompts) == 4
+    )  # 2 prompts from each server
+    prompt1 = mcp_manager.prompt_registry.get_prompt_by_name("test_server_1_prompt1")
+    assert prompt1.name == "prompt1"
+    assert prompt1.server_name == "test_server_1"
+
+    prompt3 = mcp_manager.prompt_registry.get_prompt_by_name("test_server_2_prompt1")
+    assert prompt3.name == "prompt1"
+    assert prompt3.server_name == "test_server_2"
+
+
+@pytest.mark.asyncio
+async def test_mcp_manager_get_prompt(
+    mcp_manager, mock_config_manager, mock_fastmcp_client
+):
+    """Test getting a prompt."""
+    mcp_manager.clients["test_server_1"] = mock_fastmcp_client
+
+    # Add a prompt to the prompt registry
+    prompt = MCPPrompt(
+        name="prompt1",
+        server_name="test_server_1",
+        description="Test prompt",
+        arguments={},
+    )
+    mcp_manager.prompt_registry.add_prompt(prompt)
+
+    result = await mcp_manager.get_prompt("test_server_1_prompt1", {"arg1": "value1"})
+
+    assert result == {"messages": [{"content": "Test prompt response"}]}
+    mock_fastmcp_client.get_prompt.assert_called_once_with("prompt1", {"arg1": "value1"})
+
+
+@pytest.mark.asyncio
+async def test_mcp_manager_get_prompt_not_found(mcp_manager):
+    """Test getting a non-existent prompt."""
+    with pytest.raises(ValueError, match="Prompt not found: non_existent_prompt"):
+        await mcp_manager.get_prompt("non_existent_prompt", {})
+
+
+@pytest.mark.asyncio
+async def test_mcp_manager_get_prompt_no_client(mcp_manager):
+    """Test getting a prompt when no client is available for the server."""
+    prompt = MCPPrompt(
+        name="prompt1",
+        server_name="unknown_server",
+        description="Test prompt",
+        arguments={},
+    )
+    mcp_manager.prompt_registry.add_prompt(prompt)
+
+    # Prompt exists but no client is available for the server
+    with pytest.raises(
+        ValueError, match="No client available for server: unknown_server"
+    ):
+        await mcp_manager.get_prompt("unknown_server_prompt1", {})
+
+
+@pytest.mark.asyncio
+async def test_mcp_manager_get_available_prompts(
+    mcp_manager, mock_config_manager, mock_fastmcp_client
+):
+    """Test getting all available prompts."""
+    mcp_manager.clients["test_server_1"] = mock_fastmcp_client
+    mcp_manager.clients["test_server_2"] = mock_fastmcp_client
+
+    await mcp_manager._discover_prompts()  # Populate prompt registry
+
+    all_prompts = mcp_manager.get_available_prompts()
+    assert len(all_prompts) == 4
+    assert all(isinstance(prompt, MCPPrompt) for prompt in all_prompts)
+
+
+@pytest.mark.asyncio
+async def test_mcp_manager_get_prompts_for_servers(
+    mcp_manager, mock_config_manager, mock_fastmcp_client
+):
+    """Test getting prompts for specific servers."""
+    mcp_manager.clients["test_server_1"] = mock_fastmcp_client
+    mcp_manager.clients["test_server_2"] = mock_fastmcp_client
+
+    await mcp_manager._discover_prompts()  # Populate prompt registry
+
+    prompts_for_server1 = mcp_manager.get_prompts_for_servers(["test_server_1"])
+    assert len(prompts_for_server1) == 2
+    assert all(prompt.server_name == "test_server_1" for prompt in prompts_for_server1)
+
+    prompts_for_server2 = mcp_manager.get_prompts_for_servers(["test_server_2"])
+    assert len(prompts_for_server2) == 2
+    assert all(prompt.server_name == "test_server_2" for prompt in prompts_for_server2)
+
+    prompts_for_both = mcp_manager.get_prompts_for_servers(
+        ["test_server_1", "test_server_2"]
+    )
+    assert len(prompts_for_both) == 4
+
+
+@pytest.mark.asyncio
+async def test_mcp_manager_get_prompt_by_name(
+    mcp_manager, mock_config_manager, mock_fastmcp_client
+):
+    """Test getting a prompt by its full name."""
+    mcp_manager.clients["test_server_1"] = mock_fastmcp_client
+    await mcp_manager._discover_prompts()  # Populate prompt registry
+
+    prompt = mcp_manager.get_prompt_by_name("test_server_1_prompt1")
+    assert prompt is not None
+    assert prompt.name == "prompt1"
+    assert prompt.server_name == "test_server_1"
+
+    assert mcp_manager.get_prompt_by_name("non_existent_server_prompt1") is None
+    assert mcp_manager.get_prompt_by_name("test_server_1_non_existent_prompt") is None
+
+
+@pytest.mark.asyncio
 async def test_mcp_manager_cleanup(mcp_manager):
     """Test cleanup method."""
     mock_client = AsyncMock()
@@ -482,4 +624,10 @@ class Client:
         pass
 
     async def call_tool(self, tool_name, arguments):
+        pass
+
+    async def list_prompts(self):
+        pass
+
+    async def get_prompt(self, prompt_name, arguments):
         pass

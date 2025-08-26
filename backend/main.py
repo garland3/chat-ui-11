@@ -112,7 +112,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         content=data.get("content", ""),
                         model=data.get("model", "gpt-3.5-turbo"),
                         selected_tool_map=data.get("selected_tool_map"),
-                        selected_prompts=data.get("selected_prompts"),
+                        selected_prompt_map=data.get("selected_prompt_map"),
                         selected_data_sources=data.get("selected_data_sources"),
                         only_rag=data.get("only_rag", False),
                         tool_choice_required=data.get("tool_choice_required", False),

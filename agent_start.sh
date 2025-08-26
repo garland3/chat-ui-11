@@ -71,6 +71,6 @@ if [ "$ONLY_BACKEND" = true ]; then
     echo "Backend server started. Exiting as requested."
     exit 0
 fi
-cd backend
+# cd backend
 uvicorn main:app --port 8000 &
 echo "Server started"
