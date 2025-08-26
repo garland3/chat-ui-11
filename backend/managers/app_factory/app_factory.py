@@ -42,12 +42,18 @@ class AppFactory:
             self.session_manager = SessionManager()
         return self.session_manager
     
-    def get_service_coordinator(self):
+    async def get_service_coordinator(self):
         """Get service coordinator - lazy initialization."""
         if self.service_coordinator is None:
+            # Initialize MCP and tool managers first
+            mcp_manager = await self.get_mcp_manager()
+            tool_caller = await self.get_tool_caller()
+            
             self.service_coordinator = ServiceCoordinator(
                 session_manager=self.get_session_manager(),
-                llm_manager=self.get_llm_manager()
+                llm_manager=self.get_llm_manager(),
+                mcp_manager=mcp_manager,
+                tool_caller=tool_caller
             )
         return self.service_coordinator
     
@@ -65,12 +71,12 @@ class AppFactory:
             self.tool_caller = ToolCaller(mcp_manager)
         return self.tool_caller
 
-    def initialize_managers(self):
+    async def initialize_managers(self):
         """Initialize all managers."""
         self.get_config_manager()
         self.get_llm_manager()
         self.get_session_manager()
-        self.get_service_coordinator()
+        await self.get_service_coordinator()
         logger.info("All managers initialized.")
 
 

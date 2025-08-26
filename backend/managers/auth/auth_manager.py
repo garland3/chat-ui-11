@@ -5,7 +5,7 @@
 # Do not trust the user, always use server provided identity instead of any claims by the user. 
 def is_user_in_group(username, group):
     # TODO implement this.
-    groups_for_test_user = ["test_group", "admin_group", "engineering"]
+    groups_for_test_user = ["test_group", "admin_group", "engineering", "users"]
     return group in groups_for_test_user
 
 

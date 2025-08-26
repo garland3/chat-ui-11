@@ -3,12 +3,14 @@
 # Parse command line arguments
 ONLY_FRONTEND=false
 ONLY_BACKEND=false
-while getopts "fb" opt; do
-  case $opt in
-    f)
+
+# Iterate through all arguments to support both short and long options
+for arg in "$@"; do
+  case $arg in
+    -f|--frontend)
       ONLY_FRONTEND=true
       ;;
-    b)
+    -b|--backend)
       ONLY_BACKEND=true
       ;;
   esac

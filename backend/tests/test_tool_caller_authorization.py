@@ -23,8 +23,10 @@ class TestToolCallerAuthorization:
         }
         mock.get_server_info.side_effect = lambda name: server_info_map.get(name)
         
-        # Mock tools for servers
-        mock.get_tools_for_servers.return_value = []
+        # Mock tool objects with to_openai_schema method
+        mock_tool = Mock()
+        mock_tool.to_openai_schema.return_value = {"function": {"name": "test_tool"}}
+        mock.get_tools_for_servers.return_value = [mock_tool]
         
         return mock
     
@@ -41,7 +43,7 @@ class TestToolCallerAuthorization:
         
         result = tool_caller.get_authorized_tools_for_user(
             username="unauthorized_user",
-            selected_tools=["any_tool"],
+            selected_tool_map={"serverX": ["any_tool"]},
             is_user_in_group=unauthorized_user_check
         )
         
@@ -56,7 +58,7 @@ class TestToolCallerAuthorization:
         
         result = tool_caller.get_authorized_tools_for_user(
             username="admin_user",
-            selected_tools=["admin_tool"],
+            selected_tool_map={"server1": ["admin_tool"]},
             is_user_in_group=admin_user_check
         )
         
@@ -72,7 +74,7 @@ class TestToolCallerAuthorization:
         
         result = tool_caller.get_authorized_tools_for_user(
             username="test_user",
-            selected_tools=["admin_tool", "test_tool"],  # Trying to access admin tools
+            selected_tool_map={"server1": ["admin_tool"], "server2": ["test_tool"]},  # Trying to access admin tools
             is_user_in_group=test_user_check
         )
         
@@ -83,43 +85,50 @@ class TestToolCallerAuthorization:
     
     def test_tool_filtering_works_with_authorization(self, tool_caller):
         """Test that tool filtering works correctly after authorization."""
-        # Mock tools returned from authorized servers
-        mock_tools = [
-            {"function": {"name": "allowed_tool"}},
-            {"function": {"name": "another_tool"}},
-        ]
-        tool_caller.mcp_manager.get_tools_for_servers.return_value = mock_tools
-        
+        # Mock tool objects with to_openai_schema method
+        mock_tool1 = Mock()
+        mock_tool1.to_openai_schema.return_value = {"function": {"name": "server2_allowed_tool"}}
+        mock_tool2 = Mock()
+        mock_tool2.to_openai_schema.return_value = {"function": {"name": "server2_another_tool"}}
+
+        tool_caller.mcp_manager.get_tools_for_servers.return_value = [mock_tool1, mock_tool2]
+
         def test_user_check(username, group):
             return group == "test_group"
-        
+
         result = tool_caller.get_authorized_tools_for_user(
             username="test_user",
-            selected_tools=["allowed_tool"],  # Only request one specific tool
+            selected_tool_map={"server2": ["allowed_tool"]},  # Only request one specific tool on authorized server
             is_user_in_group=test_user_check
         )
-        
+
         # Should return only the requested tool
         assert len(result) == 1
-        assert result[0]["function"]["name"] == "allowed_tool"
+        assert result[0]["function"]["name"] == "server2_allowed_tool"
     
     def test_empty_tool_selection_returns_all_authorized_tools(self, tool_caller):
         """Test that empty selection returns all tools user is authorized for."""
-        mock_tools = [
-            {"function": {"name": "tool1"}},
-            {"function": {"name": "tool2"}},
-        ]
-        tool_caller.mcp_manager.get_tools_for_servers.return_value = mock_tools
+        # Mock tool objects with to_openai_schema method
+        mock_tool1 = Mock()
+        mock_tool1.to_openai_schema.return_value = {"function": {"name": "tool1"}}
+        mock_tool2 = Mock()
+        mock_tool2.to_openai_schema.return_value = {"function": {"name": "tool2"}}
+        
+        tool_caller.mcp_manager.get_tools_for_servers.return_value = [mock_tool1, mock_tool2]
         
         def test_user_check(username, group):
             return group == "test_group"
         
         result = tool_caller.get_authorized_tools_for_user(
             username="test_user",
-            selected_tools=[],  # No specific tools requested
+            selected_tool_map={},  # No specific tools requested
             is_user_in_group=test_user_check
         )
         
         # Should return all authorized tools
         assert len(result) == 2
-        assert result == mock_tools
+        expected_result = [
+            {"function": {"name": "tool1"}},
+            {"function": {"name": "tool2"}}
+        ]
+        assert result == expected_result

@@ -107,24 +107,40 @@ const ChatArea = () => {
     const isNewMessage = newCount !== prevMessageCountRef.current
     const force = isNewMessage && lastMsg && (lastMsg.role !== 'user')
     prevMessageCountRef.current = newCount
-    requestAnimationFrame(() => {
-      scrollToBottom(force)
-      setTimeout(() => scrollToBottom(force), 80)
-      setTimeout(() => scrollToBottom(force), 250)
-    })
+    
+    // Single optimized scroll with debouncing
+    if (isNewMessage) {
+      requestAnimationFrame(() => scrollToBottom(force))
+    }
   }, [messages, isThinking, scrollToBottom])
 
-  // Observe DOM mutations inside messages container (handles content expansion post-render)
+  // Throttled DOM mutations observer to reduce performance impact
   useEffect(() => {
     const el = messagesRef.current
     if (!el) return
+    
+    let observerTimeout = null
     const observer = new MutationObserver(() => {
-      const lastMsg = messages[messages.length - 1]
-      const force = lastMsg && lastMsg.role !== 'user'
-      scrollToBottom(force)
+      // Debounce the scroll operation to prevent excessive reflows
+      if (observerTimeout) clearTimeout(observerTimeout)
+      observerTimeout = setTimeout(() => {
+        const lastMsg = messages[messages.length - 1]
+        const force = lastMsg && lastMsg.role !== 'user'
+        scrollToBottom(force)
+      }, 16) // ~60fps throttling
     })
-    observer.observe(el, { childList: true, subtree: true })
-    return () => observer.disconnect()
+    
+    observer.observe(el, { 
+      childList: true, 
+      subtree: true,
+      attributes: false, // Don't observe attribute changes for better performance
+      characterData: false // Don't observe text changes for better performance
+    })
+    
+    return () => {
+      observer.disconnect()
+      if (observerTimeout) clearTimeout(observerTimeout)
+    }
   }, [scrollToBottom, messages])
 
   const handleSubmit = async (e) => {

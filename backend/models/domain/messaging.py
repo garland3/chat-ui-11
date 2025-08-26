@@ -64,12 +64,18 @@ class Message:
             "metadata": self.metadata,
         }
     
-    def to_llm_format(self) -> Dict[str, str]:
+    def to_llm_format(self) -> Dict[str, Any]:
         """Convert to LLM API format."""
-        return {
+        result = {
             "role": self.role.value,
             "content": self.content,
         }
+        
+        # For tool messages, include tool_call_id from metadata if present
+        if self.role == MessageRole.TOOL and "tool_call_id" in self.metadata:
+            result["tool_call_id"] = self.metadata["tool_call_id"]
+            
+        return result
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Message":
@@ -135,7 +141,7 @@ class ConversationHistory:
         """Add a message to the history."""
         self.messages.append(message)
     
-    def get_messages_for_llm(self) -> List[Dict[str, str]]:
+    def get_messages_for_llm(self) -> List[Dict[str, Any]]:
         """Get messages formatted for LLM API."""
         return [msg.to_llm_format() for msg in self.messages]
     

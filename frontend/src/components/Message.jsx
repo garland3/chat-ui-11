@@ -541,7 +541,8 @@ const Message = ({ message }) => {
       }
     }
 
-    document.addEventListener('click', handleCodeCopyClick)
+    // Use passive listeners for better performance
+    document.addEventListener('click', handleCodeCopyClick, { passive: false })
     return () => {
       document.removeEventListener('click', handleCodeCopyClick)
     }
@@ -775,6 +776,17 @@ const renderContent = () => {
     // Process content to handle both strings and structured objects
     const content = processMessageContent(message.content)
 
+    // For streaming messages, use plain text to avoid heavy markdown parsing on each chunk
+    if (message.isStreaming) {
+      return (
+        <div className="text-gray-200 relative">
+          <pre className="whitespace-pre-wrap">{content}</pre>
+          <span className="inline-block w-2 h-4 bg-green-400 animate-pulse ml-1" 
+                style={{animation: 'blink 1s infinite'}} />
+        </div>
+      )
+    }
+
     try {
       const markdownHtml = marked.parse(content)
       const sanitizedHtml = DOMPurify.sanitize(markdownHtml)
@@ -785,11 +797,6 @@ const renderContent = () => {
             className="prose prose-invert max-w-none selectable-markdown"
             dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
           />
-          {/* Show typing cursor for streaming messages */}
-          {message.isStreaming && (
-            <span className="inline-block w-2 h-4 bg-green-400 animate-pulse ml-1" 
-                  style={{animation: 'blink 1s infinite'}} />
-          )}
         </div>
       )
     } catch (error) {
@@ -798,11 +805,6 @@ const renderContent = () => {
       return (
         <div className="text-gray-200 relative">
           <pre className="whitespace-pre-wrap">{content}</pre>
-          {/* Show typing cursor for streaming messages */}
-          {message.isStreaming && (
-            <span className="inline-block w-2 h-4 bg-green-400 animate-pulse ml-1" 
-                  style={{animation: 'blink 1s infinite'}} />
-          )}
         </div>
       )
     }

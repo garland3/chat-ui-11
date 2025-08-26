@@ -90,11 +90,23 @@ export const ChatProvider = ({ children }) => {
 		addMessage({ role: 'user', content, timestamp: new Date().toISOString() })
 		setIsThinking(true)
 		const tagged = files.getTaggedFilesContent()
-		sendMessage({
+			// Build selected_tool_map from Set of fqns like server_tool
+			const selectedToolMap = Array.from(selectedTools).reduce((acc, fqn) => {
+				const idx = fqn.indexOf('_')
+				if (idx > 0) {
+					const server = fqn.slice(0, idx)
+					const tool = fqn.slice(idx + 1)
+					if (!acc[server]) acc[server] = []
+					acc[server].push(tool)
+				}
+				return acc
+			}, {})
+
+			sendMessage({
 			type: 'chat',
 			content,
 			model: currentModel,
-			selected_tools: [...selectedTools],
+				selected_tool_map: selectedToolMap,
 			selected_prompts: [...selectedPrompts],
 			selected_data_sources: [...selectedDataSources],
 			only_rag: config.onlyRag,

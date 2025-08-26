@@ -35,7 +35,7 @@ class ServiceCoordinator:
         temperature: float = 0.7,
         update_callback: Optional[Callable[[Dict[str, Any]], Awaitable[None]]] = None,
         # Unused parameters for Phase 1A compatibility
-        selected_tools: Optional[list] = None,
+    selected_tool_map: Optional[Dict[str, List[str]]] = None,
         selected_prompts: Optional[list] = None,
         selected_data_sources: Optional[list] = None,
         only_rag: bool = False,
@@ -57,19 +57,17 @@ class ServiceCoordinator:
             self.session_manager.update_session(session)
             
             # call log info, and log the first N=100 chars fo the message, list of seleced tools, agent_model, username, in 1 call 
-            logger.info(f"Session {session_id} - Model: {model}, Temperature: {temperature}, User: {user_email}, Message: {content[:100]}..., Selected Tools: {selected_tools}, Agent Mode: {agent_mode}")
+            logger.info(f"Session {session_id} - Model: {model}, Temperature: {temperature}, User: {user_email}, Message: {content[:100]}..., Selected Tool Map: {selected_tool_map}, Agent Mode: {agent_mode}")
             
             # Check if we need to use tools
-            if selected_tools and self.mcp_manager and self.tool_caller:
-                # Get username for authorization
-                username = user_email
-
+            if selected_tool_map and self.mcp_manager and self.tool_caller:
                 # Get authorized and filtered tools using dependency injection
                 filtered_tools = self.tool_caller.get_authorized_tools_for_user(
-                    username,
-                    selected_tools, 
-                    is_user_in_group
+                    username=user_email or "",
+                    selected_tool_map=selected_tool_map,
+                    is_user_in_group=is_user_in_group,
                 )
+                logger.info(f"User {user_email} is authorized for tools (schemas count): {len(filtered_tools)}")
                 
                 logger.info(f"Using {len(filtered_tools)} tools for LLM call")
                 
@@ -84,7 +82,7 @@ class ServiceCoordinator:
                 # Execute tool calls if any
                 tool_results = []
                 if tool_calls:
-                    logger.info(f"Executing {len(tool_calls)} tool calls")
+                    # logger.info(f"Executing {len(tool_calls)} tool calls")
                     
                     for tool_call_data in tool_calls:
                         tool_call = ToolCall(
@@ -92,7 +90,9 @@ class ServiceCoordinator:
                             name=tool_call_data["name"],
                             arguments=tool_call_data["arguments"]
                         )
+                        logging.info(f"Executing tool call: {tool_call.name} with args {tool_call.arguments}")
                         result = await self.tool_caller.execute_tool(tool_call)
+                        
                         tool_results.append(result)
                         
                         # Add tool result to session history
@@ -109,6 +109,10 @@ class ServiceCoordinator:
                 final_response = llm_content
                 if tool_results:
                     # If there were tool results, make a final call to get response
+                    N_chars_per_message = 100
+                    # print the message to the llm, for each message truncate. put in logging.info. 
+                    truncated_messages = [message.content[:N_chars_per_message] for message in session.history.messages]
+                    logging.info(f"Truncated messages for LLM call: {truncated_messages}")
                     final_llm_response = await self.llm_manager.call_plain(model, session.history, temperature)
                     final_response = final_llm_response
                     assistant_message = session.add_assistant_message(final_response, {

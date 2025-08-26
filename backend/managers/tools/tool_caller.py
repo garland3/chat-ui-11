@@ -64,59 +64,59 @@ class ToolCaller:
         return [tool.to_openai_schema() for tool in tools]
     
     def get_authorized_tools_for_user(
-        self, 
+        self,
         username: str,
-        selected_tools: List[str], 
-        is_user_in_group: Callable[[str, str], bool]
+        selected_tool_map: Dict[str, List[str]],
+        is_user_in_group: Callable[[str, str], bool],
     ) -> List[Dict[str, Any]]:
         """Get tools that user is authorized to use, filtered by selection.
         
         Args:
             username: The username to check authorization for
-            selected_tools: List of tool names user wants to use
+            selected_tool_map: Mapping of server -> list of tool names user selected
             is_user_in_group: Function that checks if user is in a specific group
             
         Returns:
             List of tool schemas in OpenAI format
         """
-        # Get all available servers and check authorization for each
+        # Authorize servers using is_user_in_group exclusively
         all_servers = self.mcp_manager.get_available_servers()
-        authorized_servers = []
-        
+        authorized_servers: List[str] = []
+
         for server_name in all_servers:
             server_info = self.mcp_manager.get_server_info(server_name)
             if not server_info:
                 continue
-            
-            # If server has no group restrictions, it's available to everyone
-            server_groups = server_info.get('groups', [])
+            server_groups = server_info.get("groups", []) or []
             if not server_groups:
                 authorized_servers.append(server_name)
                 continue
-            
-            # Check if user is in any of the required groups for this server
-            user_authorized = any(
-                is_user_in_group(username, group) 
-                for group in server_groups
-            )
-            
-            if user_authorized:
+            if any(is_user_in_group(username, group) for group in server_groups):
                 authorized_servers.append(server_name)
-        
+
         logger.debug(f"User {username} authorized for servers: {authorized_servers}")
-        
+
+        # Build set of fully-qualified tool names from selected_tool_map
+        selected_fqns: set[str] = set()
+        for server, tools in (selected_tool_map or {}).items():
+            for tool in tools or []:
+                selected_fqns.add(f"{server}_{tool}")
+
         # Get all tools from authorized servers
         tools_schema = self.get_tools_for_servers(authorized_servers)
-        
-        # Filter by selected tools if provided
-        if selected_tools:
-            filtered_tools = [
-                tool for tool in tools_schema 
-                if tool.get('function', {}).get('name') in selected_tools
+
+        # Filter by selected tool fqns (if any). If none specified, return all tools from authorized servers
+        if selected_fqns:
+            filtered = [
+                tool for tool in tools_schema
+                if tool.get("function", {}).get("name") in selected_fqns
             ]
-            logger.debug(f"Filtered to {len(filtered_tools)} tools from {len(tools_schema)} available for user {username}")
-            return filtered_tools
-        
+            logger.debug(
+                "Filtered to %d tools from %d available for user %s",
+                len(filtered), len(tools_schema), username,
+            )
+            return filtered
+
         logger.debug(f"Using all {len(tools_schema)} available tools for user {username}")
         return tools_schema
     

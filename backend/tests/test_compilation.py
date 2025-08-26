@@ -7,6 +7,7 @@ import sys
 import importlib
 import traceback
 from pathlib import Path
+import pytest
 
 
 def test_all_imports_compile():
@@ -90,7 +91,8 @@ def test_all_imports_compile():
     print(f"\n🎉 All {len(successful_imports)} modules compiled successfully!")
 
 
-def test_basic_app_factory_instantiation():
+@pytest.mark.asyncio
+async def test_basic_app_factory_instantiation():
     """Test that the app factory can be instantiated and basic methods work."""
     from managers.app_factory.app_factory import app_factory
     
@@ -104,7 +106,7 @@ def test_basic_app_factory_instantiation():
     session_manager = app_factory.get_session_manager()
     assert session_manager is not None, "Session manager should not be None"
     
-    service_coordinator = app_factory.get_service_coordinator()
+    service_coordinator = await app_factory.get_service_coordinator()
     assert service_coordinator is not None, "Service coordinator should not be None"
     
     print("✓ App factory instantiation and basic methods work")

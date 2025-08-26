@@ -39,7 +39,7 @@ async def websocket_update_callback(websocket: WebSocket, message: dict):
 async def lifespan(app: FastAPI):
     """Application lifespan manager."""
     logger.info("Starting Chat UI Backend (Phase 1A - LLM only)")
-    app_factory.initialize_managers() # Initialize all managers
+    await app_factory.initialize_managers() # Initialize all managers
     yield
     logger.info("Shutting down Chat UI Backend")
 
@@ -104,14 +104,14 @@ async def websocket_endpoint(websocket: WebSocket):
             if message_type == "chat":
                 # Phase 1A: Handle chat message using service coordinator
                 try:
-                    service_coordinator = app_factory.get_service_coordinator()
+                    service_coordinator = await app_factory.get_service_coordinator()
                     
                     # Extract all parameters from the frontend message (same structure as old backend)
                     response = await service_coordinator.handle_chat_message(
                         session_id=session_id,
                         content=data.get("content", ""),
                         model=data.get("model", "gpt-3.5-turbo"),
-                        selected_tools=data.get("selected_tools"),
+                        selected_tool_map=data.get("selected_tool_map"),
                         selected_prompts=data.get("selected_prompts"),
                         selected_data_sources=data.get("selected_data_sources"),
                         only_rag=data.get("only_rag", False),
@@ -133,7 +133,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 
             elif message_type == "download_file":
                 # Handle file download
-                service_coordinator = app_factory.get_service_coordinator()
+                service_coordinator = await app_factory.get_service_coordinator()
                 response = await service_coordinator.handle_download_file(
                     session_id=session_id,
                     filename=data.get("filename", ""),
@@ -143,7 +143,7 @@ async def websocket_endpoint(websocket: WebSocket):
             
             elif message_type == "reset_session":
                 # Handle session reset
-                service_coordinator = app_factory.get_service_coordinator()
+                service_coordinator = await app_factory.get_service_coordinator()
                 response = await service_coordinator.handle_reset_session(
                     session_id=session_id,
                     user_email=data.get("user")
@@ -158,7 +158,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 })
                 
     except WebSocketDisconnect:
-        service_coordinator = app_factory.get_service_coordinator()
+        service_coordinator = await app_factory.get_service_coordinator()
         service_coordinator.end_session(session_id)
         logger.info(f"WebSocket connection closed for session {session_id}")
 
