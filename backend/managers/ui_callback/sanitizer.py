@@ -138,12 +138,19 @@ def sanitize_tool_result(result) -> Dict[str, Any]:
 
     sanitized = {
         "success": result.success,
-        "tool_call_id": result.tool_call_id,
     }
 
     # Sanitize content
     if result.content:
-        sanitized["content"] = _truncate_string(result.content, MAX_CONTENT_LENGTH)
+        if isinstance(result.content, str):
+            try:
+                import json
+                parsed_content = json.loads(result.content)
+                sanitized["content"] = _sanitize_value(parsed_content)
+            except json.JSONDecodeError:
+                sanitized["content"] = _truncate_string(result.content, MAX_CONTENT_LENGTH)
+        else:
+            sanitized["content"] = _sanitize_value(result.content)
     elif result.success:
         sanitized["content"] = "OK"
 

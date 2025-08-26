@@ -134,17 +134,22 @@ class ToolCaller:
                 if isinstance(contents, list) and len(contents) > 0:
                     first_content = contents[0]
                     if hasattr(first_content, "text"):
-                        content = first_content.text
+                        # Try to parse as JSON first to preserve structured data
+                        try:
+                            import json
+                            content = json.loads(first_content.text)
+                        except (json.JSONDecodeError, TypeError):
+                            content = first_content.text
                     elif hasattr(first_content, "content"):
                         content = first_content.content
                     else:
-                        content = str(first_content)
+                        content = first_content
                 else:
-                    content = str(contents)
+                    content = contents
             elif hasattr(raw_result, "data"):
-                content = str(raw_result.data)
+                content = raw_result.data
             else:
-                content = str(raw_result)
+                content = raw_result
 
             # Extract structured data if available
             if (

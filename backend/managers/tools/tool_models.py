@@ -23,7 +23,7 @@ class ToolResult:
 
     tool_call_id: str
     success: bool
-    content: str = ""
+    content: Any = ""
     error: Optional[str] = None
     artifacts: List[Dict[str, Any]] = None
     meta_data: Optional[Dict[str, Any]] = None
