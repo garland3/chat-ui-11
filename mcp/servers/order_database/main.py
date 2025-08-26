@@ -19,11 +19,13 @@ logger = logging.getLogger(__name__)
 # Initialize the MCP server
 mcp = FastMCP("OrderDatabase")
 
+
 class OrderStatus(Enum):
     SUBMITTED = "submitted"
     PACKAGED = "items-packaged"
     SHIPPED = "items-shipped"
     DELIVERED = "delivered"
+
 
 @dataclass
 class Order:
@@ -33,6 +35,7 @@ class Order:
     customer_address: str
     status: OrderStatus
 
+
 # In-memory database (simulated)
 ORDERS: Dict[str, Order] = {
     "ORD001": Order(
@@ -40,23 +43,24 @@ ORDERS: Dict[str, Order] = {
         items=["Laptop", "Mouse", "Keyboard"],
         customer="John Doe",
         customer_address="123 Main St, Anytown, ST 12345",
-        status=OrderStatus.SUBMITTED
+        status=OrderStatus.SUBMITTED,
     ),
     "ORD002": Order(
         order_number="ORD002",
         items=["Phone", "Case", "Charger"],
         customer="Jane Smith",
         customer_address="456 Oak Ave, Somewhere, ST 67890",
-        status=OrderStatus.PACKAGED
+        status=OrderStatus.PACKAGED,
     ),
     "ORD003": Order(
         order_number="ORD003",
         items=["Tablet", "Stylus"],
         customer="Bob Johnson",
         customer_address="789 Pine Rd, Elsewhere, ST 54321",
-        status=OrderStatus.SHIPPED
-    )
+        status=OrderStatus.SHIPPED,
+    ),
 }
+
 
 def _finalize_meta(meta: Dict[str, Any], start: float) -> Dict[str, Any]:
     """Attach timing info and return meta_data dict."""
@@ -68,45 +72,48 @@ def _finalize_meta(meta: Dict[str, Any], start: float) -> Dict[str, Any]:
 BACKEND_BASE_URL = os.environ.get("CHATUI_BACKEND_BASE_URL", "http://127.0.0.1:8000")
 
 
-def _upload_artifact_to_s3(content: bytes, filename: str, content_type: str, username: str) -> Dict[str, str]:
+def _upload_artifact_to_s3(
+    content: bytes, filename: str, content_type: str, username: str
+) -> Dict[str, str]:
     """Upload artifact content to S3 via backend API and return artifact info with URL."""
     try:
         content_b64 = base64.b64encode(content).decode("utf-8")
-        
+
         upload_payload = {
             "filename": filename,
             "content_base64": content_b64,
             "content_type": content_type,
-            "tags": {"source": "mcp_tool", "generator": "order_database"}
+            "tags": {"source": "mcp_tool", "generator": "order_database"},
         }
-        
+
         with httpx.Client(timeout=30.0) as client:
             response = client.post(
                 f"{BACKEND_BASE_URL}/api/files",
                 json=upload_payload,
-                headers={"X-User-Email": username}
+                headers={"X-User-Email": username},
             )
             response.raise_for_status()
-            
+
             result = response.json()
             file_key = result["key"]
             download_url = f"/api/files/download/{file_key}"
-            
+
             return {
                 "name": filename,
                 "url": download_url,
                 "mime": content_type,
-                "size": len(content)
+                "size": len(content),
             }
-            
+
     except Exception as e:
         logger.warning(f"S3 upload failed for {filename}, falling back to base64: {e}")
         return {
             "name": filename,
             "b64": base64.b64encode(content).decode("utf-8"),
             "mime": content_type,
-            "size": len(content)
+            "size": len(content),
         }
+
 
 @mcp.tool
 def get_order(order_number: str) -> Dict[str, Any]:
@@ -114,7 +121,7 @@ def get_order(order_number: str) -> Dict[str, Any]:
     Retrieve comprehensive customer order information with complete order details and tracking status.
 
     This order management tool provides full access to customer order data:
-    
+
     **Order Information Retrieved:**
     - Complete order identification and reference numbers
     - Detailed item list with all products in the order
@@ -163,7 +170,7 @@ def get_order(order_number: str) -> Dict[str, Any]:
 
     Args:
         order_number: Unique order identifier (string format, e.g., "ORD001")
-        
+
     Returns:
         Dictionary containing:
         - order_number: Confirmed order identification
@@ -176,15 +183,15 @@ def get_order(order_number: str) -> Dict[str, Any]:
     """
     start = time.perf_counter()
     meta: Dict[str, Any] = {}
-    
+
     try:
         if order_number not in ORDERS:
             meta.update({"is_error": True, "reason": "not_found"})
             return {
                 "results": {"error": f"Order {order_number} not found"},
-                "meta_data": _finalize_meta(meta, start)
+                "meta_data": _finalize_meta(meta, start),
             }
-        
+
         order = ORDERS[order_number]
         meta.update({"is_error": False})
         return {
@@ -193,16 +200,17 @@ def get_order(order_number: str) -> Dict[str, Any]:
                 "items": order.items,
                 "customer": order.customer,
                 "customer_address": order.customer_address,
-                "status": order.status.value
+                "status": order.status.value,
             },
-            "meta_data": _finalize_meta(meta, start)
+            "meta_data": _finalize_meta(meta, start),
         }
     except Exception as e:
         meta.update({"is_error": True, "reason": type(e).__name__})
         return {
             "results": {"error": f"Error retrieving order: {str(e)}"},
-            "meta_data": _finalize_meta(meta, start)
+            "meta_data": _finalize_meta(meta, start),
         }
+
 
 @mcp.tool
 def update_order_status(order_number: str, new_status: str) -> Dict[str, Any]:
@@ -210,7 +218,7 @@ def update_order_status(order_number: str, new_status: str) -> Dict[str, Any]:
     Update customer order status with workflow validation and tracking throughout the order lifecycle.
 
     This order management tool provides controlled status updates with business logic validation:
-    
+
     **Order Status Management:**
     - Secure order status updates with validation
     - Order lifecycle workflow enforcement
@@ -264,7 +272,7 @@ def update_order_status(order_number: str, new_status: str) -> Dict[str, Any]:
     Args:
         order_number: Unique order identifier to update (string format, e.g., "ORD001")
         new_status: Target status value (must be valid status: submitted, items-packaged, items-shipped, delivered)
-        
+
     Returns:
         Dictionary containing:
         - success: Boolean indicating successful status update
@@ -276,15 +284,15 @@ def update_order_status(order_number: str, new_status: str) -> Dict[str, Any]:
     """
     start = time.perf_counter()
     meta: Dict[str, Any] = {}
-    
+
     try:
         if order_number not in ORDERS:
             meta.update({"is_error": True, "reason": "not_found"})
             return {
                 "results": {"error": f"Order {order_number} not found"},
-                "meta_data": _finalize_meta(meta, start)
+                "meta_data": _finalize_meta(meta, start),
             }
-        
+
         # Validate status
         try:
             status_enum = OrderStatus(new_status)
@@ -294,14 +302,14 @@ def update_order_status(order_number: str, new_status: str) -> Dict[str, Any]:
             return {
                 "results": {
                     "error": f"Invalid status: {new_status}",
-                    "valid_statuses": valid_statuses
+                    "valid_statuses": valid_statuses,
                 },
-                "meta_data": _finalize_meta(meta, start)
+                "meta_data": _finalize_meta(meta, start),
             }
-        
+
         # Get old status before updating
         old_status = ORDERS[order_number].status.value
-        
+
         # Update order status
         ORDERS[order_number].status = status_enum
         meta.update({"is_error": False})
@@ -310,95 +318,96 @@ def update_order_status(order_number: str, new_status: str) -> Dict[str, Any]:
                 "success": True,
                 "order_number": order_number,
                 "old_status": old_status,
-                "new_status": new_status
+                "new_status": new_status,
             },
-            "meta_data": _finalize_meta(meta, start)
+            "meta_data": _finalize_meta(meta, start),
         }
     except Exception as e:
         meta.update({"is_error": True, "reason": type(e).__name__})
         return {
             "results": {"error": f"Error updating order status: {str(e)}"},
-            "meta_data": _finalize_meta(meta, start)
+            "meta_data": _finalize_meta(meta, start),
         }
+
 
 @mcp.tool
 def list_all_orders() -> Dict[str, Any]:
     """
     List all customer orders with their basic information.
-    
+
     Returns:
         Dictionary with list of all orders
     """
     start = time.perf_counter()
     meta: Dict[str, Any] = {}
-    
+
     try:
         orders_list = []
         for order in ORDERS.values():
-            orders_list.append({
-                "order_number": order.order_number,
-                "customer": order.customer,
-                "status": order.status.value,
-                "item_count": len(order.items)
-            })
-        
+            orders_list.append(
+                {
+                    "order_number": order.order_number,
+                    "customer": order.customer,
+                    "status": order.status.value,
+                    "item_count": len(order.items),
+                }
+            )
+
         meta.update({"is_error": False})
         return {
-            "results": {
-                "orders": orders_list,
-                "total_count": len(orders_list)
-            },
-            "meta_data": _finalize_meta(meta, start)
+            "results": {"orders": orders_list, "total_count": len(orders_list)},
+            "meta_data": _finalize_meta(meta, start),
         }
     except Exception as e:
         meta.update({"is_error": True, "reason": type(e).__name__})
         return {
             "results": {"error": f"Error listing orders: {str(e)}"},
-            "meta_data": _finalize_meta(meta, start)
+            "meta_data": _finalize_meta(meta, start),
         }
+
 
 @mcp.tool
 def get_signal_data_csv(username: str = "") -> Dict[str, Any]:
     """
     Return the signal_data.csv file from the same directory as this MCP.
     Uploads to S3 storage for efficient access.
-    
+
     Returns:
         Dictionary with the CSV file uploaded to S3 storage with download URL
     """
     start = time.perf_counter()
     meta: Dict[str, Any] = {}
-    
+
     try:
         # Get the directory where this script is located
         script_dir = os.path.dirname(os.path.abspath(__file__))
         csv_path = os.path.join(script_dir, "signal_data.csv")
-        
+
         if not os.path.exists(csv_path):
             meta.update({"is_error": True, "reason": "file_not_found"})
             return {
                 "results": {"error": "signal_data.csv file not found"},
-                "meta_data": _finalize_meta(meta, start)
+                "meta_data": _finalize_meta(meta, start),
             }
-        
+
         # Read the CSV file
-        with open(csv_path, 'rb') as f:
+        with open(csv_path, "rb") as f:
             csv_content = f.read()
-        
+
         # Upload to S3
         artifact = _upload_artifact_to_s3(
             content=csv_content,
             filename="signal_data.csv",
             content_type="text/csv",
-            username=username or "unknown"
+            username=username or "unknown",
         )
-        
+
         meta.update({"is_error": False, "file_size_bytes": len(csv_content)})
         return {
             "results": {
                 "message": "Signal data CSV file retrieved and uploaded to storage",
                 "filename": "signal_data.csv",
-                "file_size_bytes": len(csv_content)
+                "file_size_bytes": len(csv_content),
             },
             "artifacts": [artifact],
             "display": {
@@ -407,18 +416,22 @@ def get_signal_data_csv(username: str = "") -> Dict[str, Any]:
                 "mode": "replace",
                 "viewer_hint": "code",
             },
-            "meta_data": _finalize_meta({
-                "file_size_bytes": len(csv_content),
-                "storage_method": "s3" if "url" in artifact else "base64_fallback",
-                "is_error": False
-            }, start)
+            "meta_data": _finalize_meta(
+                {
+                    "file_size_bytes": len(csv_content),
+                    "storage_method": "s3" if "url" in artifact else "base64_fallback",
+                    "is_error": False,
+                },
+                start,
+            ),
         }
     except Exception as e:
         meta.update({"is_error": True, "reason": type(e).__name__})
         return {
             "results": {"error": f"Error reading CSV file: {str(e)}"},
-            "meta_data": _finalize_meta(meta, start)
+            "meta_data": _finalize_meta(meta, start),
         }
+
 
 if __name__ == "__main__":
     mcp.run()

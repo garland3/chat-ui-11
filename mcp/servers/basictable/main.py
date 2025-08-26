@@ -15,17 +15,22 @@ from fastmcp import FastMCP
 # Initialize the MCP server
 mcp = FastMCP("CSV_XLSX_Analyzer")
 
+
 @mcp.tool
 def analyze_spreadsheet(
-    instructions: Annotated[str, "Instructions for the tool, not used in this implementation"],
+    instructions: Annotated[
+        str, "Instructions for the tool, not used in this implementation"
+    ],
     filename: Annotated[str, "The name of the file (.csv or .xlsx)"],
-    file_data_base64: Annotated[str, "LLM agent can leave blank. Do NOT fill. Framework will fill this."] = ""
+    file_data_base64: Annotated[
+        str, "LLM agent can leave blank. Do NOT fill. Framework will fill this."
+    ] = "",
 ) -> Dict[str, Any]:
     """
     Perform comprehensive spreadsheet analysis with automatic data visualization for CSV and Excel files.
 
     This intelligent data analysis tool provides instant insights into spreadsheet data:
-    
+
     **File Format Support:**
     - CSV files (.csv) with various delimiters and encodings
     - Excel files (.xlsx) including multiple sheets and complex formatting
@@ -85,16 +90,18 @@ def analyze_spreadsheet(
     """
     try:
         # Validate file extension
-        ext = filename.lower().split('.')[-1]
-        if ext not in ['csv', 'xlsx']:
-            return {"results": {"error": "Invalid file type. Only .csv or .xlsx allowed."}}
+        ext = filename.lower().split(".")[-1]
+        if ext not in ["csv", "xlsx"]:
+            return {
+                "results": {"error": "Invalid file type. Only .csv or .xlsx allowed."}
+            }
 
         # Decode file data
         decoded_bytes = base64.b64decode(file_data_base64)
         buffer = io.BytesIO(decoded_bytes)
 
         # Load dataframe
-        if ext == 'csv':
+        if ext == "csv":
             df = pd.read_csv(buffer)
         else:
             df = pd.read_excel(buffer)
@@ -103,7 +110,7 @@ def analyze_spreadsheet(
             return {"results": {"error": "File is empty or has no readable content."}}
 
         # Detect numerical columns
-        num_cols = df.select_dtypes(include=['number']).columns.tolist()
+        num_cols = df.select_dtypes(include=["number"]).columns.tolist()
         if not num_cols:
             return {"results": {"error": "No numerical columns found for plotting."}}
 
@@ -114,38 +121,39 @@ def analyze_spreadsheet(
 
         # Save to buffer as PNG
         img_buffer = io.BytesIO()
-        plt.savefig(img_buffer, format='png')
+        plt.savefig(img_buffer, format="png")
         plt.close()
         img_buffer.seek(0)
 
         # Encode to Base64
-        img_base64 = base64.b64encode(img_buffer.read()).decode('utf-8')
+        img_base64 = base64.b64encode(img_buffer.read()).decode("utf-8")
         img_buffer.close()
 
         # Create file list for multiple file support
-        returned_files = [{
-            'filename': "analysis_plot.png",
-            'content_base64': img_base64
-        }]
+        returned_files = [
+            {"filename": "analysis_plot.png", "content_base64": img_base64}
+        ]
         returned_file_names = ["analysis_plot.png"]
         returned_file_contents = [img_base64]
-        
+
         return {
             "results": {
                 "operation": "spreadsheet_analysis",
                 "filename": filename,
                 "numerical_columns": num_cols,
-                "message": f"Detected numerical columns: {', '.join(num_cols)}. Histogram plot generated."
+                "message": f"Detected numerical columns: {', '.join(num_cols)}. Histogram plot generated.",
             },
             "returned_file_names": returned_file_names,
-            "returned_file_contents": returned_file_contents
+            "returned_file_contents": returned_file_contents,
         }
 
     except Exception as e:
         # print traceback for debugging
         import traceback
+
         traceback.print_exc()
         return {"results": {"error": f"Spreadsheet analysis failed: {str(e)}"}}
+
 
 if __name__ == "__main__":
     print("Starting CSV/XLSX Analyzer MCP server...")

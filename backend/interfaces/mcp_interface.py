@@ -1,6 +1,4 @@
 import logging
-from pathlib import Path
-import os
 
 from managers.app_factory.app_factory import app_factory
 
@@ -16,7 +14,7 @@ async def get_mcp_tools_info(current_user: str):
     """
     tools_info = []
     available_servers = []
-    
+
     try:
         mcp_manager = await app_factory.get_mcp_manager()
         # Initialize tool_caller to ensure MCP manager is ready
@@ -42,27 +40,35 @@ async def get_mcp_tools_info(current_user: str):
         for tool in authorized_tools:
             if tool.server_name not in server_tools:
                 server_tools[tool.server_name] = []
-            server_tools[tool.server_name].append({
-                'name': tool.name,
-                'description': tool.description,
-                'tags': list(tool.tags)
-            })
+            server_tools[tool.server_name].append(
+                {
+                    "name": tool.name,
+                    "description": tool.description,
+                    "tags": list(tool.tags),
+                }
+            )
 
         # Build tools info for each authorized server
         for server_name, tools in server_tools.items():
             server_info = mcp_manager.get_server_info(server_name) or {}
-            tools_info.append({
-                'server': server_name,
-                'tools': [tool['name'] for tool in tools],
-                'tool_count': len(tools),
-                'tool_details': tools,
-                'description': server_info.get('description', f'{server_name} MCP tools'),
-                'is_exclusive': False,  # Deprecated, always False
-                'author': server_info.get('author', 'MCP Server'),
-                'short_description': server_info.get('short_description', f'{server_name} tools'),
-                'help_email': server_info.get('help_email', ''),
-                'groups': server_info.get('groups', [])
-            })
+            tools_info.append(
+                {
+                    "server": server_name,
+                    "tools": [tool["name"] for tool in tools],
+                    "tool_count": len(tools),
+                    "tool_details": tools,
+                    "description": server_info.get(
+                        "description", f"{server_name} MCP tools"
+                    ),
+                    "is_exclusive": False,  # Deprecated, always False
+                    "author": server_info.get("author", "MCP Server"),
+                    "short_description": server_info.get(
+                        "short_description", f"{server_name} tools"
+                    ),
+                    "help_email": server_info.get("help_email", ""),
+                    "groups": server_info.get("groups", []),
+                }
+            )
 
     except Exception as e:
         logger.error(f"Error getting MCP tools: {e}")

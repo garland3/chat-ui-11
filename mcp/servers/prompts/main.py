@@ -6,7 +6,7 @@ Provides specialized system prompts that can be applied to modify the AI's behav
 
 from typing import Dict, Any
 from fastmcp import FastMCP
-from fastmcp.prompts.prompt import Message, PromptMessage, TextContent
+from fastmcp.prompts.prompt import PromptMessage, TextContent
 
 # Initialize the MCP server
 mcp = FastMCP("Prompts")
@@ -22,8 +22,14 @@ def financial_tech_wizard() -> PromptMessage:
 - Regulatory compliance and financial technology innovation
 
 Think analytically, provide data-driven insights, and consider both technical and business aspects when responding to financial questions. Use precise financial terminology and cite relevant market examples when appropriate."""
-    
-    return PromptMessage(role="user", content=TextContent(type="text", text=f"System: {content}\n\nUser: Please adopt this personality and expertise for our conversation."))
+
+    return PromptMessage(
+        role="user",
+        content=TextContent(
+            type="text",
+            text=f"System: {content}\n\nUser: Please adopt this personality and expertise for our conversation.",
+        ),
+    )
 
 
 @mcp.prompt
@@ -37,8 +43,14 @@ def expert_dog_trainer() -> PromptMessage:
 - Problem solving for common behavioral issues
 
 Always provide practical, humane, and evidence-based training advice. Consider the dog's age, breed, and individual personality when making recommendations. Emphasize positive reinforcement and building trust between dog and owner."""
-    
-    return PromptMessage(role="user", content=TextContent(type="text", text=f"System: {content}\n\nUser: Please adopt this expertise for our conversation."))
+
+    return PromptMessage(
+        role="user",
+        content=TextContent(
+            type="text",
+            text=f"System: {content}\n\nUser: Please adopt this expertise for our conversation.",
+        ),
+    )
 
 
 @mcp.prompt
@@ -52,8 +64,14 @@ def creative_writer() -> PromptMessage:
 - Workshop facilitation and constructive feedback
 
 Approach writing with creativity, technical skill, and attention to voice and style. Provide specific, actionable advice that helps writers develop their craft while honoring their unique creative vision."""
-    
-    return PromptMessage(role="user", content=TextContent(type="text", text=f"System: {content}\n\nUser: Please adopt this creative writing expertise for our conversation."))
+
+    return PromptMessage(
+        role="user",
+        content=TextContent(
+            type="text",
+            text=f"System: {content}\n\nUser: Please adopt this creative writing expertise for our conversation.",
+        ),
+    )
 
 
 @mcp.prompt
@@ -75,7 +93,7 @@ def list_available_prompts() -> Dict[str, Any]:
     Discover and enumerate all available AI personality and expertise system prompts for customizing assistant behavior.
 
     This prompt management tool provides comprehensive access to AI behavior modification capabilities:
-    
+
     **System Prompt Categories:**
     - Professional expertise prompts (financial, technical, business)
     - Creative and artistic personality prompts (writing, design, storytelling)
@@ -131,25 +149,25 @@ def list_available_prompts() -> Dict[str, Any]:
         "financial_tech_wizard": {
             "description": "Think like a financial tech wizard - expert in fintech, trading algorithms, and financial markets",
             "type": "system_prompt",
-            "category": "professional"
+            "category": "professional",
         },
         "expert_dog_trainer": {
             "description": "You are an expert dog trainer with years of experience in canine behavior and training",
-            "type": "system_prompt", 
-            "category": "professional"
+            "type": "system_prompt",
+            "category": "professional",
         },
         "creative_writer": {
             "description": "You are a creative writing expert focused on storytelling, character development, and narrative craft",
             "type": "system_prompt",
-            "category": "creative"
-        }
+            "category": "creative",
+        },
     }
-    
+
     return {
         "results": {
             "available_prompts": prompts,
             "total_count": len(prompts),
-            "categories": list(set(p["category"] for p in prompts.values()))
+            "categories": list(set(p["category"] for p in prompts.values())),
         }
     }
 

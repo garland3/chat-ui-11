@@ -1,7 +1,6 @@
 """Configuration API routes."""
 
 import logging
-from typing import Optional
 
 from fastapi import APIRouter, Depends
 
@@ -10,12 +9,10 @@ from managers.config.config_models import LLMConfig
 # from core.auth import is_user_in_group
 # from core.utils import get_current_user
 # from infrastructure.app_factory import app_factory
-from managers.config.config_manager import config_manager
 from managers.auth.utils import get_current_user
+
 # import app factory
 from managers.app_factory.app_factory import app_factory
-from pathlib import Path
-import os
 from interfaces.mcp_interface import get_mcp_tools_info
 
 logger = logging.getLogger(__name__)
@@ -28,25 +25,25 @@ config_router = APIRouter(prefix="/api", tags=["config"])
 #     """Get banners for the user."""
 #     config_manager = app_factory.get_config_manager()
 #     app_settings = config_manager.app_settings
-    
+
 #     # Check if banners are enabled
 #     if not app_settings.banner_enabled:
 #         return {"messages": []}
-    
+
 #     # Read messages from messages.txt file
 #     try:
-        
+
 #         # Use same logic as admin routes to find messages file
 #         overrides_env = os.getenv("APP_CONFIG_OVERRIDES", "config/overrides")
 #         base = Path(overrides_env)
-        
+
 #         # If relative path, resolve from project root
 #         if not base.is_absolute():
 #             project_root = Path(__file__).parent.parent.parent
 #             base = project_root / base
-        
+
 #         messages_file = base / app_settings.messages_config_file
-        
+
 #         if messages_file.exists():
 #             with open(messages_file, "r", encoding="utf-8") as f:
 #                 content = f.read()
@@ -57,6 +54,7 @@ config_router = APIRouter(prefix="/api", tags=["config"])
 #     except Exception as e:
 #         logger.error(f"Error reading banner messages: {e}")
 #         return {"messages": []}
+
 
 @config_router.get("/banners")
 async def get_banners(current_user: str = Depends(get_current_user)):
@@ -71,7 +69,7 @@ async def get_config(current_user: str = Depends(get_current_user)):
 
     # each 'model' is an LLMInstance
     model_names = [model.model_name for model in llm_config.models]
-    
+
     # Get MCP tools if tools feature is enabled
     tools_info, available_servers = [], []
     if app_settings.feature_tools_enabled:
@@ -89,8 +87,8 @@ async def get_config(current_user: str = Depends(get_current_user)):
             "tools": app_settings.feature_tools_enabled,
             "marketplace": app_settings.feature_marketplace_enabled,
             "files_panel": app_settings.feature_files_panel_enabled,
-            "chat_history": app_settings.feature_chat_history_enabled
-        }
+            "chat_history": app_settings.feature_chat_history_enabled,
+        },
     }
 
 
@@ -102,7 +100,7 @@ async def get_config(current_user: str = Depends(get_current_user)):
 #     config_manager = app_factory.get_config_manager()
 #     llm_config = config_manager.llm_config
 #     app_settings = config_manager.app_settings
-    
+
 #     # Get RAG data sources for the user (feature-gated MCP-backed discovery)
 #     rag_data_sources = []
 #     rag_servers = []
@@ -116,22 +114,22 @@ async def get_config(current_user: str = Depends(get_current_user)):
 #             rag_data_sources = await rag_client.discover_data_sources(current_user)
 #     except Exception as e:
 #         logger.warning(f"Error resolving RAG data sources: {e}")
-    
+
 #     # Check if tools are enabled
 #     tools_info = []
 #     prompts_info = []
 #     authorized_servers = []
-    
+
 #     if app_settings.feature_tools_enabled:
 #         # Get MCP manager
 #         mcp_manager = app_factory.get_mcp_manager()
-        
+
 #         # Get authorized servers for the user - this filters out unauthorized servers completely
 #         authorized_servers = mcp_manager.get_authorized_servers(current_user, is_user_in_group)
-        
+
 #         # Add canvas pseudo-tool to authorized servers (available to all users)
 #         authorized_servers.append("canvas")
-        
+
 #         # Only build tool information for servers the user is authorized to access
 #         for server_name in authorized_servers:
 #             # Handle canvas pseudo-tool
@@ -149,7 +147,7 @@ async def get_config(current_user: str = Depends(get_current_user)):
 #             elif server_name in mcp_manager.available_tools:
 #                 server_tools = mcp_manager.available_tools[server_name]['tools']
 #                 server_config = mcp_manager.available_tools[server_name]['config']
-                
+
 #                 # Only include servers that have tools and user has access to
 #                 if server_tools:  # Only show servers with actual tools
 #                     tools_info.append({
@@ -162,7 +160,7 @@ async def get_config(current_user: str = Depends(get_current_user)):
 #                         'short_description': server_config.get('short_description', server_config.get('description', f'{server_name} tools')),
 #                         'help_email': server_config.get('help_email', '')
 #                     })
-            
+
 #             # Collect prompts from this server if available
 #             if server_name in mcp_manager.available_prompts:
 #                 server_prompts = mcp_manager.available_prompts[server_name]['prompts']
@@ -177,7 +175,7 @@ async def get_config(current_user: str = Depends(get_current_user)):
 #                         'short_description': server_config.get('short_description', f'{server_name} custom prompts'),
 #                         'help_email': server_config.get('help_email', '')
 #                     })
-    
+
 #     # Read help page configuration (supports new config directory layout + legacy paths)
 #     help_config = {}
 #     import json
@@ -219,13 +217,13 @@ async def get_config(current_user: str = Depends(get_current_user)):
 #     except Exception as e:
 #         logger.warning(f"Error loading help config: {e}")
 #         help_config = {"title": "Help & Documentation", "sections": []}
-    
+
 # # Log what the user can see for debugging
 #     logger.info(
 #         f"User {current_user} has access to {len(authorized_servers)} servers: {authorized_servers}\n"
 #         f"Returning {len(tools_info)} server tool groups to frontend for user {current_user}"
 #     )
-    
+
 #     return {
 #         "app_name": app_settings.app_name,
 #         "models": list(llm_config.models.keys()),

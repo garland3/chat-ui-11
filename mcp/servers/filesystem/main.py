@@ -23,15 +23,15 @@ def _safe_path(path: str) -> Path:
         full_path = requested_path
     else:
         full_path = BASE_PATH / requested_path
-    
+
     resolved_path = full_path.resolve()
-    
+
     # Ensure the path is within BASE_PATH
     try:
         resolved_path.relative_to(BASE_PATH)
     except ValueError:
         raise PermissionError("Access denied: path outside base directory")
-    
+
     return resolved_path
 
 
@@ -58,7 +58,7 @@ def read_file(path: str) -> Dict[str, Any]:
 
     Args:
         path: File path to read (string). Can be relative to base directory or absolute within allowed area.
-        
+
     Returns:
         Dictionary containing:
         - success: boolean indicating operation success
@@ -71,18 +71,18 @@ def read_file(path: str) -> Dict[str, Any]:
         file_path = _safe_path(path)
         if not file_path.exists():
             return {"results": {"error": f"File not found: {path}"}}
-        
+
         if file_path.is_dir():
             return {"results": {"error": f"Path is a directory: {path}"}}
-        
-        with open(file_path, 'r', encoding='utf-8') as f:
+
+        with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
-        
+
         return {
             "results": {
                 "content": content,
                 "size": len(content),
-                "path": str(file_path.relative_to(BASE_PATH))
+                "path": str(file_path.relative_to(BASE_PATH)),
             }
         }
     except PermissionError as e:
@@ -116,7 +116,7 @@ def write_file(path: str, content: str) -> Dict[str, Any]:
     Args:
         path: File path to write (string). Can be relative to base directory or absolute within allowed area.
         content: Text content to write to the file (string, UTF-8 encoded)
-        
+
     Returns:
         Dictionary containing:
         - success: boolean indicating operation success
@@ -126,18 +126,18 @@ def write_file(path: str, content: str) -> Dict[str, Any]:
     """
     try:
         file_path = _safe_path(path)
-        
+
         # Create parent directories if they don't exist
         file_path.parent.mkdir(parents=True, exist_ok=True)
-        
-        with open(file_path, 'w', encoding='utf-8') as f:
+
+        with open(file_path, "w", encoding="utf-8") as f:
             f.write(content)
-        
+
         return {
             "results": {
                 "success": True,
                 "path": str(file_path.relative_to(BASE_PATH)),
-                "size": len(content)
+                "size": len(content),
             }
         }
     except PermissionError as e:
@@ -176,7 +176,7 @@ def list_directory(path: str = ".") -> Dict[str, Any]:
 
     Args:
         path: Directory path to list (string, defaults to current directory)
-        
+
     Returns:
         Dictionary containing:
         - path: resolved directory path
@@ -188,22 +188,24 @@ def list_directory(path: str = ".") -> Dict[str, Any]:
         dir_path = _safe_path(path)
         if not dir_path.exists():
             return {"results": {"error": f"Directory not found: {path}"}}
-        
+
         if not dir_path.is_dir():
             return {"results": {"error": f"Path is not a directory: {path}"}}
-        
+
         items = []
         for item in dir_path.iterdir():
-            items.append({
-                "name": item.name,
-                "type": "directory" if item.is_dir() else "file",
-                "size": item.stat().st_size if item.is_file() else None
-            })
-        
+            items.append(
+                {
+                    "name": item.name,
+                    "type": "directory" if item.is_dir() else "file",
+                    "size": item.stat().st_size if item.is_file() else None,
+                }
+            )
+
         return {
             "results": {
                 "path": str(dir_path.relative_to(BASE_PATH)),
-                "items": sorted(items, key=lambda x: (x["type"], x["name"]))
+                "items": sorted(items, key=lambda x: (x["type"], x["name"])),
             }
         }
     except PermissionError as e:
@@ -236,7 +238,7 @@ def create_directory(path: str) -> Dict[str, Any]:
 
     Args:
         path: Directory path to create (string). Can be relative to base or absolute within allowed area.
-        
+
     Returns:
         Dictionary containing:
         - success: boolean indicating operation success
@@ -246,12 +248,9 @@ def create_directory(path: str) -> Dict[str, Any]:
     try:
         dir_path = _safe_path(path)
         dir_path.mkdir(parents=True, exist_ok=True)
-        
+
         return {
-            "results": {
-                "success": True,
-                "path": str(dir_path.relative_to(BASE_PATH))
-            }
+            "results": {"success": True, "path": str(dir_path.relative_to(BASE_PATH))}
         }
     except PermissionError as e:
         return {"results": {"error": str(e)}}
@@ -289,7 +288,7 @@ def delete_file(path: str) -> Dict[str, Any]:
 
     Args:
         path: File path to delete (string). Can be relative to base or absolute within allowed area.
-        
+
     Returns:
         Dictionary containing:
         - success: boolean indicating operation success
@@ -300,16 +299,13 @@ def delete_file(path: str) -> Dict[str, Any]:
         file_path = _safe_path(path)
         if not file_path.exists():
             return {"results": {"error": f"File not found: {path}"}}
-        
+
         if file_path.is_dir():
             return {"results": {"error": f"Path is a directory (use rmdir): {path}"}}
-        
+
         file_path.unlink()
         return {
-            "results": {
-                "success": True,
-                "path": str(file_path.relative_to(BASE_PATH))
-            }
+            "results": {"success": True, "path": str(file_path.relative_to(BASE_PATH))}
         }
     except PermissionError as e:
         return {"error": str(e)}
@@ -321,10 +317,10 @@ def delete_file(path: str) -> Dict[str, Any]:
 def file_exists(path: str) -> Dict[str, Any]:
     """
     Check if a file or directory exists.
-    
+
     Args:
         path: Path to check
-        
+
     Returns:
         Dictionary with existence status and file type information
     """
@@ -335,7 +331,7 @@ def file_exists(path: str) -> Dict[str, Any]:
                 "exists": file_path.exists(),
                 "is_file": file_path.is_file(),
                 "is_directory": file_path.is_dir(),
-                "path": str(file_path.relative_to(BASE_PATH))
+                "path": str(file_path.relative_to(BASE_PATH)),
             }
         }
     except PermissionError as e:

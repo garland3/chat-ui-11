@@ -8,10 +8,13 @@ import logging
 import traceback
 from pathlib import Path
 
+
 # Import CodeExecutionError class definition locally to avoid circular imports
 class CodeExecutionError(Exception):
     """Raised when code execution fails."""
+
     pass
+
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +22,7 @@ logger = logging.getLogger(__name__)
 def create_safe_execution_script(code: str, exec_dir: Path) -> Path:
     """
     Create a Python script with the user code wrapped in safety measures.
-    
+
     Args:
         code: User's Python code
         exec_dir: Execution directory
@@ -28,8 +31,8 @@ def create_safe_execution_script(code: str, exec_dir: Path) -> Path:
     """
     try:
         # Indent each line of user code to fit inside the try block
-        indented_code = '\n'.join('    ' + line for line in code.split('\n'))
-        
+        indented_code = "\n".join("    " + line for line in code.split("\n"))
+
         script_content = f'''#!/usr/bin/env python3
 import sys
 import os
@@ -179,14 +182,14 @@ finally:
     
     print(json.dumps(result))
 '''
-        
+
         script_path = exec_dir / "exec_script.py"
-        with open(script_path, 'w') as f:
+        with open(script_path, "w") as f:
             f.write(script_content)
-        
+
         logger.info(f"Created execution script: {script_path}")
         return script_path
-    
+
     except Exception as e:
         error_msg = f"Failed to create execution script: {str(e)}"
         logger.error(error_msg)

@@ -70,44 +70,46 @@ def _finalize_meta(meta: Dict[str, Any], start: float) -> Dict[str, Any]:
     return meta
 
 
-def _upload_artifact_to_s3(content: bytes, filename: str, content_type: str, username: str) -> Dict[str, str]:
+def _upload_artifact_to_s3(
+    content: bytes, filename: str, content_type: str, username: str
+) -> Dict[str, str]:
     """Upload artifact content to S3 via backend API and return artifact info with URL.
-    
+
     Returns dict with 'name', 'url', 'mime', 'size' fields for artifacts array.
     Uses synchronous httpx.Client to avoid asyncio.run() in running event loop.
     """
     try:
         content_b64 = base64.b64encode(content).decode("utf-8")
-        
+
         # Upload via backend API
         upload_payload = {
             "filename": filename,
             "content_base64": content_b64,
             "content_type": content_type,
-            "tags": {"source": "mcp_tool", "generator": "csv_reporter"}
+            "tags": {"source": "mcp_tool", "generator": "csv_reporter"},
         }
-        
+
         with httpx.Client(timeout=30.0) as client:
             response = client.post(
                 f"{BACKEND_BASE_URL}/api/files",
                 json=upload_payload,
-                headers={"X-User-Email": username}  # Auth header
+                headers={"X-User-Email": username},  # Auth header
             )
             response.raise_for_status()
-            
+
             result = response.json()
             file_key = result["key"]
-            
+
             # Create download URL (will be enhanced with capability token by backend)
             download_url = f"/api/files/download/{file_key}"
-            
+
             return {
                 "name": filename,
                 "url": download_url,
                 "mime": content_type,
-                "size": len(content)
+                "size": len(content),
             }
-            
+
     except Exception as e:
         # Fallback to base64 if S3 upload fails
         logger.warning(f"S3 upload failed for {filename}, falling back to base64: {e}")
@@ -115,7 +117,7 @@ def _upload_artifact_to_s3(content: bytes, filename: str, content_type: str, use
             "name": filename,
             "b64": base64.b64encode(content).decode("utf-8"),
             "mime": content_type,
-            "size": len(content)
+            "size": len(content),
         }
 
 
@@ -195,15 +197,17 @@ def _dataframe_report(df: pd.DataFrame, *, username: str, source_name: str) -> s
 
 
 @mcp.tool
-def generate_csv_report(  
+def generate_csv_report(
     filename: Annotated[str, "CSV filename. No directory. Just the filename."],
     username: Annotated[str, "Injected by backend. Trust this value."] = "",
-    file_data_base64: Annotated[str, "Framework may supply Base64 content as fallback."] = ""
+    file_data_base64: Annotated[
+        str, "Framework may supply Base64 content as fallback."
+    ] = "",
 ) -> Dict[str, Any]:
     """Generate comprehensive statistical analysis and summary report for CSV data files.
 
     This tool performs in-depth analysis of CSV files to provide actionable insights:
-    
+
     **Data Analysis Features:**
     - Complete dataset overview (rows, columns, data types)
     - Statistical summaries for all numeric columns (mean, median, std, min, max, quartiles)
@@ -259,7 +263,7 @@ def generate_csv_report(
     """
     start = time.perf_counter()
     meta: Dict[str, Any] = {}
-    
+
     try:
         raw = _load_csv_bytes(filename, file_data_base64)
         df = pd.read_csv(io.BytesIO(raw))
@@ -267,11 +271,13 @@ def generate_csv_report(
             meta.update({"is_error": True, "reason": "empty_csv"})
             return {
                 "results": {"error": "CSV is empty."},
-                "meta_data": _finalize_meta(meta, start)
+                "meta_data": _finalize_meta(meta, start),
             }
 
         # Use the raw filename; let the chat UI handle any sanitization
-        report_text = _dataframe_report(df, username=username or "unknown", source_name=filename)
+        report_text = _dataframe_report(
+            df, username=username or "unknown", source_name=filename
+        )
         report_content = report_text.encode("utf-8")
 
         # Upload report to S3
@@ -279,7 +285,7 @@ def generate_csv_report(
             content=report_content,
             filename="report.txt",
             content_type="text/plain",
-            username=username or "unknown"
+            username=username or "unknown",
         )
 
         meta.update({"is_error": False})
@@ -296,56 +302,61 @@ def generate_csv_report(
                 "mode": "replace",
                 "viewer_hint": "code",
             },
-            "meta_data": _finalize_meta({
-                "generated_by": username,
-                "rows": int(df.shape[0]),
-                "columns": int(df.shape[1]),
-                "storage_method": "s3" if "url" in artifact else "base64_fallback",
-                "is_error": False
-            }, start)
+            "meta_data": _finalize_meta(
+                {
+                    "generated_by": username,
+                    "rows": int(df.shape[0]),
+                    "columns": int(df.shape[1]),
+                    "storage_method": "s3" if "url" in artifact else "base64_fallback",
+                    "is_error": False,
+                },
+                start,
+            ),
         }
     except FileNotFoundError as e:
         meta.update({"is_error": True, "reason": "file_not_found"})
         return {
-            "results": {"error": str(e)+ traceback.format_exc()},
-            "meta_data": _finalize_meta(meta, start)
+            "results": {"error": str(e) + traceback.format_exc()},
+            "meta_data": _finalize_meta(meta, start),
         }
     except pd.errors.EmptyDataError:
         meta.update({"is_error": True, "reason": "empty_data"})
         return {
             "results": {"error": "CSV file is empty or unreadable."},
-            "meta_data": _finalize_meta(meta, start)
+            "meta_data": _finalize_meta(meta, start),
         }
     except pd.errors.ParserError as e:
         meta.update({"is_error": True, "reason": "parsing_error"})
         return {
             "results": {"error": f"CSV parsing error: {e}"},
-            "meta_data": _finalize_meta(meta, start)
+            "meta_data": _finalize_meta(meta, start),
         }
     except requests.HTTPError as e:
         meta.update({"is_error": True, "reason": "http_error"})
         return {
             "results": {"error": f"Download failed: {e}"},
-            "meta_data": _finalize_meta(meta, start)
+            "meta_data": _finalize_meta(meta, start),
         }
     except Exception as e:  # noqa: BLE001
         meta.update({"is_error": True, "reason": type(e).__name__})
         return {
             "results": {"error": f"Unexpected error: {str(e)}"},
-            "meta_data": _finalize_meta(meta, start)
+            "meta_data": _finalize_meta(meta, start),
         }
 
 
 @mcp.tool
 def summarize_multiple_csvs(
     instructions: Annotated[str, "Instructions for the tool, not used for logic"],
-    file_names: Annotated[List[str], "Array of CSV filenames. Backend may rewrite to downloadable URLs."],
+    file_names: Annotated[
+        List[str], "Array of CSV filenames. Backend may rewrite to downloadable URLs."
+    ],
     username: Annotated[str, "Injected by backend. Trust this value."] = "",
 ) -> Dict[str, Any]:
     """Create comparative analysis and consolidated summary across multiple CSV datasets.
 
     This advanced tool processes multiple CSV files simultaneously to provide:
-    
+
     **Cross-Dataset Analysis:**
     - Comparative dataset metrics (rows, columns, sizes)
     - Column name consistency analysis across files
@@ -402,7 +413,7 @@ def summarize_multiple_csvs(
     """
     start = time.perf_counter()
     meta: Dict[str, Any] = {}
-    
+
     summaries: List[str] = []
     total_rows = 0
     total_cols_unique = set()
@@ -434,8 +445,8 @@ def summarize_multiple_csvs(
     artifact = _upload_artifact_to_s3(
         content=content,
         filename="multi_csv_summary.txt",
-        content_type="text/plain", 
-        username=username or "unknown"
+        content_type="text/plain",
+        username=username or "unknown",
     )
 
     meta.update({"is_error": False})
@@ -452,32 +463,42 @@ def summarize_multiple_csvs(
             "mode": "replace",
             "viewer_hint": "code",
         },
-        "meta_data": _finalize_meta({
-            "generated_by": username,
-            "total_rows": total_rows,
-            "unique_columns": sorted(list(total_cols_unique)),
-            "errors": errors,
-            "storage_method": "s3" if "url" in artifact else "base64_fallback",
-            "is_error": False
-        }, start)
+        "meta_data": _finalize_meta(
+            {
+                "generated_by": username,
+                "total_rows": total_rows,
+                "unique_columns": sorted(list(total_cols_unique)),
+                "errors": errors,
+                "storage_method": "s3" if "url" in artifact else "base64_fallback",
+                "is_error": False,
+            },
+            start,
+        ),
     }
 
 
 @mcp.tool
 def plot_correlation_matrix(
     instructions: Annotated[str, "Instructions for the tool, not used for logic"],
-    filename: Annotated[str, "CSV filename. Backend may rewrite to a downloadable URL."],
-    columns: Annotated[Optional[List[str]], "Specific columns to plot. If None, plots all numeric columns."] = None,
+    filename: Annotated[
+        str, "CSV filename. Backend may rewrite to a downloadable URL."
+    ],
+    columns: Annotated[
+        Optional[List[str]],
+        "Specific columns to plot. If None, plots all numeric columns.",
+    ] = None,
     username: Annotated[str, "Injected by backend. Trust this value."] = "",
-    file_data_base64: Annotated[str, "Framework may supply Base64 content as fallback."] = "",
+    file_data_base64: Annotated[
+        str, "Framework may supply Base64 content as fallback."
+    ] = "",
 ) -> Dict[str, Any]:
     """Generate an N by N correlation matrix plot for numeric columns in a CSV file.
-    
+
     Creates a heatmap showing linear correlations between specified columns or all numeric columns.
     """
     start = time.perf_counter()
     meta: Dict[str, Any] = {}
-    
+
     try:
         # Load and parse CSV
         raw = _load_csv_bytes(filename, file_data_base64)
@@ -486,7 +507,7 @@ def plot_correlation_matrix(
             meta.update({"is_error": True, "reason": "empty_csv"})
             return {
                 "results": {"error": "CSV is empty."},
-                "meta_data": _finalize_meta(meta, start)
+                "meta_data": _finalize_meta(meta, start),
             }
 
         # Select numeric columns
@@ -495,7 +516,7 @@ def plot_correlation_matrix(
             meta.update({"is_error": True, "reason": "no_numeric_columns"})
             return {
                 "results": {"error": "No numeric columns found in the CSV."},
-                "meta_data": _finalize_meta(meta, start)
+                "meta_data": _finalize_meta(meta, start),
             }
 
         # Filter to specified columns if provided
@@ -504,24 +525,33 @@ def plot_correlation_matrix(
             if not available_cols:
                 meta.update({"is_error": True, "reason": "no_matching_columns"})
                 return {
-                    "results": {"error": f"None of the specified columns {columns} are numeric or exist in the CSV."},
-                    "meta_data": _finalize_meta(meta, start)
+                    "results": {
+                        "error": f"None of the specified columns {columns} are numeric or exist in the CSV."
+                    },
+                    "meta_data": _finalize_meta(meta, start),
                 }
             numeric_df = numeric_df[available_cols]
 
         # Calculate correlation matrix
         corr_matrix = numeric_df.corr()
-        
+
         # Create the plot
         plt.figure(figsize=(10, 8))
-        sns.heatmap(corr_matrix, annot=True, cmap='coolwarm', center=0, 
-                   square=True, fmt='.2f', cbar_kws={'shrink': 0.8})
-        plt.title('Correlation Matrix')
+        sns.heatmap(
+            corr_matrix,
+            annot=True,
+            cmap="coolwarm",
+            center=0,
+            square=True,
+            fmt=".2f",
+            cbar_kws={"shrink": 0.8},
+        )
+        plt.title("Correlation Matrix")
         plt.tight_layout()
-        
+
         # Save plot to bytes
         img_buffer = io.BytesIO()
-        plt.savefig(img_buffer, format='png', dpi=300, bbox_inches='tight')
+        plt.savefig(img_buffer, format="png", dpi=300, bbox_inches="tight")
         img_buffer.seek(0)
         img_content = img_buffer.getvalue()
         plt.close()
@@ -531,7 +561,7 @@ def plot_correlation_matrix(
             content=img_content,
             filename="correlation_matrix.png",
             content_type="image/png",
-            username=username or "unknown"
+            username=username or "unknown",
         )
 
         meta.update({"is_error": False})
@@ -549,61 +579,67 @@ def plot_correlation_matrix(
                 "mode": "replace",
                 "viewer_hint": "image",
             },
-            "meta_data": _finalize_meta({
-                "generated_by": username,
-                "correlation_shape": corr_matrix.shape,
-                "columns_used": list(numeric_df.columns),
-                "storage_method": "s3" if "url" in artifact else "base64_fallback",
-                "is_error": False
-            }, start)
+            "meta_data": _finalize_meta(
+                {
+                    "generated_by": username,
+                    "correlation_shape": corr_matrix.shape,
+                    "columns_used": list(numeric_df.columns),
+                    "storage_method": "s3" if "url" in artifact else "base64_fallback",
+                    "is_error": False,
+                },
+                start,
+            ),
         }
     except FileNotFoundError as e:
         meta.update({"is_error": True, "reason": "file_not_found"})
-        return {
-            "results": {"error": str(e)},
-            "meta_data": _finalize_meta(meta, start)
-        }
+        return {"results": {"error": str(e)}, "meta_data": _finalize_meta(meta, start)}
     except pd.errors.EmptyDataError:
         meta.update({"is_error": True, "reason": "empty_data"})
         return {
             "results": {"error": "CSV file is empty or unreadable."},
-            "meta_data": _finalize_meta(meta, start)
+            "meta_data": _finalize_meta(meta, start),
         }
     except pd.errors.ParserError as e:
         meta.update({"is_error": True, "reason": "parsing_error"})
         return {
             "results": {"error": f"CSV parsing error: {e}"},
-            "meta_data": _finalize_meta(meta, start)
+            "meta_data": _finalize_meta(meta, start),
         }
     except requests.HTTPError as e:
         meta.update({"is_error": True, "reason": "http_error"})
         return {
             "results": {"error": f"Download failed: {e}"},
-            "meta_data": _finalize_meta(meta, start)
+            "meta_data": _finalize_meta(meta, start),
         }
     except Exception as e:
         meta.update({"is_error": True, "reason": type(e).__name__})
         return {
             "results": {"error": f"Unexpected error: {str(e)}"},
-            "meta_data": _finalize_meta(meta, start)
+            "meta_data": _finalize_meta(meta, start),
         }
 
 
 @mcp.tool
 def plot_time_series(
     instructions: Annotated[str, "Instructions for the tool, not used for logic"],
-    filename: Annotated[str, "CSV filename. Backend may rewrite to a downloadable URL."],
-    columns: Annotated[List[str], "Columns to plot as time series with index as x-axis."],
+    filename: Annotated[
+        str, "CSV filename. Backend may rewrite to a downloadable URL."
+    ],
+    columns: Annotated[
+        List[str], "Columns to plot as time series with index as x-axis."
+    ],
     username: Annotated[str, "Injected by backend. Trust this value."] = "",
-    file_data_base64: Annotated[str, "Framework may supply Base64 content as fallback."] = "",
+    file_data_base64: Annotated[
+        str, "Framework may supply Base64 content as fallback."
+    ] = "",
 ) -> Dict[str, Any]:
     """Generate connected scatter plots for specified columns with index as x-axis.
-    
+
     Creates a time series style plot where each specified column is plotted against the row index.
     """
     start = time.perf_counter()
     meta: Dict[str, Any] = {}
-    
+
     try:
         # Load and parse CSV
         raw = _load_csv_bytes(filename, file_data_base64)
@@ -612,7 +648,7 @@ def plot_time_series(
             meta.update({"is_error": True, "reason": "empty_csv"})
             return {
                 "results": {"error": "CSV is empty."},
-                "meta_data": _finalize_meta(meta, start)
+                "meta_data": _finalize_meta(meta, start),
             }
 
         # Handle cases where columns is None or empty
@@ -625,41 +661,51 @@ def plot_time_series(
                 meta.update({"is_error": True, "reason": "missing_columns"})
                 return {
                     "results": {"error": f"Columns not found in CSV: {missing_cols}"},
-                    "meta_data": _finalize_meta(meta, start)
+                    "meta_data": _finalize_meta(meta, start),
                 }
 
         # Select only the specified columns
         plot_df = df[columns]
-        
+
         # Check if columns are numeric (convert if possible)
         for col in columns:
             if not pd.api.types.is_numeric_dtype(plot_df[col]):
                 try:
-                    plot_df[col] = pd.to_numeric(plot_df[col], errors='coerce')
-                except:
+                    plot_df[col] = pd.to_numeric(plot_df[col], errors="coerce")
+                except Expection as e:
+                    print(e)
                     meta.update({"is_error": True, "reason": "conversion_error"})
                     return {
-                        "results": {"error": f"Column '{col}' cannot be converted to numeric values."},
-                        "meta_data": _finalize_meta(meta, start)
+                        "results": {
+                            "error": f"Column '{col}' cannot be converted to numeric values."
+                        },
+                        "meta_data": _finalize_meta(meta, start),
                     }
 
         # Create the plot
         plt.figure(figsize=(12, 8))
-        
+
         for col in columns:
-            plt.plot(plot_df.index, plot_df[col], marker='o', markersize=3, 
-                    linewidth=1.5, label=col, alpha=0.8)
-        
-        plt.xlabel('Index')
-        plt.ylabel('Values')
-        plt.title('Time Series Plot')
+            plt.plot(
+                plot_df.index,
+                plot_df[col],
+                marker="o",
+                markersize=3,
+                linewidth=1.5,
+                label=col,
+                alpha=0.8,
+            )
+
+        plt.xlabel("Index")
+        plt.ylabel("Values")
+        plt.title("Time Series Plot")
         plt.legend()
         plt.grid(True, alpha=0.3)
         plt.tight_layout()
-        
+
         # Save plot to bytes
         img_buffer = io.BytesIO()
-        plt.savefig(img_buffer, format='png', dpi=300, bbox_inches='tight')
+        plt.savefig(img_buffer, format="png", dpi=300, bbox_inches="tight")
         img_buffer.seek(0)
         img_content = img_buffer.getvalue()
         plt.close()
@@ -669,7 +715,7 @@ def plot_time_series(
             content=img_content,
             filename="time_series.png",
             content_type="image/png",
-            username=username or "unknown"
+            username=username or "unknown",
         )
 
         meta.update({"is_error": False})
@@ -687,43 +733,43 @@ def plot_time_series(
                 "mode": "replace",
                 "viewer_hint": "image",
             },
-            "meta_data": _finalize_meta({
-                "generated_by": username,
-                "data_points": len(plot_df),
-                "columns_plotted": columns,
-                "storage_method": "s3" if "url" in artifact else "base64_fallback",
-                "is_error": False
-            }, start)
+            "meta_data": _finalize_meta(
+                {
+                    "generated_by": username,
+                    "data_points": len(plot_df),
+                    "columns_plotted": columns,
+                    "storage_method": "s3" if "url" in artifact else "base64_fallback",
+                    "is_error": False,
+                },
+                start,
+            ),
         }
     except FileNotFoundError as e:
         meta.update({"is_error": True, "reason": "file_not_found"})
-        return {
-            "results": {"error": str(e)},
-            "meta_data": _finalize_meta(meta, start)
-        }
+        return {"results": {"error": str(e)}, "meta_data": _finalize_meta(meta, start)}
     except pd.errors.EmptyDataError:
         meta.update({"is_error": True, "reason": "empty_data"})
         return {
             "results": {"error": "CSV file is empty or unreadable."},
-            "meta_data": _finalize_meta(meta, start)
+            "meta_data": _finalize_meta(meta, start),
         }
     except pd.errors.ParserError as e:
         meta.update({"is_error": True, "reason": "parsing_error"})
         return {
             "results": {"error": f"CSV parsing error: {e}"},
-            "meta_data": _finalize_meta(meta, start)
+            "meta_data": _finalize_meta(meta, start),
         }
     except requests.HTTPError as e:
         meta.update({"is_error": True, "reason": "http_error"})
         return {
             "results": {"error": f"Download failed: {e}"},
-            "meta_data": _finalize_meta(meta, start)
+            "meta_data": _finalize_meta(meta, start),
         }
     except Exception as e:
         meta.update({"is_error": True, "reason": type(e).__name__})
         return {
             "results": {"error": f"Unexpected error: {str(e)}"},
-            "meta_data": _finalize_meta(meta, start)
+            "meta_data": _finalize_meta(meta, start),
         }
 
 

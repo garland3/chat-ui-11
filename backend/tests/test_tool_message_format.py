@@ -1,6 +1,5 @@
 """Test for tool message formatting fix."""
 
-import pytest
 from models.domain.messaging import Message, MessageRole
 
 
@@ -11,15 +10,12 @@ def test_tool_message_includes_tool_call_id_in_llm_format():
     message = Message(
         role=MessageRole.TOOL,
         content="Tool execution successful",
-        metadata={
-            "tool_name": "test_tool",
-            "tool_call_id": tool_call_id
-        }
+        metadata={"tool_name": "test_tool", "tool_call_id": tool_call_id},
     )
-    
+
     # Format for LLM
     llm_format = message.to_llm_format()
-    
+
     # Verify tool_call_id is included
     assert "tool_call_id" in llm_format
     assert llm_format["tool_call_id"] == tool_call_id
@@ -34,12 +30,12 @@ def test_non_tool_message_does_not_include_tool_call_id():
         content="Regular assistant message",
         metadata={
             "tool_call_id": "call_123456"  # This should be ignored
-        }
+        },
     )
-    
+
     # Format for LLM
     llm_format = message.to_llm_format()
-    
+
     # Verify tool_call_id is not included
     assert "tool_call_id" not in llm_format
     assert llm_format["role"] == "assistant"
@@ -49,14 +45,12 @@ def test_non_tool_message_does_not_include_tool_call_id():
 def test_tool_message_without_tool_call_id_metadata():
     """Test that tool messages without tool_call_id in metadata work normally."""
     message = Message(
-        role=MessageRole.TOOL,
-        content="Tool execution result",
-        metadata={}
+        role=MessageRole.TOOL, content="Tool execution result", metadata={}
     )
-    
+
     # Format for LLM
     llm_format = message.to_llm_format()
-    
+
     # Verify tool_call_id is not included when not in metadata
     assert "tool_call_id" not in llm_format
     assert llm_format["role"] == "tool"

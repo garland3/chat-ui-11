@@ -22,10 +22,12 @@ from fastmcp import FastMCP
 mcp = FastMCP("PDF_Analyzer")
 
 
-def _analyze_pdf_content(instructions: str, filename: str, file_data_base64: str) -> Dict[str, Any]:
+def _analyze_pdf_content(
+    instructions: str, filename: str, file_data_base64: str
+) -> Dict[str, Any]:
     """
     Core PDF analysis logic that can be reused by multiple tools.
-    
+
     Args:
         instructions: Instructions for the tool, not used in this implementation.
         filename: The name of the file, which must have a '.pdf' extension.
@@ -38,8 +40,12 @@ def _analyze_pdf_content(instructions: str, filename: str, file_data_base64: str
         # print the instructions.
         print(f"Instructions: {instructions}")
         # 1. Validate that the filename is for a PDF
-        if not filename.lower().endswith('.pdf'):
-            return {"results": {"error": "Invalid file type. This tool only accepts PDF files."}}
+        if not filename.lower().endswith(".pdf"):
+            return {
+                "results": {
+                    "error": "Invalid file type. This tool only accepts PDF files."
+                }
+            }
 
         # 2. Decode the Base64 data and read the PDF content
         decoded_bytes = base64.b64decode(file_data_base64)
@@ -60,13 +66,13 @@ def _analyze_pdf_content(instructions: str, filename: str, file_data_base64: str
                     "status": "Success",
                     "message": "PDF contained no extractable text.",
                     "total_word_count": 0,
-                    "top_100_words": {}
+                    "top_100_words": {},
                 }
             }
 
         # 3. Process the text to get a word list and count
         # This regex finds all word-like sequences, ignoring case
-        words = re.findall(r'\b\w+\b', full_text.lower())
+        words = re.findall(r"\b\w+\b", full_text.lower())
         total_word_count = len(words)
 
         # 4. Count word frequencies and get the top 100
@@ -80,13 +86,14 @@ def _analyze_pdf_content(instructions: str, filename: str, file_data_base64: str
                 "operation": "pdf_analysis",
                 "filename": filename,
                 "total_word_count": total_word_count,
-                "top_100_words": top_100_words_dict
+                "top_100_words": top_100_words_dict,
             }
         }
 
     except Exception as e:
         # print traceback for debugging
         import traceback
+
         traceback.print_exc()
         # 6. Return an error message if something goes wrong
         return {"results": {"error": f"PDF analysis failed: {str(e)}"}}
@@ -94,15 +101,22 @@ def _analyze_pdf_content(instructions: str, filename: str, file_data_base64: str
 
 @mcp.tool
 def analyze_pdf(
-    instructions: Annotated[str, "Instructions for the tool, not used in this implementation"],
-    filename: Annotated[str, "The name of the file, which must have a '.pdf' extension"],
-    file_data_base64: Annotated[str, "LLM agent can leave blank. Do NOT fill. This will be filled by the framework."] = ""
+    instructions: Annotated[
+        str, "Instructions for the tool, not used in this implementation"
+    ],
+    filename: Annotated[
+        str, "The name of the file, which must have a '.pdf' extension"
+    ],
+    file_data_base64: Annotated[
+        str,
+        "LLM agent can leave blank. Do NOT fill. This will be filled by the framework.",
+    ] = "",
 ) -> Dict[str, Any]:
     """
     Extract and analyze text content from PDF documents with comprehensive word frequency analysis.
 
     This powerful PDF processing tool provides detailed text analytics for PDF documents:
-    
+
     **PDF Text Extraction:**
     - Extracts text from all pages in PDF documents
     - Handles various PDF formats and structures
@@ -168,15 +182,22 @@ def analyze_pdf(
 
 @mcp.tool
 def generate_report_about_pdf(
-    instructions: Annotated[str, "Instructions for the tool, not used in this implementation"],
-    filename: Annotated[str, "The name of the file, which must have a '.pdf' extension"],
-    file_data_base64: Annotated[str, "LLM agent can leave blank. Do NOT fill. This will be filled by the framework."] = ""
+    instructions: Annotated[
+        str, "Instructions for the tool, not used in this implementation"
+    ],
+    filename: Annotated[
+        str, "The name of the file, which must have a '.pdf' extension"
+    ],
+    file_data_base64: Annotated[
+        str,
+        "LLM agent can leave blank. Do NOT fill. This will be filled by the framework.",
+    ] = "",
 ) -> Dict[str, Any]:
     """
     Create comprehensive PDF analysis reports with professional formatting and detailed word frequency insights.
 
     This advanced PDF reporting tool combines text analysis with professional document generation:
-    
+
     **Complete PDF Analysis Workflow:**
     - Performs full text extraction and word frequency analysis
     - Generates professional analysis reports in PDF format
@@ -240,7 +261,7 @@ def generate_report_about_pdf(
     # --- 1. Perform the same analysis as the first function ---
     analysis_result = _analyze_pdf_content(instructions, filename, file_data_base64)
     if "error" in analysis_result:
-        return analysis_result # Return the error if analysis failed
+        return analysis_result  # Return the error if analysis failed
 
     # --- 2. Generate a PDF report from the analysis results ---
     try:
@@ -270,35 +291,43 @@ def generate_report_about_pdf(
 
         # Write the list of top words
         p.setFont("Helvetica", 10)
-        col1_x, col2_x, col3_x, col4_x = x, x + 1.75*inch, x + 3.5*inch, x + 5.25*inch
+        col1_x, col2_x, col3_x, col4_x = (
+            x,
+            x + 1.75 * inch,
+            x + 3.5 * inch,
+            x + 5.25 * inch,
+        )
         current_x = col1_x
-        
+
         # Simple column layout
         count = 0
-        for word, freq in analysis_result['top_100_words'].items():
-            if y < inch: # New page if we run out of space
+        for word, freq in analysis_result["top_100_words"].items():
+            if y < inch:  # New page if we run out of space
                 p.showPage()
                 p.setFont("Helvetica", 10)
                 y = height - inch
 
             p.drawString(current_x, y, f"{word}: {freq}")
-            
+
             # Move to the next column
-            if count % 4 == 0: current_x = col2_x
-            elif count % 4 == 1: current_x = col3_x
-            elif count % 4 == 2: current_x = col4_x
-            else: # Move to the next row
+            if count % 4 == 0:
+                current_x = col2_x
+            elif count % 4 == 1:
+                current_x = col3_x
+            elif count % 4 == 2:
+                current_x = col4_x
+            else:  # Move to the next row
                 current_x = col1_x
                 y -= 0.2 * inch
             count += 1
-            
+
         # Finalize the PDF
         p.save()
-        
+
         # --- 3. Encode the generated PDF for return ---
         report_bytes = buffer.getvalue()
         buffer.close()
-        report_base64 = base64.b64encode(report_bytes).decode('utf-8')
+        report_base64 = base64.b64encode(report_bytes).decode("utf-8")
 
         # Create a new filename for the report
         report_filename = f"analysis_report_{filename.replace('.pdf', '.txt')}.pdf"
@@ -308,7 +337,7 @@ def generate_report_about_pdf(
             "results": {
                 "operation": "pdf_analysis_report",
                 "original_filename": filename,
-                "message": f"Successfully generated analysis report for {filename}."
+                "message": f"Successfully generated analysis report for {filename}.",
             },
             "artifacts": [
                 {
@@ -317,26 +346,27 @@ def generate_report_about_pdf(
                     "mime": "application/pdf",
                     "size": len(report_bytes),
                     "description": f"Analysis report for {filename} with word frequency data",
-                    "viewer": "pdf"
+                    "viewer": "pdf",
                 }
             ],
             "display": {
                 "open_canvas": True,
                 "primary_file": report_filename,
                 "mode": "replace",
-                "viewer_hint": "pdf"
+                "viewer_hint": "pdf",
             },
             "meta_data": {
                 "original_file": filename,
                 "word_count": analysis_result["results"]["total_word_count"],
                 "report_type": "pdf_analysis",
-                "top_words_count": len(analysis_result["results"]["top_100_words"])
-            }
+                "top_words_count": len(analysis_result["results"]["top_100_words"]),
+            },
         }
 
     except Exception as e:
         # print traceback for debugging
         import traceback
+
         traceback.print_exc()
         return {"results": {"error": f"Failed to generate PDF report: {str(e)}"}}
 

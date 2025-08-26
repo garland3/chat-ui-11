@@ -82,11 +82,16 @@ case $TEST_TYPE in
         echo "Running E2E Tests Only"
         run_test "e2e"
         ;;
+    "ruff")
+        echo "Running Ruff Formatter Tests Only"
+        run_test "ruff"
+        ;;
     "all")
         echo "Running All Test Suites"
         run_test "backend"
         run_test "frontend"
         run_test "e2e"
+        run_test "ruff"
         ;;
     *)
         echo "ERROR: Unknown test type: $TEST_TYPE"

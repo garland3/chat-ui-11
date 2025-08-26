@@ -11,11 +11,9 @@ from uuid import uuid4
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-from dotenv import load_dotenv
 
 from managers.app_factory.app_factory import app_factory
-from routes.config_route import config_router # Import the config router
-
+from routes.config_route import config_router  # Import the config router
 
 
 # Setup basic logging
@@ -28,7 +26,9 @@ async def websocket_update_callback(websocket: WebSocket, message: dict):
     Simple callback function to handle websocket updates.
     """
     try:
-        logger.info(f"Sending websocket update: {message.get('type', 'unknown')} - {len(message.get('content', ''))} chars")
+        logger.info(
+            f"Sending websocket update: {message.get('type', 'unknown')} - {len(message.get('content', ''))} chars"
+        )
         await websocket.send_json(message)
         logger.info("Websocket message sent successfully")
     except Exception as e:
@@ -39,7 +39,7 @@ async def websocket_update_callback(websocket: WebSocket, message: dict):
 async def lifespan(app: FastAPI):
     """Application lifespan manager."""
     logger.info("Starting Chat UI Backend (Phase 1A - LLM only)")
-    await app_factory.initialize_managers() # Initialize all managers
+    await app_factory.initialize_managers()  # Initialize all managers
     yield
     logger.info("Shutting down Chat UI Backend")
 
@@ -47,7 +47,7 @@ async def lifespan(app: FastAPI):
 # Create FastAPI app
 app = FastAPI(
     title="Chat UI Backend",
-    description="Basic chat backend with LLM-only functionality", 
+    description="Basic chat backend with LLM-only functionality",
     version="2.0.0-phase1a",
     lifespan=lifespan,
 )
@@ -93,19 +93,19 @@ async def websocket_endpoint(websocket: WebSocket):
     """
     await websocket.accept()
     session_id = uuid4()
-    
+
     logger.info(f"WebSocket connection established for session {session_id}")
-    
+
     try:
         while True:
             data = await websocket.receive_json()
             message_type = data.get("type")
-            
+
             if message_type == "chat":
                 # Phase 1A: Handle chat message using service coordinator
                 try:
                     service_coordinator = await app_factory.get_service_coordinator()
-                    
+
                     # Extract all parameters from the frontend message (same structure as old backend)
                     response = await service_coordinator.handle_chat_message(
                         session_id=session_id,
@@ -120,43 +120,45 @@ async def websocket_endpoint(websocket: WebSocket):
                         agent_mode=data.get("agent_mode", False),
                         agent_max_steps=data.get("agent_max_steps", 10),
                         temperature=data.get("temperature", 0.7),
-                        update_callback=lambda message: websocket_update_callback(websocket, message),
-                        files=data.get("files")
+                        update_callback=lambda message: websocket_update_callback(
+                            websocket, message
+                        ),
+                        files=data.get("files"),
                     )
                     # Final response is sent via callback, but we keep this for compatibility
                 except Exception as e:
                     logger.error(f"Error in chat handler: {e}", exc_info=True)
-                    await websocket.send_json({
-                        "type": "error",
-                        "message": "An unexpected error occurred"
-                    })
-                
+                    await websocket.send_json(
+                        {"type": "error", "message": "An unexpected error occurred"}
+                    )
+
             elif message_type == "download_file":
                 # Handle file download
                 service_coordinator = await app_factory.get_service_coordinator()
                 response = await service_coordinator.handle_download_file(
                     session_id=session_id,
                     filename=data.get("filename", ""),
-                    user_email=data.get("user")
+                    user_email=data.get("user"),
                 )
                 await websocket.send_json(response)
-            
+
             elif message_type == "reset_session":
                 # Handle session reset
                 service_coordinator = await app_factory.get_service_coordinator()
                 response = await service_coordinator.handle_reset_session(
-                    session_id=session_id,
-                    user_email=data.get("user")
+                    session_id=session_id, user_email=data.get("user")
                 )
                 await websocket.send_json(response)
-                
+
             else:
                 logger.warning(f"Unknown message type: {message_type}")
-                await websocket.send_json({
-                    "type": "error",
-                    "message": f"Unknown message type: {message_type}"
-                })
-                
+                await websocket.send_json(
+                    {
+                        "type": "error",
+                        "message": f"Unknown message type: {message_type}",
+                    }
+                )
+
     except WebSocketDisconnect:
         service_coordinator = await app_factory.get_service_coordinator()
         service_coordinator.end_session(session_id)
@@ -165,4 +167,5 @@ async def websocket_endpoint(websocket: WebSocket):
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(app, host="0.0.0.0", port=8000)

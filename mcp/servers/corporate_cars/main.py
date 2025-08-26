@@ -277,14 +277,17 @@ def rag_discover_resources(username: str) -> Dict[str, Any]:
         default_sid = _user_default_resource(username)
         resources_ui: List[Dict[str, Any]] = []
         for rid, info in RESOURCES.items():
-            resources_ui.append({
-                "id": rid,
-                "name": info.get("name") or rid,
-                # New contract: authRequired is always true, include per-resource groups
-                "authRequired": True,
-                "groups": list(info.get("groups", [])),
-                "defaultSelected": (rid == default_sid) or bool(info.get("defaultSelected", False)),
-            })
+            resources_ui.append(
+                {
+                    "id": rid,
+                    "name": info.get("name") or rid,
+                    # New contract: authRequired is always true, include per-resource groups
+                    "authRequired": True,
+                    "groups": list(info.get("groups", [])),
+                    "defaultSelected": (rid == default_sid)
+                    or bool(info.get("defaultSelected", False)),
+                }
+            )
         return {
             "results": {"resources": resources_ui},
             "meta_data": _done_meta(meta, start),
@@ -317,8 +320,14 @@ def rag_get_raw_results(
         cars = _filter_cars_by_sources(sources)
 
         # Apply simple filters
-        dept = (filters.get("department") or "").lower() if isinstance(filters, dict) else ""
-        status = (filters.get("status") or "").lower() if isinstance(filters, dict) else ""
+        dept = (
+            (filters.get("department") or "").lower()
+            if isinstance(filters, dict)
+            else ""
+        )
+        status = (
+            (filters.get("status") or "").lower() if isinstance(filters, dict) else ""
+        )
         if dept:
             cars = [c for c in cars if c.department.lower() == dept]
         if status:
@@ -378,9 +387,11 @@ def rag_get_synthesized_results(
             query=query,
             sources=sources,
             top_k=(top_k or 5),
-            filters=(synthesis_params or {}).get("filters") if synthesis_params else None,
+            filters=(synthesis_params or {}).get("filters")
+            if synthesis_params
+            else None,
         )
-        hits = ((raw.get("results") or {}).get("hits") or [])
+        hits = (raw.get("results") or {}).get("hits") or []
         if not hits:
             return {
                 "results": {"answer": "No matching vehicles found.", "citations": []},
@@ -391,20 +402,22 @@ def rag_get_synthesized_results(
         lines: List[str] = []
         cits: List[Dict[str, Any]] = []
         for h in hits:
-            car = (h.get("car") or {})
-            loc = (h.get("location") or {})
+            car = h.get("car") or {}
+            loc = h.get("location") or {}
             who = car.get("assigned_to") or "POOL"
             city = loc.get("city") or "(unknown)"
             vin = car.get("vin")
             line = f"{who}'s {car.get('year')} {car.get('make')} {car.get('model')} is in {city}."
             lines.append(line)
-            cits.append({
-                "resourceId": h.get("resourceId"),
-                "snippet": h.get("snippet"),
-                "car": car,
-                "location": loc,
-                "vin": vin,
-            })
+            cits.append(
+                {
+                    "resourceId": h.get("resourceId"),
+                    "snippet": h.get("snippet"),
+                    "car": car,
+                    "location": loc,
+                    "vin": vin,
+                }
+            )
 
         answer = "\n".join(lines[: (top_k or 3)])
         return {

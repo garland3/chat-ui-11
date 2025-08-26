@@ -28,19 +28,19 @@ def get_page_content(url: str) -> str:
     """
     try:
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate',
-            'Referer': 'https://www.google.com/',
-            'Connection': 'keep-alive',
-            'Upgrade-Insecure-Requests': '1',
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.5",
+            "Accept-Encoding": "gzip, deflate",
+            "Referer": "https://www.google.com/",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
         }
-        
+
         response = requests.get(url, headers=headers, timeout=15, allow_redirects=True)
         response.raise_for_status()  # Raise an exception for bad status codes (4xx or 5xx)
 
-        soup = BeautifulSoup(response.text, 'html.parser')
+        soup = BeautifulSoup(response.text, "html.parser")
 
         # Remove script and style elements
         for script_or_style in soup(["script", "style"]):
@@ -50,7 +50,7 @@ def get_page_content(url: str) -> str:
         text = soup.get_text()
         lines = (line.strip() for line in text.splitlines())
         chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
-        cleaned_text = '\n'.join(chunk for chunk in chunks if chunk)
+        cleaned_text = "\n".join(chunk for chunk in chunks if chunk)
 
         return cleaned_text
 
@@ -128,25 +128,25 @@ def search_and_fetch(query: str, max_results: Union[str, int] = 3) -> Dict[str, 
 
         # Try each result until we successfully fetch content
         errors_encountered = []
-        
+
         for i, result in enumerate(results):
-            result_title = result.get('title')
-            result_url = result.get('href')
+            result_title = result.get("title")
+            result_url = result.get("href")
 
             if not result_url:
-                errors_encountered.append(f"Result {i+1}: No URL found")
+                errors_encountered.append(f"Result {i + 1}: No URL found")
                 continue
 
             print(f"[DEBUG] Attempting to fetch content from: {result_url}")
-            
+
             # Fetch and parse the content of the page
             content = get_page_content(result_url)
 
             if content.startswith("Error"):
-                errors_encountered.append(f"Result {i+1} ({result_title}): {content}")
+                errors_encountered.append(f"Result {i + 1} ({result_title}): {content}")
                 print(f"[DEBUG] Failed to fetch {result_url}: {content}")
                 continue
-            
+
             # Success! Return the content
             print(f"[DEBUG] Successfully fetched content from {result_url}")
             return {
@@ -157,7 +157,7 @@ def search_and_fetch(query: str, max_results: Union[str, int] = 3) -> Dict[str, 
                     "result_url": result_url,
                     "content": content,
                     "attempt": i + 1,
-                    "total_results": len(results)
+                    "total_results": len(results),
                 }
             }
 
@@ -168,7 +168,7 @@ def search_and_fetch(query: str, max_results: Union[str, int] = 3) -> Dict[str, 
                 "query": query,
                 "error": f"Failed to fetch content from all {len(results)} search results",
                 "errors": errors_encountered,
-                "total_results": len(results)
+                "total_results": len(results),
             }
         }
 

@@ -6,8 +6,6 @@ Provides a thinking tool that processes thoughts and breaks down problems step b
 
 import logging
 from typing import List, Dict, Any
-import sys
-from pathlib import Path
 
 # MCPs may run with CWD at their own tool folder; add parent (backend/mcp) for local imports
 # sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -27,7 +25,7 @@ def thinking(list_of_thoughts: List[str]) -> Dict[str, Any]:
     Structured thinking and ideation tool for organizing thoughts, brainstorming, and problem-solving analysis.
 
     This cognitive assistance tool helps organize and process complex thinking patterns:
-    
+
     **Thought Organization:**
     - Structured collection and validation of multiple ideas
     - Thought counting and enumeration for analysis
