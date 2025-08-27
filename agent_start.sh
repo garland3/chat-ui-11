@@ -7,11 +7,13 @@ ONLY_BACKEND=false
 # Iterate through all arguments to support both short and long options
 for arg in "$@"; do
   case $arg in
-    -f|--frontend)
+    -f|--frontend|frontend)
       ONLY_FRONTEND=true
+      echo "ONLY FRONTEND FLAG SET"
       ;;
-    -b|--backend)
+    -b|--backend|backend)
       ONLY_BACKEND=true
+      echo "ONLY BACKEND FLAG SET"
       ;;
   esac
 done

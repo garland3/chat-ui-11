@@ -5,8 +5,8 @@ Pydantic models used by admin endpoints.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List
-from pydantic import BaseModel
+from typing import Any, Dict, List, Union
+from pydantic import BaseModel, field_validator
 
 
 class AdminConfigUpdate(BaseModel):
@@ -46,11 +46,17 @@ class LogEntry(BaseModel):
     logger: str
     function: str
     message: str
-    trace_id: str
-    span_id: str
-    line: str
-    thread_name: str
-    extras: Dict[str, Any]
+    trace_id: str = ""
+    span_id: str = ""
+    line: str = ""
+    thread_name: str = ""
+    extras: Dict[str, Any] = {}
+    
+    @field_validator('line', mode='before')
+    @classmethod
+    def convert_line_to_str(cls, v):
+        """Convert line number to string if it's an integer."""
+        return str(v) if v is not None else ""
 
 
 class EnhancedLogsResponse(BaseModel):
