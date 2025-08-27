@@ -81,6 +81,36 @@ class AppSettings(BaseSettings):
     s3_region: str = ""
     s3_path_style: bool = False
     admin_group: str = "admin_group"
+    test_user: str = "test@test.com"
+    
+    # Rate limiting settings
+    rate_limit_rpm: int = Field(default=600, validation_alias="RATE_LIMIT_RPM")
+    rate_limit_window_seconds: int = Field(default=60, validation_alias="RATE_LIMIT_WINDOW_SECONDS")
+    rate_limit_per_path: bool = Field(default=False, validation_alias="RATE_LIMIT_PER_PATH")
+    
+    # Security headers settings
+    security_csp_enabled: bool = Field(default=True, validation_alias="SECURITY_CSP_ENABLED")
+    security_csp_value: str = Field(
+        default="default-src 'self'; img-src 'self' data:; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; frame-ancestors 'self'",
+        validation_alias="SECURITY_CSP_VALUE",
+    )
+    security_xfo_enabled: bool = Field(default=True, validation_alias="SECURITY_XFO_ENABLED")
+    security_xfo_value: str = Field(default="SAMEORIGIN", validation_alias="SECURITY_XFO_VALUE")
+    security_nosniff_enabled: bool = Field(default=True, validation_alias="SECURITY_NOSNIFF_ENABLED")
+    security_referrer_policy_enabled: bool = Field(default=True, validation_alias="SECURITY_REFERRER_POLICY_ENABLED")
+    security_referrer_policy_value: str = Field(default="no-referrer", validation_alias="SECURITY_REFERRER_POLICY_VALUE")
+
+    # WebSocket security settings
+    # Enable to enforce an Origin allowlist on WS handshakes. Useful in production to mitigate CSWSH.
+    security_ws_origin_check_enabled: bool = Field(
+        default=False, validation_alias="SECURITY_WS_ORIGIN_CHECK_ENABLED"
+    )
+    # Allowed Origins for WS connections when origin check is enabled. Provide as JSON array in env
+    # (e.g., '["https://your.app"]') or via settings file. In development you can leave this empty and
+    # keep the check disabled.
+    security_ws_allowed_origins: List[str] = Field(
+        default_factory=list, validation_alias="SECURITY_WS_ALLOWED_ORIGINS"
+    )
 
     model_config = {
         "env_file": "../.env",

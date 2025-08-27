@@ -3,7 +3,6 @@ Basic chat backend implementing the refactored architecture.
 Phase 1A: LLM-only chat functionality.
 """
 
-import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 from uuid import uuid4
@@ -16,6 +15,7 @@ from managers.logging import LoggingManager
 from managers.app_factory.app_factory import app_factory
 from routes.config_route import config_router  # Import the config router
 from routes.admin_routes import admin_router  # Admin routes
+from middleware import AuthMiddleware, RateLimitMiddleware, SecurityHeadersMiddleware
 
 # Setup centralized logging
 logging_manager = LoggingManager("chat-ui-backend", "1.0.0")
@@ -58,6 +58,12 @@ app = FastAPI(
 logging_manager.instrument_fastapi(app)
 logging_manager.instrument_httpx()
 
+# Add middleware (order matters - last added is executed first)
+debug_mode = app_factory.get_config_manager().app_settings.debug_mode
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RateLimitMiddleware)
+app.add_middleware(AuthMiddleware, debug_mode=debug_mode)
+
 # Include routes
 app.include_router(config_router)
 app.include_router(admin_router)
@@ -97,11 +103,22 @@ if static_dir.exists():
 async def websocket_endpoint(websocket: WebSocket):
     """
     Main chat WebSocket endpoint - Phase 1A: LLM-only chat.
+    Security checks applied per audit recommendations.
     """
+    from middleware.security_validator import validate_websocket_security
+    
+    # SECURITY: Validate connection before accepting (per audit)
+    is_valid, user_email, error_message = await validate_websocket_security(websocket, "/ws")
+    
+    if not is_valid:
+        logger.warning(f"WebSocket connection rejected: {error_message}")
+        await websocket.close(code=4003, reason=error_message)
+        return
+    
     await websocket.accept()
     session_id = uuid4()
 
-    logger.info(f"WebSocket connection established for session {session_id}")
+    logger.info(f"WebSocket connection established for session {session_id}, user: {user_email}")
 
     try:
         while True:
@@ -122,7 +139,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         selected_data_sources=data.get("selected_data_sources"),
                         only_rag=data.get("only_rag", False),
                         tool_choice_required=data.get("tool_choice_required", False),
-                        user_email=data.get("user"),
+                        user_email=user_email,
                         agent_mode=data.get("agent_mode", False),
                         agent_max_steps=data.get("agent_max_steps", 10),
                         temperature=data.get("temperature", 0.7),

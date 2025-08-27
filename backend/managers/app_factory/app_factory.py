@@ -1,6 +1,5 @@
 """Application factory for dependency injection and wiring - Phase 1A."""
 
-import logging
 from ..config.config_manager import config_manager
 from ..logging import LoggingManager
 from ..llm.llm_manager import LLMManager

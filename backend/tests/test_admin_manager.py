@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from fastapi import HTTPException
 
-from managers.admin.admin_manager import AdminManager, get_admin_group_name
+from managers.admin.admin_manager import AdminManager
 
 
 @pytest.mark.asyncio

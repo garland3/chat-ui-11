@@ -22,6 +22,8 @@ try:
     os.environ.setdefault("LITELLM_LOG", "INFO")
 except ImportError:
     LITELLM_AVAILABLE = False
+    # Provide a placeholder so tests can patch managers.llm.llm_manager.acompletion
+    acompletion = None  # type: ignore
     logger.warning("LiteLLM not available, using mock responses")
 
 
