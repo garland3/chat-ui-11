@@ -81,7 +81,7 @@ class TestToolCallerAuthorization:
             # Test user only has test_group, NOT admin_group
             return group == "test_group"
 
-        result = tool_caller.get_authorized_tools_for_user(
+        tool_caller.get_authorized_tools_for_user(
             username="test_user",
             selected_tool_map={
                 "server1": ["admin_tool"],

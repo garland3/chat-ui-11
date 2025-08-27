@@ -6,6 +6,7 @@ import json
 import logging
 from pathlib import Path
 from typing import List, Optional
+from dotenv import load_dotenv
 import yaml
 
 from managers.config.config_models import (
@@ -27,6 +28,11 @@ class ConfigManager:
         self._app_settings: Optional[AppSettings] = None
         self._llm_config: Optional[LLMConfig] = None
         self._mcp_config: Optional[MCPConfig] = None
+
+        # Load environment variables from .env file
+        dotenv_path = self._backend_root.parent / ".env"
+        load_dotenv(dotenv_path=dotenv_path)
+        logger.info(f"Loading .env from {dotenv_path.resolve()}")
 
     def _search_paths(self, file_name: str) -> List[Path]:
         """Generate common search paths for a configuration file."""

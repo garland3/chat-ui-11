@@ -2,6 +2,7 @@
 
 import logging
 from ..config.config_manager import config_manager
+from ..logging import LoggingManager
 from ..llm.llm_manager import LLMManager
 from ..session.session_manager import SessionManager
 from ..service_coordinator.service_coordinator import ServiceCoordinator
@@ -9,7 +10,7 @@ from managers.mcp.mcp_manager import MCPManager
 from managers.tools.tool_caller import ToolCaller
 from managers.agent.tool_call_orchestrator import ToolCallOrchestrator
 
-logger = logging.getLogger(__name__)
+logger = LoggingManager.get_logger(__name__)
 
 
 class AppFactory:

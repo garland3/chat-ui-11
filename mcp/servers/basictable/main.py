@@ -130,9 +130,6 @@ def analyze_spreadsheet(
         img_buffer.close()
 
         # Create file list for multiple file support
-        returned_files = [
-            {"filename": "analysis_plot.png", "content_base64": img_base64}
-        ]
         returned_file_names = ["analysis_plot.png"]
         returned_file_contents = [img_base64]
 

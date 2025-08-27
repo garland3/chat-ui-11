@@ -1,5 +1,8 @@
 """Pydantic models for configuration - Phase 1A."""
 
+# Import MCP models from common location
+from common.models.mcp_models import MCPServerConfigModel, MCPConfig
+
 from typing import Dict, Optional, List
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
@@ -85,10 +88,6 @@ class AppSettings(BaseSettings):
         "extra": "allow",
         "env_prefix": "",
     }
-
-
-# Import MCP models from common location
-from common.models.mcp_models import MCPServerConfigModel, MCPConfig
 
 # Export for use in other modules
 __all__ = [

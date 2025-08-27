@@ -12,14 +12,15 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
+from managers.logging import LoggingManager
 from managers.app_factory.app_factory import app_factory
 from routes.config_route import config_router  # Import the config router
 from routes.admin_routes import admin_router  # Admin routes
 
+# Setup centralized logging
+logging_manager = LoggingManager("chat-ui-backend", "1.0.0")
 
-# Setup basic logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+logger = LoggingManager.get_logger(__name__)
 
 
 async def websocket_update_callback(websocket: WebSocket, message: dict):
@@ -52,6 +53,10 @@ app = FastAPI(
     version="2.0.0-phase1a",
     lifespan=lifespan,
 )
+
+# Instrument FastAPI for OpenTelemetry
+logging_manager.instrument_fastapi(app)
+logging_manager.instrument_httpx()
 
 # Include routes
 app.include_router(config_router)
