@@ -11,17 +11,20 @@ from pydantic import BaseModel, field_validator
 
 class AdminConfigUpdate(BaseModel):
     """Model for updating configuration files."""
+
     content: str
     file_type: str  # 'json', 'yaml', 'text'
 
 
 class BannerMessageUpdate(BaseModel):
     """Model for updating banner messages."""
+
     messages: List[str]
 
 
 class ConfigViewResponse(BaseModel):
     """Response model for viewing all configurations."""
+
     app_settings: Dict[str, Any]
     llm_config: Dict[str, Any]
     mcp_config: Dict[str, Any]
@@ -30,6 +33,7 @@ class ConfigViewResponse(BaseModel):
 
 class LogMetadata(BaseModel):
     """Metadata for log viewer response."""
+
     total_entries: int
     unique_modules: List[str]
     unique_levels: List[str]
@@ -40,6 +44,7 @@ class LogMetadata(BaseModel):
 
 class LogEntry(BaseModel):
     """Individual log entry structure."""
+
     timestamp: str
     level: str
     module: str
@@ -51,8 +56,8 @@ class LogEntry(BaseModel):
     line: str = ""
     thread_name: str = ""
     extras: Dict[str, Any] = {}
-    
-    @field_validator('line', mode='before')
+
+    @field_validator("line", mode="before")
     @classmethod
     def convert_line_to_str(cls, v):
         """Convert line number to string if it's an integer."""
@@ -61,12 +66,14 @@ class LogEntry(BaseModel):
 
 class EnhancedLogsResponse(BaseModel):
     """Response model for enhanced log viewer."""
+
     entries: List[LogEntry]
     metadata: LogMetadata
 
 
 class McpReloadResponse(BaseModel):
     """Response model for MCP server reload."""
+
     message: str
     servers: List[str]
     tool_counts: Dict[str, int]

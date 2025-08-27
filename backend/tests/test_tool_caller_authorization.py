@@ -44,7 +44,7 @@ class TestToolCallerAuthorization:
             # User has no groups - should be blocked from all restricted servers
             return False
 
-        result = tool_caller.get_authorized_tools_for_user(
+        tool_caller.get_authorized_tools_for_user(
             username="unauthorized_user",
             selected_tool_map={"serverX": ["any_tool"]},
             is_user_in_group=unauthorized_user_check,
@@ -62,7 +62,7 @@ class TestToolCallerAuthorization:
             # Admin user has admin_group access
             return group == "admin_group"
 
-        result = tool_caller.get_authorized_tools_for_user(
+        tool_caller.get_authorized_tools_for_user(
             username="admin_user",
             selected_tool_map={"server1": ["admin_tool"]},
             is_user_in_group=admin_user_check,

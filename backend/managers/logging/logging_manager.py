@@ -23,6 +23,7 @@ try:
     from opentelemetry.instrumentation.logging import LoggingInstrumentor
     from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
     from opentelemetry.instrumentation.httpx import HTTPXClientInstrumentor
+
     OTEL_AVAILABLE = True
 except ImportError:
     OTEL_AVAILABLE = False
@@ -33,7 +34,7 @@ class JSONFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:  # noqa: D401
         trace_id = span_id = None
-        
+
         if OTEL_AVAILABLE:
             span = trace.get_current_span()
             if span and span.is_recording():
@@ -43,7 +44,9 @@ class JSONFormatter(logging.Formatter):
                     span_id = f"{sc.span_id:016x}"
 
         entry: Dict[str, Any] = {
-            "timestamp": datetime.fromtimestamp(record.created, tz=timezone.utc).isoformat(),
+            "timestamp": datetime.fromtimestamp(
+                record.created, tz=timezone.utc
+            ).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
@@ -63,9 +66,27 @@ class JSONFormatter(logging.Formatter):
 
         # Add extra fields from log record
         excluded = {
-            "name","msg","args","levelname","levelno","pathname","filename","module","lineno",
-            "funcName","created","msecs","relativeCreated","thread","threadName","processName","process",
-            "exc_info","exc_text","stack_info","getMessage"
+            "name",
+            "msg",
+            "args",
+            "levelname",
+            "levelno",
+            "pathname",
+            "filename",
+            "module",
+            "lineno",
+            "funcName",
+            "created",
+            "msecs",
+            "relativeCreated",
+            "thread",
+            "threadName",
+            "processName",
+            "process",
+            "exc_info",
+            "exc_text",
+            "stack_info",
+            "getMessage",
         }
         for k, v in record.__dict__.items():
             if k not in excluded:
@@ -77,9 +98,7 @@ class LoggingManager:
     """Manages centralized structured logging for the application."""
 
     def __init__(
-        self, 
-        service_name: str = "chat-ui-backend", 
-        service_version: str = "1.0.0"
+        self, service_name: str = "chat-ui-backend", service_version: str = "1.0.0"
     ) -> None:
         self.service_name = service_name
         self.service_version = service_version
@@ -88,23 +107,25 @@ class LoggingManager:
         self.logs_dir = self._get_logs_dir()
         self.log_file = self.logs_dir / "app.jsonl"
         self.logs_dir.mkdir(parents=True, exist_ok=True)
-        
+
         if OTEL_AVAILABLE:
             self._setup_telemetry()
         self._setup_logging()
 
     def _is_development(self) -> bool:
         """Check if running in development mode."""
-        return (
-            os.getenv("DEBUG_MODE", "false").lower() == "true"
-            or os.getenv("ENVIRONMENT", "production").lower() in {"dev", "development"}
-        )
+        return os.getenv("DEBUG_MODE", "false").lower() == "true" or os.getenv(
+            "ENVIRONMENT", "production"
+        ).lower() in {"dev", "development"}
 
     def _get_log_level(self) -> int:
         """Get log level from config or environment."""
         try:
             from managers.config.config_manager import config_manager  # type: ignore
-            level_name = getattr(config_manager.app_settings, "log_level", "INFO").upper()
+
+            level_name = getattr(
+                config_manager.app_settings, "log_level", "INFO"
+            ).upper()
         except Exception:  # noqa: BLE001
             level_name = os.getenv("LOG_LEVEL", "INFO").upper()
         level = getattr(logging, level_name, None)
@@ -153,7 +174,11 @@ class LoggingManager:
         # In development, also add console logging for warnings and above
         if self.is_development:
             console = logging.StreamHandler()
-            console.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
+            console.setFormatter(
+                logging.Formatter(
+                    "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+                )
+            )
             console.setLevel(logging.WARNING)
             root.addHandler(console)
 
@@ -164,13 +189,20 @@ class LoggingManager:
     def _suppress_noisy_loggers(self) -> None:
         """Suppress logs from noisy third-party libraries."""
         noisy_loggers = [
-            "LiteLLM", "litellm",
-            "httpx", "urllib3.connectionpool",
-            "auth_utils", "message_processor",
-            "session", "callbacks", "utils",
-            "banner_client", "middleware", "mcp_client"
+            "LiteLLM",
+            "litellm",
+            "httpx",
+            "urllib3.connectionpool",
+            "auth_utils",
+            "message_processor",
+            "session",
+            "callbacks",
+            "utils",
+            "banner_client",
+            "middleware",
+            "mcp_client",
         ]
-        
+
         for name in noisy_loggers:
             lg = logging.getLogger(name)
             lg.setLevel(logging.ERROR)
@@ -197,7 +229,7 @@ class LoggingManager:
         """Read the most recent log entries."""
         if not self.log_file.exists():
             return []
-        
+
         entries: list[Dict[str, Any]] = []
         try:
             with self.log_file.open("r", encoding="utf-8") as f:
@@ -217,8 +249,13 @@ class LoggingManager:
     def get_log_stats(self) -> Dict[str, Any]:
         """Get statistics about the log file."""
         if not self.log_file.exists():
-            return {"file_exists": False, "file_size": 0, "line_count": 0, "last_modified": None}
-        
+            return {
+                "file_exists": False,
+                "file_size": 0,
+                "line_count": 0,
+                "last_modified": None,
+            }
+
         try:
             stat = self.log_file.stat()
             with self.log_file.open("r", encoding="utf-8") as f:
@@ -227,7 +264,9 @@ class LoggingManager:
                 "file_exists": True,
                 "file_size": stat.st_size,
                 "line_count": line_count,
-                "last_modified": datetime.fromtimestamp(stat.st_mtime, tz=timezone.utc).isoformat(),
+                "last_modified": datetime.fromtimestamp(
+                    stat.st_mtime, tz=timezone.utc
+                ).isoformat(),
                 "file_path": str(self.log_file),
             }
         except Exception as e:  # noqa: BLE001

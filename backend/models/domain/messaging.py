@@ -75,7 +75,7 @@ class Message:
         content = self.content
         if self.role == MessageRole.TOOL and isinstance(self.content, dict):
             content = json.dumps(self.content)
-        
+
         result = {
             "role": self.role.value,
             "content": content,

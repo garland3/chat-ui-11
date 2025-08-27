@@ -84,7 +84,9 @@ class ToolCallOrchestrator:
             N_chars_per_message = 100
             # print the message to the llm, for each message truncate. put in logging.info.
             truncated_messages = [
-                message.content[:N_chars_per_message] if isinstance(message.content, str) else ""
+                message.content[:N_chars_per_message]
+                if isinstance(message.content, str)
+                else ""
                 for message in session.history.messages
             ]
             logging.info(f"Truncated messages for LLM call: {truncated_messages}")

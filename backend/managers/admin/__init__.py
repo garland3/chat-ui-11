@@ -17,7 +17,7 @@ __all__ = [
     "AdminManager",
     "get_admin_group_name",
     "AdminConfigUpdate",
-    "BannerMessageUpdate", 
+    "BannerMessageUpdate",
     "ConfigViewResponse",
     "LogMetadata",
     "LogEntry",

@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 
 class ConfigHandler:
     """Handles configuration file operations for admin interface."""
-    
+
     @staticmethod
     def _project_root() -> Path:
         """Get the project root directory."""
@@ -80,7 +80,9 @@ class ConfigHandler:
     def get_file_content(file_path: Path) -> str:
         """Read file content with proper error handling."""
         if not file_path.exists():
-            raise HTTPException(status_code=404, detail=f"File {file_path.name} not found")
+            raise HTTPException(
+                status_code=404, detail=f"File {file_path.name} not found"
+            )
         try:
             return file_path.read_text(encoding="utf-8")
         except UnicodeDecodeError:
@@ -90,7 +92,9 @@ class ConfigHandler:
             raise HTTPException(status_code=500, detail=f"Error reading file: {e}")
 
     @staticmethod
-    def write_file_content(file_path: Path, content: str, file_type: str = "text") -> None:
+    def write_file_content(
+        file_path: Path, content: str, file_type: str = "text"
+    ) -> None:
         """Write file content with validation and atomic operations."""
         try:
             # Validate content based on file type
@@ -107,7 +111,9 @@ class ConfigHandler:
             tmp_path.replace(file_path)
             logger.info(f"Updated config file {file_path}")
         except (json.JSONDecodeError, yaml.YAMLError) as e:
-            raise HTTPException(status_code=400, detail=f"Invalid {file_type.upper()}: {e}")
+            raise HTTPException(
+                status_code=400, detail=f"Invalid {file_type.upper()}: {e}"
+            )
         except Exception as e:  # noqa: BLE001
             logger.error(f"Error writing file {file_path}: {e}")
             raise HTTPException(status_code=500, detail=f"Error writing file: {e}")

@@ -17,30 +17,34 @@ async def test_reload_mcp_servers_success(mock_app_factory):
     mock_mcp.cleanup = AsyncMock()  # These are async
     mock_mcp.initialize = AsyncMock()  # These are async
     mock_mcp.get_available_servers.return_value = ["server1", "server2"]  # This is sync
-    
+
     # Mock tools with server names
     mock_tool1 = Mock()
     mock_tool1.server_name = "server1"
-    mock_tool2 = Mock() 
+    mock_tool2 = Mock()
     mock_tool2.server_name = "server1"
     mock_tool3 = Mock()
     mock_tool3.server_name = "server2"
-    mock_mcp.get_available_tools.return_value = [mock_tool1, mock_tool2, mock_tool3]  # This is sync
-    
+    mock_mcp.get_available_tools.return_value = [
+        mock_tool1,
+        mock_tool2,
+        mock_tool3,
+    ]  # This is sync
+
     # Mock prompts with server names
     mock_prompt1 = Mock()
     mock_prompt1.server_name = "server2"
     mock_mcp.get_available_prompts.return_value = [mock_prompt1]  # This is sync
-    
+
     # Mock app_factory.get_mcp_manager as an async function that returns the mock
     mock_app_factory.get_mcp_manager = AsyncMock(return_value=mock_mcp)
-    
+
     result = await AdminManager.reload_mcp_servers("test_admin")
-    
+
     # Should call cleanup and initialize
     mock_mcp.cleanup.assert_called_once()
     mock_mcp.initialize.assert_called_once()
-    
+
     # Should return proper response structure
     assert result.message == "MCP servers reloaded"
     assert result.servers == ["server1", "server2"]
@@ -55,11 +59,13 @@ async def test_reload_mcp_servers_success(mock_app_factory):
 @patch("managers.admin.admin_manager.app_factory")
 async def test_reload_mcp_servers_handles_errors(mock_app_factory):
     """Test reload_mcp_servers raises HTTPException on MCP manager errors."""
-    mock_app_factory.get_mcp_manager = AsyncMock(side_effect=Exception("MCP connection failed"))
-    
+    mock_app_factory.get_mcp_manager = AsyncMock(
+        side_effect=Exception("MCP connection failed")
+    )
+
     with pytest.raises(HTTPException) as exc_info:
         await AdminManager.reload_mcp_servers("test_admin")
-    
+
     assert exc_info.value.status_code == 500
     assert "MCP connection failed" in str(exc_info.value.detail)
 
@@ -67,26 +73,26 @@ async def test_reload_mcp_servers_handles_errors(mock_app_factory):
 def test_get_admin_dashboard_info():
     """Test get_admin_dashboard_info returns complete dashboard information."""
     result = AdminManager.get_admin_dashboard_info("admin_user")
-    
+
     # Should return structured dashboard info
     assert result["message"] == "Admin Dashboard"
     assert result["user"] == "admin_user"
     assert isinstance(result["available_endpoints"], list)
-    
+
     # Should include all expected endpoints
     expected_endpoints = [
         "/admin/banners",
-        "/admin/config/view", 
+        "/admin/config/view",
         "/admin/llm-config",
         "/admin/mcp-config",
         "/admin/mcp/reload",
         "/admin/logs/viewer",
         "/admin/logs/clear",
-        "/admin/logs/download"
+        "/admin/logs/download",
     ]
-    
+
     for endpoint in expected_endpoints:
         assert endpoint in result["available_endpoints"]
-    
+
     # Should have exactly 8 endpoints (no extras)
     assert len(result["available_endpoints"]) == 8

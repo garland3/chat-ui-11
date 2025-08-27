@@ -38,7 +38,9 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
 
         # Referrer-Policy
         if getattr(self.settings, "security_referrer_policy_enabled", True):
-            ref_value = getattr(self.settings, "security_referrer_policy_value", "no-referrer")
+            ref_value = getattr(
+                self.settings, "security_referrer_policy_value", "no-referrer"
+            )
             if "Referrer-Policy" not in response.headers:
                 response.headers["Referrer-Policy"] = ref_value
 

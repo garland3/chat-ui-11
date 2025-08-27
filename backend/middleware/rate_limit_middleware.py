@@ -31,19 +31,21 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next) -> Response:
         # Extract client info
-        client_host = getattr(request.client, "host", "unknown") if request.client else "unknown"
+        client_host = (
+            getattr(request.client, "host", "unknown") if request.client else "unknown"
+        )
         path = request.url.path
-        
+
         # Use shared rate limit validation
-        rate_valid, retry_after = security_validator.validate_rate_limit(client_host, path)
-        
+        rate_valid, retry_after = security_validator.validate_rate_limit(
+            client_host, path
+        )
+
         if not rate_valid:
             logger.warning(f"Rate limit exceeded for {client_host}")
             return JSONResponse(
                 status_code=429,
-                content={
-                    "detail": "Rate limit exceeded. Please try again later."
-                },
+                content={"detail": "Rate limit exceeded. Please try again later."},
                 headers={"Retry-After": str(retry_after)},
             )
 

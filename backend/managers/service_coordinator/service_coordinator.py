@@ -42,7 +42,7 @@ class ServiceCoordinator:
         content: str,
         model: str,
         user_email: Optional[str] = None,
-    special_system_prompt: Optional[str] = None,
+        special_system_prompt: Optional[str] = None,
         temperature: float = 0.7,
         update_callback: Optional[Callable[[Dict[str, Any]], Awaitable[None]]] = None,
         # Unused parameters for Phase 1A compatibility
@@ -63,17 +63,26 @@ class ServiceCoordinator:
                     selected_prompt_map=selected_prompt_map,
                 )
                 # If nothing extracted and MCP prompts were selected, fetch the first prompt's content
-                if not special_system_prompt and selected_prompt_map and self.mcp_manager:
+                if (
+                    not special_system_prompt
+                    and selected_prompt_map
+                    and self.mcp_manager
+                ):
                     try:
                         # Deterministic iteration over servers
                         for server, prompts in selected_prompt_map.items():
                             if not isinstance(prompts, list) or not prompts:
                                 continue
                             prompt_name = prompts[0]
-                            if not isinstance(prompt_name, str) or not prompt_name.strip():
+                            if (
+                                not isinstance(prompt_name, str)
+                                or not prompt_name.strip()
+                            ):
                                 continue
                             full_name = f"{server}_{prompt_name}"
-                            prompt_obj = await self.mcp_manager.get_prompt(full_name, {})
+                            prompt_obj = await self.mcp_manager.get_prompt(
+                                full_name, {}
+                            )
                             prompt_text = None
                             if isinstance(prompt_obj, str):
                                 prompt_text = prompt_obj
@@ -97,7 +106,10 @@ class ServiceCoordinator:
                                 )
                                 break
                     except Exception:
-                        logger.debug("MCP prompt retrieval failed; continuing without override", exc_info=True)
+                        logger.debug(
+                            "MCP prompt retrieval failed; continuing without override",
+                            exc_info=True,
+                        )
 
             # Get or create session
             session = self.session_manager.get_or_create_session(

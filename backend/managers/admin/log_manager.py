@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 class LogManager:
     """Simple log file handler for admin interface."""
-    
+
     @staticmethod
     def _get_log_file() -> Path:
         """Get the primary log file path."""
@@ -30,7 +30,7 @@ class LogManager:
             log_file = project_root / "logs" / "app.jsonl"
             if log_file.exists():
                 return log_file
-        
+
         # If not found after checking all levels, raise an exception
         raise HTTPException(status_code=404, detail="Log file not found")
 
@@ -40,7 +40,7 @@ class LogManager:
         line = line.strip()
         if not line or line == "NEW LOG":
             return None
-            
+
         try:
             data = json.loads(line)
             # Extract standard fields with defaults
@@ -87,7 +87,11 @@ class LogManager:
             with log_file.open("r", encoding="utf-8") as f:
                 # Simple approach: read all lines and take the last ones
                 all_lines = f.readlines()
-                recent_lines = all_lines[-lines-50:] if len(all_lines) > lines + 50 else all_lines
+                recent_lines = (
+                    all_lines[-lines - 50 :]
+                    if len(all_lines) > lines + 50
+                    else all_lines
+                )
 
             for line in recent_lines:
                 entry = cls._parse_json_log(line)
@@ -145,7 +149,7 @@ class LogManager:
             return FileResponse(
                 path=str(log_file),
                 media_type="application/json",
-                filename=log_file.name
+                filename=log_file.name,
             )
         except HTTPException:
             raise

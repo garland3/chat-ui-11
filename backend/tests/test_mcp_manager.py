@@ -82,7 +82,9 @@ def mock_fastmcp_client():
     mock_client.list_tools.return_value = [mock_tool1, mock_tool2]
     mock_client.list_prompts.return_value = [mock_prompt1, mock_prompt2]
     mock_client.call_tool.return_value = {"result": "success"}
-    mock_client.get_prompt.return_value = {"messages": [{"content": "Test prompt response"}]}
+    mock_client.get_prompt.return_value = {
+        "messages": [{"content": "Test prompt response"}]
+    }
     return mock_client
 
 
@@ -469,9 +471,7 @@ async def test_mcp_manager_discover_prompts(
 
     await mcp_manager._discover_prompts()
 
-    assert (
-        len(mcp_manager.prompt_registry._prompts) == 4
-    )  # 2 prompts from each server
+    assert len(mcp_manager.prompt_registry._prompts) == 4  # 2 prompts from each server
     prompt1 = mcp_manager.prompt_registry.get_prompt_by_name("test_server_1_prompt1")
     assert prompt1.name == "prompt1"
     assert prompt1.server_name == "test_server_1"
@@ -500,7 +500,9 @@ async def test_mcp_manager_get_prompt(
     result = await mcp_manager.get_prompt("test_server_1_prompt1", {"arg1": "value1"})
 
     assert result == {"messages": [{"content": "Test prompt response"}]}
-    mock_fastmcp_client.get_prompt.assert_called_once_with("prompt1", {"arg1": "value1"})
+    mock_fastmcp_client.get_prompt.assert_called_once_with(
+        "prompt1", {"arg1": "value1"}
+    )
 
 
 @pytest.mark.asyncio

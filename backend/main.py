@@ -106,19 +106,23 @@ async def websocket_endpoint(websocket: WebSocket):
     Security checks applied per audit recommendations.
     """
     from middleware.security_validator import validate_websocket_security
-    
+
     # SECURITY: Validate connection before accepting (per audit)
-    is_valid, user_email, error_message = await validate_websocket_security(websocket, "/ws")
-    
+    is_valid, user_email, error_message = await validate_websocket_security(
+        websocket, "/ws"
+    )
+
     if not is_valid:
         logger.warning(f"WebSocket connection rejected: {error_message}")
         await websocket.close(code=4003, reason=error_message)
         return
-    
+
     await websocket.accept()
     session_id = uuid4()
 
-    logger.info(f"WebSocket connection established for session {session_id}, user: {user_email}")
+    logger.info(
+        f"WebSocket connection established for session {session_id}, user: {user_email}"
+    )
 
     try:
         while True:

@@ -25,7 +25,7 @@ def get_admin_group_name() -> str:
 
 class AdminManager:
     """Manages administrative operations and MCP server coordination."""
-    
+
     @staticmethod
     async def reload_mcp_servers(admin_user: str) -> McpReloadResponse:
         """Reload MCP servers and return status information."""
@@ -48,7 +48,7 @@ class AdminManager:
                 )
 
             logger.info(f"MCP servers reloaded by {admin_user}")
-            
+
             return McpReloadResponse(
                 message="MCP servers reloaded",
                 servers=servers,

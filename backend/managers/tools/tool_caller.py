@@ -137,6 +137,7 @@ class ToolCaller:
                         # Try to parse as JSON first to preserve structured data
                         try:
                             import json
+
                             content = json.loads(first_content.text)
                         except (json.JSONDecodeError, TypeError):
                             content = first_content.text

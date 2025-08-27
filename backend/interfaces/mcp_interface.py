@@ -1,10 +1,9 @@
 import logging
 
 from managers.app_factory.app_factory import app_factory
+from managers.auth.auth_manager import is_user_in_group
 
 logger = logging.getLogger(__name__)
-
-from managers.auth.auth_manager import is_user_in_group
 
 
 async def get_mcp_tools_info(current_user: str):

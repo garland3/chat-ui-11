@@ -8,8 +8,8 @@ backend_dir = Path(__file__).parent.parent
 if str(backend_dir) not in sys.path:
     sys.path.insert(0, str(backend_dir))
 
-from managers.config.config_manager import ConfigManager
-from managers.config.config_models import LLMInstance
+from managers.config.config_manager import ConfigManager  # noqa: E402
+from managers.config.config_models import LLMInstance  # noqa: E402
 
 
 def test_config_manager_finds_llm_config():

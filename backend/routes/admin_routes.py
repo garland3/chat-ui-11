@@ -45,6 +45,7 @@ async def admin_dashboard(admin_user: str = Depends(require_admin)):
 
 # --- Banner Management ---
 
+
 @admin_router.get("/banners")
 async def get_banner_config(admin_user: str = Depends(require_admin)):
     """Get current banner messages configuration."""
@@ -80,6 +81,7 @@ async def update_banner_config(
 
 # --- MCP Management ---
 
+
 @admin_router.post("/mcp/reload")
 async def reload_mcp_servers(admin_user: str = Depends(require_admin)):
     """Reload MCP servers (clients, tools, prompts)."""
@@ -110,13 +112,17 @@ async def update_mcp_config(
     try:
         ConfigHandler.update_mcp_config(update.content)
         logger.info(f"MCP configuration updated by {admin_user}")
-        return {"message": "MCP configuration updated successfully", "updated_by": admin_user}
+        return {
+            "message": "MCP configuration updated successfully",
+            "updated_by": admin_user,
+        }
     except Exception as e:  # noqa: BLE001
         logger.error(f"Error updating MCP config: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 # --- LLM Configuration ---
+
 
 @admin_router.get("/llm-config")
 async def get_llm_config(admin_user: str = Depends(require_admin)):
@@ -142,13 +148,17 @@ async def update_llm_config(
     try:
         ConfigHandler.update_llm_config(update.content)
         logger.info(f"LLM configuration updated by {admin_user}")
-        return {"message": "LLM configuration updated successfully", "updated_by": admin_user}
+        return {
+            "message": "LLM configuration updated successfully",
+            "updated_by": admin_user,
+        }
     except Exception as e:  # noqa: BLE001
         logger.error(f"Error updating LLM config: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
 # --- Config Viewer ---
+
 
 @admin_router.get("/config/view")
 async def get_all_configs(admin_user: str = Depends(require_admin)):
@@ -161,6 +171,7 @@ async def get_all_configs(admin_user: str = Depends(require_admin)):
 
 
 # --- Log Management ---
+
 
 @admin_router.get("/logs/viewer")
 async def get_enhanced_logs(

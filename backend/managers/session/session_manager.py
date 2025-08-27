@@ -54,7 +54,10 @@ class SessionManager:
         has_system = any(m.role == MessageRole.SYSTEM for m in session.history.messages)
         if not has_system:
             # Use special prompt if provided, otherwise default from PromptManager
-            raw_prompt = special_system_prompt or self._prompt_manager.load_default_system_prompt()
+            raw_prompt = (
+                special_system_prompt
+                or self._prompt_manager.load_default_system_prompt()
+            )
             rendered = self._prompt_manager.render_prompt(raw_prompt, user_email)
             system_message = Message(role=MessageRole.SYSTEM, content=rendered)
             session.history.add_message(system_message)
