@@ -128,6 +128,14 @@ class AppSettings(BaseSettings):
         default_factory=list, validation_alias="SECURITY_WS_ALLOWED_ORIGINS"
     )
 
+    # Banner system settings
+    banner_enabled: bool = Field(
+        default=True, validation_alias="BANNER_ENABLED"
+    )
+    messages_config_file: str = Field(
+        default="messages.txt", validation_alias="MESSAGES_CONFIG_FILE"
+    )
+
     model_config = {
         "env_file": "../.env",
         "env_file_encoding": "utf-8",

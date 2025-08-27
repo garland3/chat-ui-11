@@ -59,7 +59,23 @@ config_router = APIRouter(prefix="/api", tags=["config"])
 
 @config_router.get("/banners")
 async def get_banners(current_user: str = Depends(get_current_user)):
-    return {"messages": [f"No messages yet for {current_user}"]}
+    """Get banners for the user."""
+    try:
+        config_manager = app_factory.get_config_manager()
+        app_settings = config_manager.app_settings
+
+        # Check if banners are enabled
+        if not app_settings.banner_enabled:
+            return {"messages": []}
+
+        # Use ConfigHandler to get banner messages consistently with admin routes
+        from managers.admin.config_handler import ConfigHandler
+        messages, _, _ = ConfigHandler.get_banner_messages()
+        
+        return {"messages": messages}
+    except Exception as e:
+        logger.error(f"Error reading banner messages: {e}")
+        return {"messages": []}
 
 
 @config_router.get("/config")
@@ -96,6 +112,7 @@ async def get_config(current_user: str = Depends(get_current_user)):
             "files_panel": app_settings.feature_files_panel_enabled,
             "chat_history": app_settings.feature_chat_history_enabled,
         },
+        "banner_enabled": app_settings.banner_enabled,
     }
 
 

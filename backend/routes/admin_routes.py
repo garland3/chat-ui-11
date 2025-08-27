@@ -67,6 +67,9 @@ async def update_banner_config(
 ):
     """Update banner messages configuration."""
     try:
+        messages_file = ConfigHandler.get_admin_config_path("messages.txt")
+        logger.info(f"Updating banner messages to: {update.messages}")
+        logger.info(f"Writing banner messages to file: {messages_file}")
         ConfigHandler.update_banner_messages(update.messages)
         logger.info(f"Banner messages updated by {admin_user}")
         return {
