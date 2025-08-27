@@ -46,6 +46,10 @@ class AppSettings(BaseSettings):
     llm_config_file: str = Field(
         default="llmconfig.yml", validation_alias="LLM_CONFIG_FILE"
     )
+    # Path to the default system prompt markdown file
+    system_prompt_file: str = Field(
+        default="prompts/system_prompt.md", validation_alias="SYSTEM_PROMPT_FILE"
+    )
 
     # Fields from .env
     mock_rag: bool = False

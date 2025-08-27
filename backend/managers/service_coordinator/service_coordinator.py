@@ -5,6 +5,7 @@ from typing import Any, Callable, Dict, List, Optional, Awaitable
 from uuid import UUID
 
 from managers.session.session_manager import SessionManager
+from managers.prompt.prompt_utils import extract_special_system_prompt
 
 # Common models will be imported by session manager
 from managers.llm.llm_manager import LLMManager
@@ -41,6 +42,7 @@ class ServiceCoordinator:
         content: str,
         model: str,
         user_email: Optional[str] = None,
+    special_system_prompt: Optional[str] = None,
         temperature: float = 0.7,
         update_callback: Optional[Callable[[Dict[str, Any]], Awaitable[None]]] = None,
         # Unused parameters for Phase 1A compatibility
@@ -55,8 +57,52 @@ class ServiceCoordinator:
     ) -> Dict[str, Any]:
         """Handle a chat message - Phase 1A: LLM-only functionality."""
         try:
+            # Derive special system prompt if not explicitly provided
+            if not special_system_prompt:
+                special_system_prompt = extract_special_system_prompt(
+                    selected_prompt_map=selected_prompt_map,
+                )
+                # If nothing extracted and MCP prompts were selected, fetch the first prompt's content
+                if not special_system_prompt and selected_prompt_map and self.mcp_manager:
+                    try:
+                        # Deterministic iteration over servers
+                        for server, prompts in selected_prompt_map.items():
+                            if not isinstance(prompts, list) or not prompts:
+                                continue
+                            prompt_name = prompts[0]
+                            if not isinstance(prompt_name, str) or not prompt_name.strip():
+                                continue
+                            full_name = f"{server}_{prompt_name}"
+                            prompt_obj = await self.mcp_manager.get_prompt(full_name, {})
+                            prompt_text = None
+                            if isinstance(prompt_obj, str):
+                                prompt_text = prompt_obj
+                            else:
+                                # Attempt FastMCP PromptMessage-like shape: content list with .text
+                                content_field = getattr(prompt_obj, "content", None)
+                                if isinstance(content_field, list) and content_field:
+                                    first = content_field[0]
+                                    text = getattr(first, "text", None)
+                                    if isinstance(text, str):
+                                        prompt_text = text
+                            if not prompt_text:
+                                prompt_text = str(prompt_obj)
+                            if prompt_text:
+                                special_system_prompt = prompt_text
+                                logger.info(
+                                    "Applied MCP system prompt override from %s:%s (len=%d)",
+                                    server,
+                                    prompt_name,
+                                    len(prompt_text),
+                                )
+                                break
+                    except Exception:
+                        logger.debug("MCP prompt retrieval failed; continuing without override", exc_info=True)
+
             # Get or create session
-            session = self.session_manager.get_or_create_session(session_id, user_email)
+            session = self.session_manager.get_or_create_session(
+                session_id, user_email, special_system_prompt=special_system_prompt
+            )
 
             # Add user message to session
             session.add_user_message(content)
@@ -69,7 +115,7 @@ class ServiceCoordinator:
 
             # call log info, and log the first N=100 chars fo the message, list of seleced tools, agent_model, username, in 1 call
             logger.info(
-                f"Session {session_id} - Model: {model}, Temperature: {temperature}, User: {user_email}, Message: {content[:100]}..., Selected Tool Map: {selected_tool_map}, Agent Mode: {agent_mode}"
+                f"Session {session_id} - Model: {model}, Temperature: {temperature}, User: {user_email}, Message: {content[:100]}..., Selected Tool Map: {selected_tool_map}, Agent Mode: {agent_mode}, Special Prompt: {bool(special_system_prompt)}"
             )
 
             # Check if we need to use tools

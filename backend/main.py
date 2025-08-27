@@ -106,7 +106,6 @@ async def websocket_endpoint(websocket: WebSocket):
                 try:
                     service_coordinator = await app_factory.get_service_coordinator()
 
-                    # Extract all parameters from the frontend message (same structure as old backend)
                     response = await service_coordinator.handle_chat_message(
                         session_id=session_id,
                         content=data.get("content", ""),

@@ -138,6 +138,7 @@ def sanitize_tool_result(result) -> Dict[str, Any]:
 
     sanitized = {
         "success": result.success,
+        "tool_call_id": result.tool_call_id,
     }
 
     # Sanitize content

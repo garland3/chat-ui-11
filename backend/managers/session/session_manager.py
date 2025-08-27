@@ -5,6 +5,8 @@ from typing import Dict, Optional
 from uuid import UUID
 
 from .session_models import Session
+from common.models.common_models import Message, MessageRole
+from managers.prompt.prompt_manager import prompt_manager as default_prompt_manager
 
 logger = logging.getLogger(__name__)
 
@@ -12,9 +14,10 @@ logger = logging.getLogger(__name__)
 class SessionManager:
     """Pure session lifecycle and state management."""
 
-    def __init__(self):
+    def __init__(self, prompt_manager=None):
         """Initialize session manager."""
         self._sessions: Dict[UUID, Session] = {}
+        self._prompt_manager = prompt_manager or default_prompt_manager
         logger.info("SessionManager initialized")
 
     def create_session(self, user_email: Optional[str] = None) -> Session:
@@ -29,14 +32,37 @@ class SessionManager:
         return self._sessions.get(session_id)
 
     def get_or_create_session(
-        self, session_id: UUID, user_email: Optional[str] = None
+        self,
+        session_id: UUID,
+        user_email: Optional[str] = None,
+        special_system_prompt: Optional[str] = None,
     ) -> Session:
-        """Get existing session or create new one."""
+        """Get existing session or create new one and ensure a system prompt exists.
+
+        Separation of concerns:
+        - SessionManager owns session state and ensures the first message is a system prompt.
+        - PromptManager owns loading/rendering default prompt content.
+        - ServiceCoordinator can pass a special_system_prompt (from frontend) when available.
+        """
         session = self.get_session(session_id)
         if session is None:
             session = Session(id=session_id, user_email=user_email)
             self._sessions[session_id] = session
             logger.info(f"Created new session {session_id} for user {user_email}")
+
+        # Inject system prompt once per session, at the beginning
+        has_system = any(m.role == MessageRole.SYSTEM for m in session.history.messages)
+        if not has_system:
+            # Use special prompt if provided, otherwise default from PromptManager
+            raw_prompt = special_system_prompt or self._prompt_manager.load_default_system_prompt()
+            rendered = self._prompt_manager.render_prompt(raw_prompt, user_email)
+            system_message = Message(role=MessageRole.SYSTEM, content=rendered)
+            session.history.add_message(system_message)
+            session.update_timestamp()
+            logger.info(
+                f"Injected system prompt for session {session_id} (special={bool(special_system_prompt)})"
+            )
+
         return session
 
     def update_session(self, session: Session) -> None:
