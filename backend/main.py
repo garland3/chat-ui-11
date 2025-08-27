@@ -14,6 +14,7 @@ from fastapi.responses import FileResponse
 
 from managers.app_factory.app_factory import app_factory
 from routes.config_route import config_router  # Import the config router
+from routes.admin_routes import admin_router  # Admin routes
 
 
 # Setup basic logging
@@ -52,8 +53,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Include the config routes
+# Include routes
 app.include_router(config_router)
+app.include_router(admin_router)
 
 # Serve frontend build (Vite)
 static_dir = Path(__file__).parent.parent / "frontend" / "dist"

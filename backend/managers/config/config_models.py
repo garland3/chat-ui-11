@@ -77,6 +77,7 @@ class AppSettings(BaseSettings):
     s3_secret_access_key: str = ""
     s3_region: str = ""
     s3_path_style: bool = False
+    admin_group: str = "admin_group"
 
     model_config = {
         "env_file": "../.env",

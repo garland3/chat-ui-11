@@ -10,6 +10,7 @@ from managers.config.config_models import LLMConfig
 # from core.utils import get_current_user
 # from infrastructure.app_factory import app_factory
 from managers.auth.utils import get_current_user
+from managers.auth.auth_manager import is_user_in_group
 
 # import app factory
 from managers.app_factory.app_factory import app_factory
@@ -84,6 +85,7 @@ async def get_config(current_user: str = Depends(get_current_user)):
         "tools": tools_info,
         "prompts": prompts_info,
         "available_servers": available_servers,
+        "is_in_admin_group": is_user_in_group(current_user, app_settings.admin_group),
         "features": {
             "workspaces": app_settings.feature_workspaces_enabled,
             "rag": app_settings.feature_rag_enabled,
