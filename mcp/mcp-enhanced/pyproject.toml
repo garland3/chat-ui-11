@@ -1,0 +1,92 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mcp-enhanced"
+version = "0.1.0"
+authors = [
+    {name = "Chat UI Project", email = "noreply@anthropic.com"},
+]
+description = "Server-side extension for fastmcp with filesystem sandboxing and MCP v2.1 support"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Systems Administration",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "fastmcp>=0.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=6.0",
+    "pytest-cov>=2.0",
+    "ruff>=0.1.0",
+]
+examples = [
+    "pandas>=1.3.0",
+]
+
+[project.scripts]
+mcp-enhanced-examples = "examples.examples:run_server_examples"
+
+[project.urls]
+Homepage = "https://github.com/anthropics/chat-ui"
+Documentation = "https://github.com/anthropics/chat-ui/tree/main/mcp/mcp-enhanced/docs"
+Repository = "https://github.com/anthropics/chat-ui.git"
+Issues = "https://github.com/anthropics/chat-ui/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["mcp_enhanced*"]
+exclude = ["tests*"]
+
+[tool.setuptools.package-data]
+mcp_enhanced = ["py.typed"]
+
+[tool.ruff]
+target-version = "py38"
+line-length = 100
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4", # flake8-comprehensions
+    "UP", # pyupgrade
+]
+ignore = [
+    "E501",  # line too long, handled by ruff format
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--cov=mcp_enhanced",
+    "--cov-report=html",
+    "--cov-report=term-missing",
+]

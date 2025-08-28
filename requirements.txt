@@ -146,3 +146,6 @@ zipp==3.23.0
 # S3/MinIO
 boto3==1.35.54
 botocore==1.35.54
+
+# Internal MCP Enhanced Library
+-e ./mcp/mcp-enhanced

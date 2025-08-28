@@ -1,6 +1,8 @@
 *.pptx
 *.jsonl
 
+.ruff_cache
+
 # Environment variables
 .env
 .claude

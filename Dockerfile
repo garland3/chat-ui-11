@@ -39,6 +39,9 @@ COPY backend/ ./backend/
 # Copy new config directory (defaults & overrides if present)
 COPY config/ ./config/
 
+# Copy MCP Enhanced library (needed for -e ./mcp/mcp-enhanced in requirements.txt)
+COPY mcp/ ./mcp/
+
 # Copy other necessary files
 COPY docs/ ./docs/
 COPY scripts/ ./scripts/
